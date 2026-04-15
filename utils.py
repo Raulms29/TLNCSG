@@ -454,17 +454,17 @@ def compute_model_mode_metrics(
 
     sample = np.array(inference_times, dtype=float)
     mean_time = float(np.mean(sample)) if sample.size else float("nan")
+    # Use sample standard deviation (ddof=1) for better estimate with the samples and not the whole population
     std_time = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
 
     if sample.size > 1:
-        (ci_low, ci_high), ci_method, _ = compute_confidence_interval_with_method(
+        (ci_low, ci_high), _, _ = compute_confidence_interval_with_method(
             scores=sample,
             confidence_level=confidence_level,
             alpha=0.05,
         )
     else:
         ci_low, ci_high = (mean_time, mean_time)
-        ci_method = "parametric"
 
     total_calls = runs_per_model * len(queries)
     valid_json_rate = (valid_json_count / total_calls) * 100 if total_calls else 0.0
@@ -479,12 +479,111 @@ def compute_model_mode_metrics(
         "Avg IT (s)": round(mean_time, 4),
         "Std Dev IT (s)": round(std_time, 4),
         "95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]",
-        "IT CI Method": ci_method,
         "G_Cypher": model_config.get("g_cypher"),
         "G_Sparql": model_config.get("g_sparql"),
     }
 
     return metrics_row, execution_records
+
+
+def _normalize_query_defs(queries: list[dict]) -> list[dict[str, str]]:
+    """Validate and normalize incoming query definitions."""
+    query_defs: list[dict[str, str]] = []
+    for idx, query_item in enumerate(queries, start=1):
+        if not isinstance(query_item, dict):
+            raise ValueError(
+                "Each query must be a dict with keys 'id' and 'text'. "
+                f"Invalid entry at position {idx}: {query_item!r}"
+            )
+
+        query_id = str(query_item.get("id", "")).strip()
+        query_text = str(query_item.get("text", "")).strip()
+        if not query_id or not query_text:
+            raise ValueError(
+                "Each query dict must define non-empty 'id' and 'text'. "
+                f"Invalid entry at position {idx}: {query_item!r}"
+            )
+
+        query_defs.append({"id": query_id, "text": query_text})
+
+    return query_defs
+
+
+def _build_summary_columns() -> tuple[list[str], list[str], list[str]]:
+    """Return output column layouts used by the summary artifacts."""
+    table_columns = [
+        "Query ID",
+        "Name",
+        "Parameters",
+        "Thinking",
+        "Temperature",
+        "Valid JSON Rate",
+        "Avg IT (s)",
+        "Std Dev IT (s)",
+        "95% CI (IT)",
+        "G_Cypher",
+        "G_Sparql",
+    ]
+    file_columns = ["Query ID", "Query Text", *table_columns[1:]]
+    comparison_file_columns = [
+        col
+        for col in file_columns
+        if col not in ("Query ID", "Query Text", "95% CI (IT)")
+    ]
+    return table_columns, file_columns, comparison_file_columns
+
+
+def _build_model_comparison_row(
+    records: list[dict],
+    model_name: str,
+    model_config: dict,
+    thinking_mode: bool,
+) -> dict:
+    """Aggregate execution records into one model-level comparison row."""
+    sample = np.array(
+        [float(rec["Inference Time (s)"]) for rec in records], dtype=float
+    )
+    mean_time = float(np.mean(sample)) if sample.size else float("nan")
+    std_time = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
+
+    valid_json_count = sum(1 for rec in records if bool(rec["Valid JSON"]))
+    total_calls = len(records)
+    valid_json_rate = (valid_json_count / total_calls) * 100 if total_calls else 0.0
+
+    return {
+        "Name": model_config.get("display_name", model_name),
+        "Parameters": model_config.get("parameters", "N/A"),
+        "Thinking": bool(thinking_mode),
+        "Temperature": float(model_config["temperature"]),
+        "Valid JSON Rate": round(valid_json_rate, 2),
+        "Avg IT (s)": round(mean_time, 4),
+        "Std Dev IT (s)": round(std_time, 4),
+        "G_Cypher": model_config.get("g_cypher"),
+        "G_Sparql": model_config.get("g_sparql"),
+    }
+
+
+def _save_query_summary_files(
+    output_path: Path,
+    execution_id: str,
+    query_defs: list[dict[str, str]],
+    query_rows_map: dict[str, list[dict]],
+    file_columns: list[str],
+) -> list[str]:
+    """Persist one summary CSV per query and return file paths."""
+    query_file_paths: list[str] = []
+    for query_def in query_defs:
+        query_id = query_def["id"]
+        query_text = query_def["text"]
+        query_df = pd.DataFrame(query_rows_map[query_id], columns=file_columns)
+        query_file = output_path / (
+            f"query_summary_{_safe_name(query_id)}_"
+            f"{_safe_query_name(query_text)}_{execution_id}.csv"
+        )
+        query_df.to_csv(query_file, index=False, encoding="utf-8")
+        query_file_paths.append(str(query_file))
+        print(f"Saved query file: {query_file}")
+    return query_file_paths
 
 
 def run_models_summary(
@@ -496,17 +595,19 @@ def run_models_summary(
     runs_per_model: int,
     output_dir: str,
     confidence_level: float = 0.95,
-) -> tuple[pd.DataFrame, list[str], list[str], list[str], str]:
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str], list[str], list[str], str, str]:
     """
     Run model summary benchmark and persist outputs.
 
     Returns:
       (
         all_results_df,
+        model_comparison_df,
         model_file_paths,
         query_file_paths,
         execution_file_paths,
         all_results_file_path,
+        model_comparison_file_path,
       )
     """
     execution_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -515,37 +616,8 @@ def run_models_summary(
     output_path = output_root / execution_id
     output_path.mkdir(parents=True, exist_ok=True)
 
-    query_defs: list[dict[str, str]] = []
-    for idx, query_item in enumerate(queries, start=1):
-        if not isinstance(query_item, dict):
-            raise ValueError(
-                "Each query must be a dict with keys 'id' and 'text'. "
-                f"Invalid entry at position {idx}: {query_item!r}"
-            )
-        query_id = str(query_item.get("id", "")).strip()
-        query_text = str(query_item.get("text", "")).strip()
-        if not query_id or not query_text:
-            raise ValueError(
-                "Each query dict must define non-empty 'id' and 'text'. "
-                f"Invalid entry at position {idx}: {query_item!r}"
-            )
-        query_defs.append({"id": query_id, "text": query_text})
-
-    table_columns = [
-        "Query ID",
-        "Name",
-        "Parameters",
-        "Thinking",
-        "Temperature",
-        "Valid JSON Rate",
-        "Avg IT (s)",
-        "Std Dev IT (s)",
-        "95% CI (IT)",
-        "IT CI Method",
-        "G_Cypher",
-        "G_Sparql",
-    ]
-    file_columns = ["Query ID", "Query Text", *table_columns[1:]]
+    query_defs = _normalize_query_defs(queries)
+    table_columns, file_columns, comparison_file_columns = _build_summary_columns()
 
     all_rows: list[dict] = []
     model_file_paths: list[str] = []
@@ -554,6 +626,7 @@ def run_models_summary(
     }
     query_file_paths: list[str] = []
     execution_file_paths: list[str] = []
+    model_comparison_rows: list[dict] = []
     partial_all_results_file = (
         output_path / f"model_summary_all_partial_{execution_id}.csv"
     )
@@ -572,13 +645,14 @@ def run_models_summary(
             modes.append(True)
 
         model_rows: list[dict] = []
+        mode_execution_records: dict[bool, list[dict]] = {mode: [] for mode in modes}
         for query_idx, query_def in enumerate(query_defs, start=1):
             query_id = query_def["id"]
             query_text = query_def["text"]
             print(f"  - Query {query_idx}/{len(query_defs)} ({query_id})")
 
             for thinking_mode in modes:
-                print(f"    - Mode thinking={thinking_mode}")
+                print(f"    - Thinking={thinking_mode}")
                 row, execution_records = compute_model_mode_metrics(
                     ollama_client=ollama_client,
                     model_name=model_name,
@@ -597,6 +671,7 @@ def run_models_summary(
                 query_rows_map[query_id].append(row)
 
                 executions_df = pd.DataFrame(execution_records)
+                mode_execution_records[thinking_mode].extend(execution_records)
                 executions_file = model_dir / (
                     f"executions_{_safe_name(model_name)}_"
                     f"{_safe_name(query_id)}_{_safe_query_name(query_text)}_"
@@ -605,6 +680,16 @@ def run_models_summary(
                 executions_df.to_csv(executions_file, index=False, encoding="utf-8")
                 execution_file_paths.append(str(executions_file))
                 print(f"    Saved executions file: {executions_file}")
+
+        for thinking_mode, records in mode_execution_records.items():
+            model_comparison_rows.append(
+                _build_model_comparison_row(
+                    records=records,
+                    model_name=model_name,
+                    model_config=model_config,
+                    thinking_mode=thinking_mode,
+                )
+            )
 
         model_df = pd.DataFrame(model_rows, columns=file_columns)
         model_file = (
@@ -623,27 +708,34 @@ def run_models_summary(
     all_results_file_df = pd.DataFrame(all_rows, columns=file_columns)
     all_results_df = pd.DataFrame(all_rows, columns=table_columns)
 
-    for query_def in query_defs:
-        query_id = query_def["id"]
-        query_text = query_def["text"]
-        query_df = pd.DataFrame(query_rows_map[query_id], columns=file_columns)
-        query_file = output_path / (
-            f"query_summary_{_safe_name(query_id)}_"
-            f"{_safe_query_name(query_text)}_{execution_id}.csv"
-        )
-        query_df.to_csv(query_file, index=False, encoding="utf-8")
-        query_file_paths.append(str(query_file))
-        print(f"Saved query file: {query_file}")
+    query_file_paths = _save_query_summary_files(
+        output_path=output_path,
+        execution_id=execution_id,
+        query_defs=query_defs,
+        query_rows_map=query_rows_map,
+        file_columns=file_columns,
+    )
 
     all_results_file = output_path / f"model_summary_all_{execution_id}.csv"
     all_results_file_df.to_csv(all_results_file, index=False, encoding="utf-8")
 
+    model_comparison_file = (
+        output_path / f"model_summary_models_comparison_{execution_id}.csv"
+    )
+    model_comparison_df = pd.DataFrame(
+        model_comparison_rows, columns=comparison_file_columns
+    )
+    model_comparison_df.to_csv(model_comparison_file, index=False, encoding="utf-8")
+    print(f"Saved model comparison file: {model_comparison_file}")
+
     return (
         all_results_df,
+        model_comparison_df,
         model_file_paths,
         query_file_paths,
         execution_file_paths,
         str(all_results_file),
+        str(model_comparison_file),
     )
 
 
@@ -901,6 +993,7 @@ RULES
 -------------------------
 - Output ONLY valid JSON enclosed in standard markdown blocks (```json ... ```).
 - Do NOT output any conversational text, pleasantries, or explanations.
+- Do NOT include comments in the JSON output (// or /* */).
 - Be consistent with entity ids across hypotheses.
 - Do NOT assume any database schema.
 - Follow the Grammar strictly.
