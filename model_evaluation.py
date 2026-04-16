@@ -56,6 +56,15 @@ models = {
         "g_cypher": True,
         "g_sparql": True,
     },
+    "gemma4:26b": {
+        "enabled": True,
+        "display_name": "Gemma 4 26B",
+        "parameters": "26B",
+        "supports_thinking": False,
+        "temperature": 0.05,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
     "llama3.1:8b": {
         "enabled": True,
         "display_name": "Llama 3.1 8B",
