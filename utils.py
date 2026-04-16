@@ -253,8 +253,8 @@ def confidence_interval(
     :return: A tuple with the lower and upper bounds of the confidence interval.
     """
     alpha = 1 - confidence_level
-    mean = np.mean(sample)
-    std = np.std(sample)
+    mean = float(np.mean(sample))
+    std = float(np.std(sample))
     n = len(sample)
     if n > 30:
         # normal distribution
@@ -400,6 +400,29 @@ def _safe_query_name(query: str, max_len: int = 40) -> str:
     return safe[:max_len] if len(safe) > max_len else safe
 
 
+def _compute_latency_percentiles(sample: np.ndarray) -> dict[str, float]:
+    """Compute latency percentiles for an inference-time sample."""
+    if sample.size == 0:
+        return {
+            "P50 IT (s)": float("nan"),
+            "P90 IT (s)": float("nan"),
+            "P95 IT (s)": float("nan"),
+        }
+
+    return {
+        "P50 IT (s)": float(np.percentile(sample, 50)),
+        "P90 IT (s)": float(np.percentile(sample, 90)),
+        "P95 IT (s)": float(np.percentile(sample, 95)),
+    }
+
+
+def _compute_throughput_tokens_per_second(
+    total_tokens: float, total_seconds: float
+) -> float:
+    """Return throughput in tokens/sec from aggregate token and time totals."""
+    return (total_tokens / total_seconds) if total_seconds > 0 else float("nan")
+
+
 def compute_model_mode_metrics(
     ollama_client: Any,
     model_name: str,
@@ -416,6 +439,8 @@ def compute_model_mode_metrics(
     inference_times: list[float] = []
     valid_json_count = 0
     execution_records: list[dict] = []
+    eval_tokens_total = 0.0
+    eval_seconds_total = 0.0
 
     temperature = float(model_config["temperature"])
     for run_idx in range(1, runs_per_model + 1):
@@ -435,6 +460,22 @@ def compute_model_mode_metrics(
             if is_valid_json:
                 valid_json_count += 1
 
+            prompt_eval_count = int(response_meta.get("prompt_eval_count", 0) or 0)
+            eval_count = int(response_meta.get("eval_count", 0) or 0)
+            prompt_eval_seconds = (
+                float(int(response_meta.get("prompt_eval_duration", 0) or 0))
+                / 1_000_000_000.0
+            )
+            eval_seconds = (
+                float(int(response_meta.get("eval_duration", 0) or 0)) / 1_000_000_000.0
+            )
+            generation_tps = _compute_throughput_tokens_per_second(
+                float(eval_count), eval_seconds
+            )
+
+            eval_tokens_total += float(eval_count)
+            eval_seconds_total += eval_seconds
+
             execution_records.append(
                 {
                     "Run": run_idx,
@@ -446,8 +487,11 @@ def compute_model_mode_metrics(
                     "Inference Time (s)": round(inference_seconds, 6),
                     "Valid JSON": is_valid_json,
                     "Done Reason": response_meta.get("done_reason"),
-                    "Prompt Eval Count": response_meta.get("prompt_eval_count"),
-                    "Eval Count": response_meta.get("eval_count"),
+                    "Prompt Eval Count": prompt_eval_count,
+                    "Prompt Eval Duration (s)": round(prompt_eval_seconds, 6),
+                    "Eval Count": eval_count,
+                    "Eval Duration (s)": round(eval_seconds, 6),
+                    "Generation Throughput (tokens/s)": round(generation_tps, 4),
                     "Response": response,
                 }
             )
@@ -466,6 +510,11 @@ def compute_model_mode_metrics(
     else:
         ci_low, ci_high = (mean_time, mean_time)
 
+    latency_percentiles = _compute_latency_percentiles(sample)
+    generation_throughput_tps = _compute_throughput_tokens_per_second(
+        eval_tokens_total, eval_seconds_total
+    )
+
     total_calls = runs_per_model * len(queries)
     valid_json_rate = (valid_json_count / total_calls) * 100 if total_calls else 0.0
 
@@ -479,6 +528,10 @@ def compute_model_mode_metrics(
         "Avg IT (s)": round(mean_time, 4),
         "Std Dev IT (s)": round(std_time, 4),
         "95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]",
+        "P50 IT (s)": round(latency_percentiles["P50 IT (s)"], 4),
+        "P90 IT (s)": round(latency_percentiles["P90 IT (s)"], 4),
+        "P95 IT (s)": round(latency_percentiles["P95 IT (s)"], 4),
+        "Generation Throughput (tokens/s)": round(generation_throughput_tps, 4),
         "G_Cypher": model_config.get("g_cypher"),
         "G_Sparql": model_config.get("g_sparql"),
     }
@@ -521,15 +574,15 @@ def _build_summary_columns() -> tuple[list[str], list[str], list[str]]:
         "Avg IT (s)",
         "Std Dev IT (s)",
         "95% CI (IT)",
+        "Generation Throughput (tokens/s)",
         "G_Cypher",
         "G_Sparql",
+        "P50 IT (s)",
+        "P90 IT (s)",
+        "P95 IT (s)",
     ]
     file_columns = ["Query ID", "Query Text", *table_columns[1:]]
-    comparison_file_columns = [
-        col
-        for col in file_columns
-        if col not in ("Query ID", "Query Text", "95% CI (IT)")
-    ]
+    comparison_file_columns = [col for col in table_columns if col != "Query ID"]
     return table_columns, file_columns, comparison_file_columns
 
 
@@ -538,6 +591,7 @@ def _build_model_comparison_row(
     model_name: str,
     model_config: dict,
     thinking_mode: bool,
+    confidence_level: float = 0.95,
 ) -> dict:
     """Aggregate execution records into one model-level comparison row."""
     sample = np.array(
@@ -546,9 +600,28 @@ def _build_model_comparison_row(
     mean_time = float(np.mean(sample)) if sample.size else float("nan")
     std_time = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
 
+    if sample.size > 1:
+        (ci_low, ci_high), _, _ = compute_confidence_interval_with_method(
+            scores=sample,
+            confidence_level=confidence_level,
+            alpha=0.05,
+        )
+    else:
+        ci_low, ci_high = (mean_time, mean_time)
+
+    latency_percentiles = _compute_latency_percentiles(sample)
+
     valid_json_count = sum(1 for rec in records if bool(rec["Valid JSON"]))
     total_calls = len(records)
     valid_json_rate = (valid_json_count / total_calls) * 100 if total_calls else 0.0
+
+    eval_tokens_total = sum(float(rec.get("Eval Count", 0) or 0) for rec in records)
+    eval_seconds_total = sum(
+        float(rec.get("Eval Duration (s)", 0) or 0) for rec in records
+    )
+    generation_throughput_tps = _compute_throughput_tokens_per_second(
+        eval_tokens_total, eval_seconds_total
+    )
 
     return {
         "Name": model_config.get("display_name", model_name),
@@ -558,9 +631,62 @@ def _build_model_comparison_row(
         "Valid JSON Rate": round(valid_json_rate, 2),
         "Avg IT (s)": round(mean_time, 4),
         "Std Dev IT (s)": round(std_time, 4),
+        "95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]",
+        "P50 IT (s)": round(latency_percentiles["P50 IT (s)"], 4),
+        "P90 IT (s)": round(latency_percentiles["P90 IT (s)"], 4),
+        "P95 IT (s)": round(latency_percentiles["P95 IT (s)"], 4),
+        "Generation Throughput (tokens/s)": round(generation_throughput_tps, 4),
         "G_Cypher": model_config.get("g_cypher"),
         "G_Sparql": model_config.get("g_sparql"),
     }
+
+
+def _resolve_model_modes(model_config: dict) -> list[bool]:
+    """Return run modes for one model: standard and optional thinking mode."""
+    modes = [False]
+    if model_config.get("supports_thinking", False):
+        modes.append(True)
+    return modes
+
+
+def _save_execution_records_file(
+    model_dir: Path,
+    model_name: str,
+    query_id: str,
+    query_text: str,
+    thinking_mode: bool,
+    execution_id: str,
+    execution_records: list[dict],
+) -> str:
+    """Save detailed execution records for one model/query/mode and return path."""
+    execution_file = model_dir / (
+        f"executions_{_safe_name(model_name)}_"
+        f"{_safe_name(query_id)}_{_safe_query_name(query_text)}_"
+        f"thinking_{str(thinking_mode).lower()}_{execution_id}.csv"
+    )
+    pd.DataFrame(execution_records).to_csv(
+        execution_file, index=False, encoding="utf-8"
+    )
+    print(f"    Saved executions file: {execution_file}")
+    return str(execution_file)
+
+
+def _save_model_summary_file(
+    model_dir: Path,
+    model_name: str,
+    execution_id: str,
+    model_rows: list[dict],
+    file_columns: list[str],
+) -> str:
+    """Save one model-level summary CSV and return path."""
+    model_file = (
+        model_dir / f"model_summary_{_safe_name(model_name)}_{execution_id}.csv"
+    )
+    pd.DataFrame(model_rows, columns=file_columns).to_csv(
+        model_file, index=False, encoding="utf-8"
+    )
+    print(f"  Saved model file: {model_file}")
+    return str(model_file)
 
 
 def _save_query_summary_files(
@@ -619,16 +745,17 @@ def run_models_summary(
     query_defs = _normalize_query_defs(queries)
     table_columns, file_columns, comparison_file_columns = _build_summary_columns()
 
-    all_rows: list[dict] = []
+    summary_rows: list[dict] = []
     model_file_paths: list[str] = []
-    query_rows_map: dict[str, list[dict]] = {
+    summary_rows_by_query: dict[str, list[dict]] = {
         query_def["id"]: [] for query_def in query_defs
     }
     query_file_paths: list[str] = []
     execution_file_paths: list[str] = []
     model_comparison_rows: list[dict] = []
-    partial_all_results_file = (
-        output_path / f"model_summary_all_partial_{execution_id}.csv"
+    partial_summary_file = output_path / f"model_summary_all_partial_{execution_id}.csv"
+    partial_model_comparison_file = (
+        output_path / f"model_summary_models_comparison_partial_{execution_id}.csv"
     )
 
     enabled_models = [
@@ -640,12 +767,10 @@ def run_models_summary(
         model_dir = output_path / _safe_name(model_name)
         model_dir.mkdir(parents=True, exist_ok=True)
 
-        modes = [False]
-        if model_config.get("supports_thinking", False):
-            modes.append(True)
-
+        modes = _resolve_model_modes(model_config)
         model_rows: list[dict] = []
-        mode_execution_records: dict[bool, list[dict]] = {mode: [] for mode in modes}
+        execution_records_by_mode: dict[bool, list[dict]] = {mode: [] for mode in modes}
+
         for query_idx, query_def in enumerate(query_defs, start=1):
             query_id = query_def["id"]
             query_text = query_def["text"]
@@ -665,54 +790,68 @@ def run_models_summary(
                     query_id=query_id,
                     confidence_level=confidence_level,
                 )
+
                 row["Query Text"] = query_text
                 model_rows.append(row)
-                all_rows.append(row)
-                query_rows_map[query_id].append(row)
+                summary_rows.append(row)
+                summary_rows_by_query[query_id].append(row)
 
-                executions_df = pd.DataFrame(execution_records)
-                mode_execution_records[thinking_mode].extend(execution_records)
-                executions_file = model_dir / (
-                    f"executions_{_safe_name(model_name)}_"
-                    f"{_safe_name(query_id)}_{_safe_query_name(query_text)}_"
-                    f"thinking_{str(thinking_mode).lower()}_{execution_id}.csv"
+                execution_records_by_mode[thinking_mode].extend(execution_records)
+                execution_file_paths.append(
+                    _save_execution_records_file(
+                        model_dir=model_dir,
+                        model_name=model_name,
+                        query_id=query_id,
+                        query_text=query_text,
+                        thinking_mode=thinking_mode,
+                        execution_id=execution_id,
+                        execution_records=execution_records,
+                    )
                 )
-                executions_df.to_csv(executions_file, index=False, encoding="utf-8")
-                execution_file_paths.append(str(executions_file))
-                print(f"    Saved executions file: {executions_file}")
 
-        for thinking_mode, records in mode_execution_records.items():
+        for thinking_mode, records in execution_records_by_mode.items():
             model_comparison_rows.append(
                 _build_model_comparison_row(
                     records=records,
                     model_name=model_name,
                     model_config=model_config,
                     thinking_mode=thinking_mode,
+                    confidence_level=confidence_level,
                 )
             )
 
-        model_df = pd.DataFrame(model_rows, columns=file_columns)
-        model_file = (
-            model_dir / f"model_summary_{_safe_name(model_name)}_{execution_id}.csv"
+        model_file_paths.append(
+            _save_model_summary_file(
+                model_dir=model_dir,
+                model_name=model_name,
+                execution_id=execution_id,
+                model_rows=model_rows,
+                file_columns=file_columns,
+            )
         )
-        model_df.to_csv(model_file, index=False, encoding="utf-8")
-        model_file_paths.append(str(model_file))
-        print(f"  Saved model file: {model_file}")
 
         # Persist cumulative progress after each model completes.
-        pd.DataFrame(all_rows, columns=file_columns).to_csv(
-            partial_all_results_file, index=False, encoding="utf-8"
+        pd.DataFrame(summary_rows, columns=file_columns).to_csv(
+            partial_summary_file, index=False, encoding="utf-8"
         )
-        print(f"  Updated partial combined file: {partial_all_results_file}")
+        print(f"  Updated partial combined file: {partial_summary_file}")
 
-    all_results_file_df = pd.DataFrame(all_rows, columns=file_columns)
-    all_results_df = pd.DataFrame(all_rows, columns=table_columns)
+        pd.DataFrame(model_comparison_rows, columns=comparison_file_columns).to_csv(
+            partial_model_comparison_file, index=False, encoding="utf-8"
+        )
+        print(
+            "  Updated partial model comparison file: "
+            f"{partial_model_comparison_file}"
+        )
+
+    all_results_file_df = pd.DataFrame(summary_rows, columns=file_columns)
+    all_results_df = pd.DataFrame(summary_rows, columns=table_columns)
 
     query_file_paths = _save_query_summary_files(
         output_path=output_path,
         execution_id=execution_id,
         query_defs=query_defs,
-        query_rows_map=query_rows_map,
+        query_rows_map=summary_rows_by_query,
         file_columns=file_columns,
     )
 
