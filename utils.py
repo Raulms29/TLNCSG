@@ -649,6 +649,26 @@ def _resolve_model_modes(model_config: dict) -> list[bool]:
     return modes
 
 
+def _warmup_model(
+    ollama_client: Any,
+    model_name: str,
+    model_config: dict,
+    warmup_query: str,
+    system_prompt: str,
+    base_options: dict,
+) -> None:
+    """Run a single non-measured call to force model loading in Ollama."""
+    run_ollama_once_with_metadata(
+        ollama_client=ollama_client,
+        model_name=model_name,
+        query=warmup_query,
+        system_prompt=system_prompt,
+        base_options=base_options,
+        temperature=float(model_config["temperature"]),
+        thinking=False,
+    )
+
+
 def _save_execution_records_file(
     model_dir: Path,
     model_name: str,
@@ -766,6 +786,15 @@ def run_models_summary(
         print(f"[{model_idx}/{len(enabled_models)}] Processing model: {model_name}")
         model_dir = output_path / _safe_name(model_name)
         model_dir.mkdir(parents=True, exist_ok=True)
+
+        _warmup_model(
+            ollama_client=ollama_client,
+            model_name=model_name,
+            model_config=model_config,
+            warmup_query=query_defs[0]["text"],
+            system_prompt=system_prompt,
+            base_options=base_options,
+        )
 
         modes = _resolve_model_modes(model_config)
         model_rows: list[dict] = []

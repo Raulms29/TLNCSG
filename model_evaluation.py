@@ -2,12 +2,21 @@ import utils
 from ollama import Client
 
 models = {
+    "deepseek-r1:8b": {
+        "enabled": True,
+        "display_name": "DeepSeek R1 8B",
+        "parameters": "8B",
+        "supports_thinking": True,
+        "temperature": 0.1,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
     "ministral-3:8b": {
         "enabled": True,
         "display_name": "Ministral 3 8B",
         "parameters": "8B",
         "supports_thinking": False,
-        "temperature": 0.1,
+        "temperature": 0.15,
         "g_cypher": True,
         "g_sparql": True,
     },
@@ -25,7 +34,7 @@ models = {
         "display_name": "Mistral Nemo 12B",
         "parameters": "12B",
         "supports_thinking": False,
-        "temperature": 0.1,
+        "temperature": 0.15,
         "g_cypher": True,
         "g_sparql": True,
     },
@@ -43,7 +52,7 @@ models = {
         "display_name": "Gemma 4 E2B",
         "parameters": "2B",
         "supports_thinking": True,
-        "temperature": 0.05,
+        "temperature": 0.1,
         "g_cypher": True,
         "g_sparql": True,
     },
@@ -52,7 +61,7 @@ models = {
         "display_name": "Gemma 4 E4B",
         "parameters": "4B",
         "supports_thinking": True,
-        "temperature": 0.05,
+        "temperature": 0.1,
         "g_cypher": True,
         "g_sparql": True,
     },
@@ -61,7 +70,25 @@ models = {
         "display_name": "Gemma 4 26B",
         "parameters": "26B",
         "supports_thinking": False,
-        "temperature": 0.05,
+        "temperature": 0.1,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
+    "qwen3.5:9b": {
+        "enabled": True,
+        "display_name": "Qwen 3.5 9B",
+        "parameters": "9B",
+        "supports_thinking": False,
+        "temperature": 0.1,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
+    "qwen3.6:35b-a3b": {
+        "enabled": True,
+        "display_name": "Qwen 3.6 35B-A3B",
+        "parameters": "35B-A3B",
+        "supports_thinking": False,
+        "temperature": 0.1,  # TODO
         "g_cypher": True,
         "g_sparql": True,
     },
@@ -91,7 +118,7 @@ queries = [
     },
     {
         "id": "Q04",
-        "text": "Give me the directors whose surname is the same as that of one of the actors",
+        "text": "Give me the films whose directors have the same surname as one of the actors",
     },
     {
         "id": "Q05",
@@ -103,7 +130,7 @@ OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {}
 
 SYSTEM_PROMPT = utils.SYSTEM_PROMPT
-RUNS_PER_MODEL = 30
+RUNS_PER_MODEL = 2
 OUTPUT_DIR = "outputs/summary"
 CONFIDENCE_LEVEL = 0.95
 
