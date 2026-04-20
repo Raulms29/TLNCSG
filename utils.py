@@ -1063,7 +1063,11 @@ Output:
       "query": {
         "target": "Movie",
         "entities": [
-          { "id": "e1", "type": "Person", "name": "Meryl Streep" }
+          {
+            "id": "e1",
+            "type": "Person",
+            "name": "Meryl Streep"
+          }
         ],
         "where": {
           "rel": "director",
@@ -1073,16 +1077,16 @@ Output:
               "left": {
                 "count": {
                   "rel": "won",
-                  "to": "award"
+                  "to": "director_award"
                 }
               },
               "op": ">",
               "right": {
                 "count": {
                   "rel": "won",
-                  "to": "x",
-                  "of": "e1"
-                }
+                  "to": "streep_award"
+                },
+                "of": "e1"
               }
             }
           }

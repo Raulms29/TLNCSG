@@ -88,7 +88,7 @@ models = {
         "display_name": "Qwen 3.6 35B-A3B",
         "parameters": "35B-A3B",
         "supports_thinking": False,
-        "temperature": 0.1,  # TODO
+        "temperature": 0.1,
         "g_cypher": True,
         "g_sparql": True,
     },
@@ -130,7 +130,7 @@ OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {}
 
 SYSTEM_PROMPT = utils.SYSTEM_PROMPT
-RUNS_PER_MODEL = 2
+RUNS_PER_MODEL = 30
 OUTPUT_DIR = "outputs/summary"
 CONFIDENCE_LEVEL = 0.95
 
