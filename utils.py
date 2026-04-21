@@ -914,261 +914,372 @@ The IR must be:
 - Based only on the meaning of the input text
 - Internally consistent and unambiguous
 - Valid JSON
--------------------------
 
+-------------------------
 INSTRUCTIONS
+-------------------------
+**Step 1.** Identify the main target(s):
+- Populate the `target` array with the `id` of the entities, relationships, or expressions the user wants to retrieve.
+**Step 2.** Identify entities and their topology:
+- Declare all `entities` (nodes) with unique `id`s and generic semantic `type`s (e.g., "Person", "Movie"). *Note: Do not put names here.*
+- Declare all `relationships` (edges) connecting the entities. Assign unique `id`s, intuitive `role`s, and explicit `from` / `to` directions.
+**Step 3.** Handle Attributes and Names:
+- Use `COMPARISON` objects within the `constraint` to define specific properties. For example, to match a name, use an `ATTRIBUTE` expression: `left: {attribute_name: "name", of: "entity_id"}, operator: "=", right: "Target Name"`.
+**Step 4.** Build Constraints (Filters):
+- Combine conditions using `and_conditions` and `or_conditions`.
+- Handle complex logic natively using `COMPARISON` operations.
+**Step 5.** Handle Quantifiers & Aggregations:
+- **"All/Every"**: Use the `ALL` operator to enforce a condition across an entire set.
+- **"Exists/Some"**: Use the `EXISTS` operator.
+- **Counts/Metrics**: Use `COUNT`, `MAX`, `MIN`, or `SUMMATION` expressions directly in comparisons (e.g., counting a specific relationship).
+**Step 6.** Query Composition (If Needed):
+- A `HYPOTHESIS` is an array of `QUERY` objects. If a natural language prompt implies multi-step execution (querying over a previous query's result), generate sequentially ordered queries using the `input` field to chain them. For standard queries, a single-element array is sufficient.
 
 -------------------------
-**Step 1.** Identify the main target entity type (what the user is asking for). 
-**Step 2.** Identify all mentioned entities:
-- Assign each an id (e.g., "e1", "e2").
-- Assign a generic type (e.g., Person, Movie, Organization, Location, Event).
-**Step 3.** Extract semantic relationships using ROLE-BASED labels:
-- Use intuitive, natural roles (e.g., director, actor, author, located_in).
-- DO NOT invent database-specific relation names.
-- Roles must be lowercase and descriptive.
-**Step 4.** Handle Free Variables:
-- When a query implies an unknown intermediate entity (e.g., "someone who", "a director that"), assign it a free variable string (e.g., "x", "y") instead of an entity ID.
-**Step 5.** Build constraints:
-- Each constraint links the target entity to another entity or variable via a role.
-- Combine constraints using "and" by default, or "or" only if explicitly required by the text.
-**Step 6.** Handle Universal Quantifiers ("All", "Every"):
-- Translate universal requirements using double negation: `not` -> `exists` -> `where` -> `not` (or the mathematical inverse of a comparison).
--------------------------
-
 GRAMMAR
-
 -------------------------
-QUERY_SET := {
-  hypotheses: [HYPOTHESIS, ...]
+```json
+HYPOTHESES_SET := {
+  "hypotheses": ["HYPOTHESIS", "..."]
+  // A closed set of independent hypotheses (no relationships between them)
 }
 
-HYPOTHESIS := {
-  id: ID,
-  query: QUERY
-}
+HYPOTHESIS := ["QUERY", "..."]
+// Ordered sequence of queries.
+// Each QUERY can consume results from previous ones using input.
+
 QUERY := {
-  target: TYPE,
-  entities?: [ENTITY, ...],
-  where?: CONDITION
+  "id": "QUERY_ID", // one new fresh ID per query
+  // Unique identifier of the query
+  "input?": "QUERY_ID",  // existing ID in the JSON document
+  // If present, this query operates on the result of a previous query.
+  // Enables query composition (query over query).
+  "target": ["ENTITY_ID | RELATIONSHIP_ID | EXPRESSION", "..."],  // ENTITYID and RELATIONSHIP are existing IDs in the JSON document
+  // Elements that define the output of the query.
+  // Can include:
+  // - entities
+  // - relationships
+  // - expressions (scalar values)
+  "entities": ["ENTITY", "..."],
+  // Entities (graph nodes) involved in the query
+  "relationships": ["RELATIONSHIP", "..."],
+  // Relationships (graph vertices) connecting the entities
+  "constraint": "CONDITION",
+  // Logical filter over entities and or relationships
+  "projection?": ["EXPRESSION", "..."],
+  // Explicit definition of output columns
+  "aggregation?": ["COUNT | SUMMATION | MAX | MIN", "..."],
+  // Aggregation operations (count, sum, max, min, etc.)
+  // Can produce scalar values or aggregated columns
+  "distinct?": "BOOLEAN",
+  // If true, removes duplicate results, otherwise duplicates are allowed
+  "order_by?": ["ORDER_CRITERION", "..."],
+  // Defines how results should be sorted
+  "limit?": "NUMBER"
+  // Limits the number of results (TOP-N behavior)
 }
+
 ENTITY := {
-  id: ID,
-  type: TYPE,
-  name?: STRING
+  "id": "ENTITY_ID", // new fresh unique ID of the entity 
+  "type": "TYPE"
+  // Semantic type (e.g., "Person", "Movie", "Author"). This is domain dependent.
 }
-CONDITION := AND | OR | NOT | REL | CMP | EXISTS
-AND := { and: [CONDITION, ...] }
-OR := { or: [CONDITION, ...] }
-NOT := { not: CONDITION }
-REL := {
-  rel: ROLE,
-  to: ENTITY_REF,
-  where?: CONDITION
+
+RELATIONSHIP := {
+  "id": "RELATIONSHIP_ID",   // new fresh unique ID of the relationship
+  "role": "ROLE", // Type of relationship (e.g., "FRIEND", "ACTED_IN"). It depends on the domain (not in a set of predefined roles)
+  "from": "ENTITY_ID",   // existing ID of an entity in the JSON document; it represents the origin of the relationship
+  "to": "ENTITY_ID"    // existing ID of an entity in the JSON document; it represents the target of the relationship
 }
-EXISTS := {
-  exists: REL
-}
-CMP := {
-  cmp: {
-    left: VALUE_EXPR,
-    op: OP,
-    right: VALUE_EXPR
-  }
-}
-VALUE_EXPR := COUNT | NUMBER | ATTRIBUTE
-COUNT := {
-  count: REL,
-  of?: ENTITY_REF
-}
+
 ATTRIBUTE := {
-  attr: NAME,
-  of?: ENTITY_REF
+  "attribute_name": "NAME",
+  "of": "ENTITY_ID | RELATIONSHIP_ID"    // existing entity or relation ID in the JSON document
 }
-ENTITY_REF := ID | META_VAR
-META_VAR := STRING   // e.g., "x", "y" (free variable)
-OP := "=" | "!=" | ">" | "<" | ">=" | "<="
-TYPE := STRING
-ROLE := STRING
-NAME := STRING
-ID := STRING
+
+COUNT := {
+  "count_id": "ENTITY_ID | RELATIONSHIP_ID", // existing ID in the JSON document
+  "condition?": "CONDITION"
+  // Counts occurrences (optionally filtered)
+}
+
+SUMMATION := {
+  "summation_id": "ENTITY_ID | RELATIONSHIP_ID",   // existing ID in the JSON document
+  "expression": "EXPRESSION",  // expression that computes the values to be summed
+  "condition?": "CONDITION"  // condition of the elements to be sum
+}
+
+MAX := {
+  "max_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
+  "expression": "EXPRESSION", // expression that computes the values to get the maximum
+  "condition?": "CONDITION"
+  // Maximum value of an expression
+}
+
+MIN := {
+  "min_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
+  "expression": "EXPRESSION", // expression that computes the values to get the maximum
+  "condition?": "CONDITION"
+  // Minimum value of an expression
+}
+
+ORDER_CRITERION := {
+  "expression": "EXPRESSION",  // expression that computes the values to be ordered
+  "direction?": "ASC | DESC"  // Sorting criterion
+}
+
+EXISTS := {
+  "exists_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
+  "condition": "CONDITION"   // True if at least one element satisfies the condition
+}
+
+ALL := {
+  "all_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
+  "condition": "CONDITION"  // True if all elements satisfy the condition
+}
+
+CONDITION := "AND | OR | NOT | COMPARISON | EXISTS | ALL"
+// Logical expressions used for filtering
+
+AND := { "and_conditions": ["CONDITION", "..."] }
+// All conditions must hold
+
+OR := { "or_conditions": ["CONDITION", "..."] }
+// At least one condition must hold
+
+NOT := { "not_condition": "CONDITION" }
+// Logical negation
+
+COMPARISON := {
+  "left": "EXPRESSION",
+  "operator": "CONDITION_OPERATOR",
+  "right": "EXPRESSION"
+}
+// Binary comparison
+
+CONDITION_OPERATOR := "= | != | > | < | <= | >=" 
+
+EXPRESSION := "NUMBER | STRING | ATTRIBUTE | COUNT | SUMMATION | MAX | MIN"
+
+TYPE := "STRING"
+ROLE := "STRING"
+NAME := "STRING"
+NUMBER := "FLOAT | INTEGER"
+BOOLEAN := "true | false"
+```
 
 -------------------------
-
 EXAMPLES
-
 -------------------------
 Input: "Give me the Movies directed by Eastwood or Spielberg and starring Meryl Streep."
 Output:
 ```json
 {
   "hypotheses": [
-    {
-      "id": "h1",
-      "query": {
-        "target": "Movie",
-        "entities": [
-          { "id": "e1", "type": "Person", "name": "Eastwood" },
-          { "id": "e2", "type": "Person", "name": "Spielberg" },
-          { "id": "e3", "type": "Person", "name": "Meryl Streep" }
+    [
+      {
+        "id": "q1",
+        "target": [
+          "e_movie"
         ],
-        "where": {
-          "or": [
+        "entities": [
+          { "id": "e_movie", "type": "Movie" },
+          { "id": "e_director", "type": "Person" },
+          { "id": "e_actor", "type": "Person" }
+        ],
+        "relationships": [
+          { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
+          { "id": "r_act", "role": "actor", "from": "e_actor", "to": "e_movie" }
+        ],
+        "constraint": {
+          "or_conditions": [
             {
-              "rel": "director",
-              "to": "e1"
+              "left": { "attribute_name": "name", "of": "e_director" },
+              "operator": "=",
+              "right": "Eastwood"
             },
             {
-              "and": [
-                { "rel": "director", "to": "e2" },
-                { "rel": "actor", "to": "e3" }
+              "and_conditions": [
+                {
+                  "left": { "attribute_name": "name", "of": "e_director" },
+                  "operator": "=",
+                  "right": "Spielberg"
+                },
+                {
+                  "left": { "attribute_name": "name", "of": "e_actor" },
+                  "operator": "=",
+                  "right": "Meryl Streep"
+                }
               ]
             }
           ]
         }
       }
-    },
-    {
-      "id": "h2",
-      "query": {
-        "target": "Movie",
-        "entities": [
-          { "id": "e1", "type": "Person", "name": "Eastwood" },
-          { "id": "e2", "type": "Person", "name": "Spielberg" },
-          { "id": "e3", "type": "Person", "name": "Meryl Streep" }
+    ],
+    [
+      {
+        "id": "q2",
+        "target": [
+          "e_movie"
         ],
-        "where": {
-          "and": [
+        "entities": [
+          { "id": "e_movie", "type": "Movie" },
+          { "id": "e_director", "type": "Person" },
+          { "id": "e_actor", "type": "Person" }
+        ],
+        "relationships": [
+          { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
+          { "id": "r_act", "role": "actor", "from": "e_actor", "to": "e_movie" }
+        ],
+        "constraint": {
+          "and_conditions": [
             {
-              "or": [
-                { "rel": "director", "to": "e1" },
-                { "rel": "director", "to": "e2" }
+              "or_conditions": [
+                {
+                  "left": { "attribute_name": "name", "of": "e_director" },
+                  "operator": "=",
+                  "right": "Eastwood"
+                },
+                {
+                  "left": { "attribute_name": "name", "of": "e_director" },
+                  "operator": "=",
+                  "right": "Spielberg"
+                }
               ]
             },
-            { "rel": "actor", "to": "e3" }
+            {
+              "left": { "attribute_name": "name", "of": "e_actor" },
+              "operator": "=",
+              "right": "Meryl Streep"
+            }
           ]
         }
       }
-    }
+    ]
   ]
 }
 ```
+
 Input: "Give me the movies whose director has won more awards than Meryl Streep"
 Output:
 ```json
 {
   "hypotheses": [
-    {
-      "id": "h1",
-      "query": {
-        "target": "Movie",
-        "entities": [
-          {
-            "id": "e1",
-            "type": "Person",
-            "name": "Meryl Streep"
-          }
+    [
+      {
+        "id": "q1",
+        "target": [
+          "e_movie"
         ],
-        "where": {
-          "rel": "director",
-          "to": "x",
-          "where": {
-            "cmp": {
-              "left": {
-                "count": {
-                  "rel": "won",
-                  "to": "director_award"
-                }
-              },
-              "op": ">",
-              "right": {
-                "count": {
-                  "rel": "won",
-                  "to": "streep_award"
-                },
-                "of": "e1"
-              }
+        "entities": [
+          { "id": "e_movie", "type": "Movie" },
+          { "id": "e_director", "type": "Person" },
+          { "id": "e_streep", "type": "Person" },
+          { "id": "e_dir_award", "type": "Award" },
+          { "id": "e_streep_award", "type": "Award" }
+        ],
+        "relationships": [
+          { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
+          { "id": "r_dir_won", "role": "won", "from": "e_director", "to": "e_dir_award" },
+          { "id": "r_streep_won", "role": "won", "from": "e_streep", "to": "e_streep_award" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            {
+              "left": { "attribute_name": "name", "of": "e_streep" },
+              "operator": "=",
+              "right": "Meryl Streep"
+            },
+            {
+              "left": { "count_id": "r_dir_won" },
+              "operator": ">",
+              "right": { "count_id": "r_streep_won" }
             }
-          }
+          ]
         }
       }
-    }
+    ]
   ]
 }
 ```
+
 Input: "Flights where every passenger is an adult."
 Output:
 ```json
 {
   "hypotheses": [
-    {
-      "id": "h1",
-      "query": {
-        "target": "Flight",
-        "where": {
-          "not": {
-            "exists": {
-              "rel": "passenger",
-              "to": "x",
-              "where": {
-                "cmp": {
-                  "left": { "attr": "age", "of": "x" },
-                  "op": "<",
-                  "right": 18
-                }
-              }
-            }
+    [
+      {
+        "id": "q1",
+        "target": [
+          "e_flight"
+        ],
+        "entities": [
+          { "id": "e_flight", "type": "Flight" },
+          { "id": "e_passenger", "type": "Person" }
+        ],
+        "relationships": [
+          { "id": "r_pass", "role": "passenger", "from": "e_passenger", "to": "e_flight" }
+        ],
+        "constraint": {
+          "all_id": "e_passenger",
+          "condition": {
+            "left": { "attribute_name": "age", "of": "e_passenger" },
+            "operator": ">=",
+            "right": 18
           }
         }
       }
-    }
+    ]
   ]
 }
 ```
+
 Input: "Authors who have written at least 5 books published after 2010."
 Output:
 ```json
 {
   "hypotheses": [
-    {
-      "id": "h1",
-      "query": {
-        "target": "Author",
-        "where": {
-          "cmp": {
-            "left": {
-              "count": {
-                "rel": "author_of",
-                "to": "x",
-                "where": {
-                  "cmp": {
-                    "left": { "attr": "publish_year", "of": "x" },
-                    "op": ">",
-                    "right": 2010
-                  }
-                }
-              }
-            },
-            "op": ">=",
-            "right": 5
-          }
+    [
+      {
+        "id": "q1",
+        "target": [
+          "e_author"
+        ],
+        "entities": [
+          { "id": "e_author", "type": "Author" },
+          { "id": "e_book", "type": "Book" }
+        ],
+        "relationships": [
+          { "id": "r_wrote", "role": "author_of", "from": "e_author", "to": "e_book" }
+        ],
+        "constraint": {
+          "left": {
+            "count_id": "e_book",
+            "condition": {
+              "left": { "attribute_name": "publish_year", "of": "e_book" },
+              "operator": ">",
+              "right": 2010
+            }
+          },
+          "operator": ">=",
+          "right": 5
         }
       }
-    }
+    ]
   ]
 }
 ```
+
 -------------------------
-
 RULES
-
 -------------------------
 - Output ONLY valid JSON enclosed in standard markdown blocks (```json ... ```).
 - Do NOT output any conversational text, pleasantries, or explanations.
-- Do NOT include comments in the JSON output (// or /* */).
-- Be consistent with entity ids across hypotheses.
-- Do NOT assume any database schema.
-- Follow the Grammar strictly.
-- Prefer simple structures over complex nesting.
-- Generate more than one hypothesis in the array ONLY if there are multiple syntactically valid interpretations.
+- Do NOT include comments in the JSON output (`//` or `/* */`).
+- Be consistent with entity/relationship IDs across the query.
+- Do NOT assume any specific database schema. Use broad semantics.
+- Follow the Grammar strictly. `HYPOTHESIS` is always an *array* of `QUERY` objects.
+- Prefer simple structures over complex nesting where logical equivalences exist.
+- Generate more than one hypothesis in the `hypotheses` array ONLY if there are multiple syntactically valid semantic interpretations of the input text.
 """
