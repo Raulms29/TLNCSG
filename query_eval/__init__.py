@@ -1,7 +1,9 @@
-from query_eval import (
+from .defaults import (
     DEFAULT_CRITERIA_CONFIG,
     DEFAULT_GROUND_TRUTHS,
     EVALUATOR_USER_PROMPT_TEMPLATE,
+)
+from .engine import (
     clean_json_response,
     evaluate_execution_file,
     evaluate_summary_folder,
