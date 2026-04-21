@@ -218,14 +218,30 @@ DEFAULT_GROUND_TRUTHS = {
                 "id": "h1",
                 "query": {
                     "target": "Movie",
-                    "entities": [
-                        {"id": "e1", "type": "Person", "name": "Clint Eastwood"},
-                        {"id": "e2", "type": "Person", "name": "Meryl Streep"},
-                    ],
+                    "entities": [{"id": "e1", "type": "Genre", "name": "Action"}],
                     "where": {
                         "and": [
-                            {"rel": "director", "to": "e1"},
-                            {"rel": "actor", "to": "e2"},
+                            {"rel": "genre", "to": "e1"},
+                            {
+                                "cmp": {
+                                    "left": {"count": {"rel": "actor", "to": "a"}},
+                                    "op": ">",
+                                    "right": 3,
+                                }
+                            },
+                            {
+                                "exists": {
+                                    "rel": "director",
+                                    "to": "d",
+                                    "where": {
+                                        "cmp": {
+                                            "left": {"attr": "birth_year", "of": "d"},
+                                            "op": ">",
+                                            "right": 1980,
+                                        }
+                                    },
+                                }
+                            },
                         ]
                     },
                 },
