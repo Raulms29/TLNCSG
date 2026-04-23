@@ -27,12 +27,12 @@ OUTPUT_ROOT = "outputs/query_eval"
 GROUND_TRUTHS_FILE = "ground_truths_default.json"
 
 # Criterion-specific query sets (must be non-empty for each defined criterion).
-CRITERION_1_QUERY_IDS = ["Q01"]
-CRITERION_2_QUERY_IDS = ["Q01", "Q02", "Q03", "Q04", "Q05"]
-CRITERION_3_QUERY_IDS = ["Q01", "Q02", "Q03", "Q04", "Q05"]
-CRITERION_4_QUERY_IDS = ["Q01", "Q02", "Q03", "Q04", "Q05"]
-CRITERION_5_QUERY_IDS = ["Q01", "Q02", "Q03", "Q04", "Q05"]
-CRITERION_6_QUERY_IDS = ["Q01", "Q02", "Q03", "Q04", "Q05"]
+CRITERION_1_QUERY_IDS = ["Q04", "Q06", "Q07", "Q08", "Q10", "Q11", "Q12"]
+CRITERION_2_QUERY_IDS = ["Q03", "Q04", "Q05", "Q07", "Q09", "Q10"]
+CRITERION_3_QUERY_IDS = ["Q01", "Q02", "Q03", "Q05", "Q06", "Q09", "Q10"]
+CRITERION_4_QUERY_IDS = ["Q01", "Q02", "Q10", "Q11", "Q13", "Q14"]
+CRITERION_5_QUERY_IDS = ["Q01", "Q02", "Q04", "Q08", "Q09", "Q12"]
+CRITERION_6_QUERY_IDS = ["Q01", "Q02", "Q03", "Q05", "Q07", "Q08"]
 
 PROMPTS_DIR = "prompts"
 

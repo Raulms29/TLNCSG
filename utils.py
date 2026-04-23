@@ -918,170 +918,279 @@ The IR must be:
 -------------------------
 INSTRUCTIONS
 -------------------------
-**Step 1.** Identify the main target(s):
-- Populate the `target` array with the `id` of the entities, relationships, or expressions the user wants to retrieve.
+**Step 1.** Identify the main target(s) and projections:
+- Populate the `target` array with the `id` of the primary entities, relationships, or expressions the user wants to resolve.
+- **When to use `projection`:** If the user explicitly asks for specific properties (e.g., "Give me the names and surnames of...", "List the titles of..."), extract those using the `projection` array with `ATTRIBUTE` expressions. Keep the `target` array focused only on the underlying entity/relationship IDs. If no specific fields are requested, omit the `projection` array to return the full entities.
+
 **Step 2.** Identify entities and their topology:
-- Declare all `entities` (nodes) with unique `id`s and generic semantic `type`s (e.g., "Person", "Movie"). *Note: Do not put names here.*
+- Declare all `entities` (nodes) with unique `id`s and generic semantic `type`s (e.g., "Person", "Movie").
 - Declare all `relationships` (edges) connecting the entities. Assign unique `id`s, intuitive `role`s, and explicit `from` / `to` directions.
-**Step 3.** Handle Attributes and Names:
+
+**Step 3.** Handle Attributes and Filtering:
 - Use `COMPARISON` objects within the `constraint` to define specific properties. For example, to match a name, use an `ATTRIBUTE` expression: `left: {attribute_name: "name", of: "entity_id"}, operator: "=", right: "Target Name"`.
+
 **Step 4.** Build Constraints (Filters):
 - Combine conditions using `and_conditions` and `or_conditions`.
 - Handle complex logic natively using `COMPARISON` operations.
+- When validating an element set (like applying a COUNT or ALL), anchor the relationship inside an `and_conditions` block to ensure topological validity.
+
 **Step 5.** Handle Quantifiers & Aggregations:
 - **"All/Every"**: Use the `ALL` operator to enforce a condition across an entire set.
 - **"Exists/Some"**: Use the `EXISTS` operator.
 - **Counts/Metrics**: Use `COUNT`, `MAX`, `MIN`, or `SUMMATION` expressions directly in comparisons (e.g., counting a specific relationship).
+
 **Step 6.** Query Composition (If Needed):
-- A `HYPOTHESIS` is an array of `QUERY` objects. If a natural language prompt implies multi-step execution (querying over a previous query's result), generate sequentially ordered queries using the `input` field to chain them. For standard queries, a single-element array is sufficient.
+- The root output is a JSON object containing a `hypotheses_set` array: `{ "hypotheses_set": [HYPOTHESIS, ...] }`.
+- If a natural language prompt implies multi-step execution (querying over a previous query's result), generate sequentially ordered queries using the `input` field to chain them. For standard queries, a single-element hypothesis array is sufficient.
 
 -------------------------
-GRAMMAR
+GRAMMAR (treat the following as a formal specification, not prose)
 -------------------------
-```json
-HYPOTHESES_SET := {
-  "hypotheses": ["HYPOTHESIS", "..."]
-  // A closed set of independent hypotheses (no relationships between them)
-}
+HYPOTHESES_SET := { "hypotheses_set": [HYPOTHESIS, ...] }
+// A JSON object containing a list of independent hypotheses (no relationships between them)
 
-HYPOTHESIS := ["QUERY", "..."]
+HYPOTHESIS := [QUERY, ...] 
 // Ordered sequence of queries.
-// Each QUERY can consume results from previous ones using input.
+// Each QUERY can consume results from previous ones using `input`.
 
 QUERY := {
-  "id": "QUERY_ID", // one new fresh ID per query
+  id: QUERY_ID, // one new fresh ID per query
   // Unique identifier of the query
-  "input?": "QUERY_ID",  // existing ID in the JSON document
+
+  input?: QUERY_ID,  // existing ID in the JSON document
   // If present, this query operates on the result of a previous query.
-  // Enables query composition (query over query).
-  "target": ["ENTITY_ID | RELATIONSHIP_ID | EXPRESSION", "..."],  // ENTITYID and RELATIONSHIP are existing IDs in the JSON document
+  // Queries can refer directly to target IDs of the input queries
+  // Enables query composition (query over query)
+
+  target: [ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION, ...],  // ENTITY_ID and RELATIONSHIP_ID are existing IDs in the JSON document
   // Elements that define the output of the query.
   // Can include:
   // - entities
   // - relationships
   // - expressions (scalar values)
-  "entities": ["ENTITY", "..."],
+
+  entities: [ENTITY, ...], 
   // Entities (graph nodes) involved in the query
-  "relationships": ["RELATIONSHIP", "..."],
-  // Relationships (graph vertices) connecting the entities
-  "constraint": "CONDITION",
-  // Logical filter over entities and or relationships
-  "projection?": ["EXPRESSION", "..."],
+
+  relationships: [RELATIONSHIP, ...], 
+  // Relationships (graph edges) connecting the entities
+
+  constraint?: CONDITION,
+  // Logical filter over entities and/or relationships
+
+  projection?: [EXPRESSION, ...],
   // Explicit definition of output columns
-  "aggregation?": ["COUNT | SUMMATION | MAX | MIN", "..."],
-  // Aggregation operations (count, sum, max, min, etc.)
-  // Can produce scalar values or aggregated columns
-  "distinct?": "BOOLEAN",
+
+  distinct?: BOOLEAN,
   // If true, removes duplicate results, otherwise duplicates are allowed
-  "order_by?": ["ORDER_CRITERION", "..."],
+
+  order_by?: [ORDER_CRITERION, ...],
   // Defines how results should be sorted
-  "limit?": "NUMBER"
+
+  limit?: NUMBER
   // Limits the number of results (TOP-N behavior)
 }
 
 ENTITY := {
-  "id": "ENTITY_ID", // new fresh unique ID of the entity 
-  "type": "TYPE"
+  id: ENTITY_ID, // new fresh unique ID of the entity 
+
+  type: TYPE
   // Semantic type (e.g., "Person", "Movie", "Author"). This is domain dependent.
 }
 
 RELATIONSHIP := {
-  "id": "RELATIONSHIP_ID",   // new fresh unique ID of the relationship
-  "role": "ROLE", // Type of relationship (e.g., "FRIEND", "ACTED_IN"). It depends on the domain (not in a set of predefined roles)
-  "from": "ENTITY_ID",   // existing ID of an entity in the JSON document; it represents the origin of the relationship
-  "to": "ENTITY_ID"    // existing ID of an entity in the JSON document; it represents the target of the relationship
+  id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
+
+  role: ROLE, // Type of relationship (e.g., "FRIEND", "ACTED_IN"). It depends on the domain (not in a set of predefined roles)
+
+  from: ENTITY_ID,   // existing ID of an entity in the JSON document; it represents the origin of the relationship
+  
+  to: ENTITY_ID    // existing ID of an entity in the JSON document; it represents the target of the relationship
 }
 
 ATTRIBUTE := {
-  "attribute_name": "NAME",
-  "of": "ENTITY_ID | RELATIONSHIP_ID"    // existing entity or relation ID in the JSON document
+  attribute_name: NAME,
+  of: ENTITY_ID | RELATIONSHIP_ID    // existing entity or relationship ID in the JSON document
 }
 
 COUNT := {
-  "count_id": "ENTITY_ID | RELATIONSHIP_ID", // existing ID in the JSON document
-  "condition?": "CONDITION"
+  count_id: ENTITY_ID | RELATIONSHIP_ID, // existing ID in the JSON document
+  condition?: CONDITION
   // Counts occurrences (optionally filtered)
 }
 
 SUMMATION := {
-  "summation_id": "ENTITY_ID | RELATIONSHIP_ID",   // existing ID in the JSON document
-  "expression": "EXPRESSION",  // expression that computes the values to be summed
-  "condition?": "CONDITION"  // condition of the elements to be sum
+  summation_id: ENTITY_ID | RELATIONSHIP_ID,   // existing ID in the JSON document
+  expression: EXPRESSION,  // expression that computes the values to be summed
+  condition?: CONDITION  // condition of the elements to be summed
 }
 
 MAX := {
-  "max_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
-  "expression": "EXPRESSION", // expression that computes the values to get the maximum
-  "condition?": "CONDITION"
+  max_id: ENTITY_ID | RELATIONSHIP_ID,  // existing ID in the JSON document
+  expression: EXPRESSION, // expression that computes the values to get the maximum
+  condition?: CONDITION
   // Maximum value of an expression
 }
 
 MIN := {
-  "min_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
-  "expression": "EXPRESSION", // expression that computes the values to get the maximum
-  "condition?": "CONDITION"
+  min_id: ENTITY_ID | RELATIONSHIP_ID,  // existing ID in the JSON document
+  expression: EXPRESSION, // expression that computes the values to get the minimum
+  condition?: CONDITION
   // Minimum value of an expression
 }
 
 ORDER_CRITERION := {
-  "expression": "EXPRESSION",  // expression that computes the values to be ordered
-  "direction?": "ASC | DESC"  // Sorting criterion
+  expression: EXPRESSION,  // expression that computes the values to be ordered
+  direction?: "ASC" | "DESC"  // Sorting criterion
 }
 
 EXISTS := {
-  "exists_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
-  "condition": "CONDITION"   // True if at least one element satisfies the condition
+  exists_id: ENTITY_ID | RELATIONSHIP_ID,  // existing ID in the JSON document
+  condition: CONDITION   // True if at least one element satisfies the condition
 }
 
 ALL := {
-  "all_id": "ENTITY_ID | RELATIONSHIP_ID",  // existing ID in the JSON document
-  "condition": "CONDITION"  // True if all elements satisfy the condition
+  all_id: ENTITY_ID | RELATIONSHIP_ID,  // existing ID in the JSON document
+  condition: CONDITION  // True if all elements satisfy the condition
 }
 
-CONDITION := "AND | OR | NOT | COMPARISON | EXISTS | ALL"
+CONDITION := AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID
 // Logical expressions used for filtering
 
-AND := { "and_conditions": ["CONDITION", "..."] }
+AND := { and_conditions: [CONDITION, ...] }
 // All conditions must hold
 
-OR := { "or_conditions": ["CONDITION", "..."] }
+OR := { or_conditions: [CONDITION, ...] }
 // At least one condition must hold
 
-NOT := { "not_condition": "CONDITION" }
+NOT := { not_condition: CONDITION }
 // Logical negation
 
 COMPARISON := {
-  "left": "EXPRESSION",
-  "operator": "CONDITION_OPERATOR",
-  "right": "EXPRESSION"
+  left: EXPRESSION,
+  operator: COMPARISON_OPERATOR,
+  right: EXPRESSION
 }
 // Binary comparison
 
-CONDITION_OPERATOR := "= | != | > | < | <= | >=" 
+COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">=" 
 
-EXPRESSION := "NUMBER | STRING | ATTRIBUTE | COUNT | SUMMATION | MAX | MIN"
+ADDRESSABLE_EXPRESSION := { 
+  expression_ID: EXPRESSION_ID, // new fresh unique ID of the expression
+  expression: EXPRESSION // expression to be referenced
+}
+// Expression that can be referenced by using its expression_ID
 
-TYPE := "STRING"
-ROLE := "STRING"
-NAME := "STRING"
-NUMBER := "FLOAT | INTEGER"
-BOOLEAN := "true | false"
-```
+EXPRESSION := 
+    NUMBER 
+  | STRING 
+  | ATTRIBUTE 
+  | COUNT 
+  | SUMMATION 
+  | MAX 
+  | MIN
+  | EXPRESSION_ID  // existing expression ID in the JSON document
+
+TYPE := STRING
+ROLE := STRING
+NAME := STRING
+NUMBER := FLOAT | INTEGER
+BOOLEAN := true | false
 
 -------------------------
 EXAMPLES
 -------------------------
+Input: "Give me the names of the Authors who have written at least 5 books published after 2010."
+Output:
+```json
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["e_author"],
+        "entities": [
+          { "id": "e_author", "type": "Author" },
+          { "id": "e_book", "type": "Book" }
+        ],
+        "relationships": [
+          { "id": "r_wrote", "role": "author_of", "from": "e_author", "to": "e_book" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "r_wrote",
+            {
+              "left": {
+                "count_id": "e_book",
+                "condition": {
+                  "and_conditions": [
+                    {
+                      "left": { "attribute_name": "publish_year", "of": "e_book" },
+                      "operator": ">",
+                      "right": 2010
+                    }
+                  ]
+                }
+              },
+              "operator": ">=",
+              "right": 5
+            }
+          ]
+        },
+        "projection": [
+          { "attribute_name": "name", "of": "e_author" }
+        ]
+      }
+    ]
+  ]
+}
+```
+
+Input: "Give me the names of the customers and the score they gave in their review of the iPhone 15."
+Output:
+```json
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["e_customer"],
+        "entities": [
+          { "id": "e_customer", "type": "Customer" },
+          { "id": "e_product", "type": "Product" }
+        ],
+        "relationships": [
+          { "id": "r_review", "role": "reviewed", "from": "e_customer", "to": "e_product" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "r_review",
+            {
+              "left": { "attribute_name": "name", "of": "e_product" },
+              "operator": "=",
+              "right": "iPhone 15"
+            }
+          ]
+        },
+        "projection": [
+          { "attribute_name": "name", "of": "e_customer" },
+          { "attribute_name": "score", "of": "r_review" }
+        ]
+      }
+    ]
+  ]
+}
+```
+
 Input: "Give me the Movies directed by Eastwood or Spielberg and starring Meryl Streep."
 Output:
 ```json
 {
-  "hypotheses": [
+  "hypotheses_set": [
     [
       {
         "id": "q1",
-        "target": [
-          "e_movie"
-        ],
+        "target": ["e_movie"],
         "entities": [
           { "id": "e_movie", "type": "Movie" },
           { "id": "e_director", "type": "Person" },
@@ -1119,9 +1228,7 @@ Output:
     [
       {
         "id": "q2",
-        "target": [
-          "e_movie"
-        ],
+        "target": ["e_movie"],
         "entities": [
           { "id": "e_movie", "type": "Movie" },
           { "id": "e_director", "type": "Person" },
@@ -1164,13 +1271,11 @@ Input: "Give me the movies whose director has won more awards than Meryl Streep"
 Output:
 ```json
 {
-  "hypotheses": [
+  "hypotheses_set": [
     [
       {
         "id": "q1",
-        "target": [
-          "e_movie"
-        ],
+        "target": ["e_movie"],
         "entities": [
           { "id": "e_movie", "type": "Movie" },
           { "id": "e_director", "type": "Person" },
@@ -1207,13 +1312,11 @@ Input: "Flights where every passenger is an adult."
 Output:
 ```json
 {
-  "hypotheses": [
+  "hypotheses_set": [
     [
       {
         "id": "q1",
-        "target": [
-          "e_flight"
-        ],
+        "target": ["e_flight"],
         "entities": [
           { "id": "e_flight", "type": "Flight" },
           { "id": "e_passenger", "type": "Person" }
@@ -1222,48 +1325,17 @@ Output:
           { "id": "r_pass", "role": "passenger", "from": "e_passenger", "to": "e_flight" }
         ],
         "constraint": {
-          "all_id": "e_passenger",
-          "condition": {
-            "left": { "attribute_name": "age", "of": "e_passenger" },
-            "operator": ">=",
-            "right": 18
-          }
-        }
-      }
-    ]
-  ]
-}
-```
-
-Input: "Authors who have written at least 5 books published after 2010."
-Output:
-```json
-{
-  "hypotheses": [
-    [
-      {
-        "id": "q1",
-        "target": [
-          "e_author"
-        ],
-        "entities": [
-          { "id": "e_author", "type": "Author" },
-          { "id": "e_book", "type": "Book" }
-        ],
-        "relationships": [
-          { "id": "r_wrote", "role": "author_of", "from": "e_author", "to": "e_book" }
-        ],
-        "constraint": {
-          "left": {
-            "count_id": "e_book",
-            "condition": {
-              "left": { "attribute_name": "publish_year", "of": "e_book" },
-              "operator": ">",
-              "right": 2010
+          "and_conditions": [
+            "r_pass",
+            {
+              "all_id": "e_passenger",
+              "condition": {
+                "left": { "attribute_name": "age", "of": "e_passenger" },
+                "operator": ">=",
+                "right": 18
+              }
             }
-          },
-          "operator": ">=",
-          "right": 5
+          ]
         }
       }
     ]
@@ -1275,11 +1347,12 @@ Output:
 RULES
 -------------------------
 - Output ONLY valid JSON enclosed in standard markdown blocks (```json ... ```).
+- The root of the output MUST be a JSON object: `{ "hypotheses_set": [HYPOTHESIS, ...] }`.
 - Do NOT output any conversational text, pleasantries, or explanations.
 - Do NOT include comments in the JSON output (`//` or `/* */`).
 - Be consistent with entity/relationship IDs across the query.
 - Do NOT assume any specific database schema. Use broad semantics.
 - Follow the Grammar strictly. `HYPOTHESIS` is always an *array* of `QUERY` objects.
 - Prefer simple structures over complex nesting where logical equivalences exist.
-- Generate more than one hypothesis in the `hypotheses` array ONLY if there are multiple syntactically valid semantic interpretations of the input text.
+- Generate more than one hypothesis in the `hypotheses_set` array ONLY if there are multiple syntactically valid semantic interpretations of the input text.
 """

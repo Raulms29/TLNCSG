@@ -2,6 +2,15 @@ import utils
 from ollama import Client
 
 models = {
+    "llama3.1:8b": {
+        "enabled": True,
+        "display_name": "Llama 3.1 8B",
+        "parameters": "8B",
+        "supports_thinking": False,
+        "temperature": 0.1,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
     "deepseek-r1:8b": {
         "enabled": True,
         "display_name": "DeepSeek R1 8B",
@@ -38,15 +47,6 @@ models = {
         "g_cypher": True,
         "g_sparql": True,
     },
-    "phi4:14b": {
-        "enabled": True,
-        "display_name": "Phi-4 14B",
-        "parameters": "14B",
-        "supports_thinking": False,
-        "temperature": 0.15,
-        "g_cypher": True,
-        "g_sparql": True,
-    },
     "mistral-nemo:12b": {
         "enabled": True,
         "display_name": "Mistral Nemo 12B",
@@ -60,6 +60,15 @@ models = {
         "enabled": True,
         "display_name": "Mistral 7B",
         "parameters": "7B",
+        "supports_thinking": False,
+        "temperature": 0.15,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
+    "phi4:14b": {
+        "enabled": True,
+        "display_name": "Phi-4 14B",
+        "parameters": "14B",
         "supports_thinking": False,
         "temperature": 0.15,
         "g_cypher": True,
@@ -110,37 +119,64 @@ models = {
         "g_cypher": True,
         "g_sparql": True,
     },
-    "llama3.1:8b": {
-        "enabled": True,
-        "display_name": "Llama 3.1 8B",
-        "parameters": "8B",
-        "supports_thinking": False,
-        "temperature": 0.1,
-        "g_cypher": True,
-        "g_sparql": True,
-    },
 }
 
 queries = [
     {
         "id": "Q01",
-        "text": "Give me the action movies featuring more than 3 actors and whose director was born after 1980",
+        "text": "Which movies have more than four actors with the same birth year?",
     },
     {
         "id": "Q02",
-        "text": "Give me the films whose actors won an Oscar",
+        "text": "Which movies have more than four actors born in the same year as another actor in the cast?",
     },
     {
         "id": "Q03",
-        "text": "Give me the films featuring more than three actors born after 1980",
+        "text": "Tell me the director and actors of any 1990 movie, provided that one of the actors was born in 2002",
     },
     {
         "id": "Q04",
-        "text": "Give me the films whose directors have the same surname as one of the actors",
+        "text": "Find the shortest path between Article where title is Open sets satisfying systems of congruences and Report, with report_id equal 5049b80a2935f95cc95cf14dbfb8c610, including the nodes on the path!",
     },
     {
         "id": "Q05",
-        "text": "Give me the films in which all the actors are US citizens",
+        "text": "What is the name of the Application that has the most incoming connections from other Applications?",
+    },
+    {
+        "id": "Q06",
+        "text": "List nodes that are 3 hops away from Keyword for which key_id=6ded85146e3dbfb1bb866831b8948f5b!",
+    },
+    {
+        "id": "Q07",
+        "text": "Which movies has an actor with more salary than Meryl Streep and Clint Eastwood together?",
+    },
+    {
+        "id": "Q08",
+        "text": "Give me the actors whose father is among the top 5 highest-paid directors",
+    },
+    {
+        "id": "Q09",
+        "text": "Which movies have no actors that have work with Meryl Streep in any movie?",
+    },
+    {
+        "id": "Q10",
+        "text": "Movies where all the main actors have won more awards than any Argentine actor",
+    },
+    {
+        "id": "Q11",
+        "text": "Which actors got married in 1980 where one of them appears in The Matrix?",
+    },
+    {
+        "id": "Q12",
+        "text": "Give me the actors of The Matrix along with the three actors who have acted the most in any movie with them",
+    },
+    {
+        "id": "Q13",
+        "text": "List the movies and its featuring actors that have won an Oscar",
+    },
+    {
+        "id": "Q14",
+        "text": "People who have directed or acted in more than 5 occasions",
     },
 ]
 
@@ -148,7 +184,7 @@ OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {}
 
 SYSTEM_PROMPT = utils.SYSTEM_PROMPT
-RUNS_PER_MODEL = 30
+RUNS_PER_MODEL = 2
 OUTPUT_DIR = "outputs/summary"
 CONFIDENCE_LEVEL = 0.95
 

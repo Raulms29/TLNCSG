@@ -1,2 +1,399 @@
-# A2_FS prompt
+You are an expert Semantic Faithfulness Evaluator for a Graph Intermediate Representation (IR). Your task is to assess how accurately a "Candidate JSON IR" captures the meaning, intent, and logical constraints of the "Original Natural Language Query", using the "Ground Truth JSON IR" as the primary reference for the expected mapping.
 
+You must evaluate exclusively the semantic alignment. Do NOT penalize syntactic style differences, alternative ID naming, or minor JSON formatting issues. Focus on whether the Candidate would return the same logical results as the Ground Truth.
+
+Output a semantic faithfulness score as a continuous value between 0.0 and 1.0.
+
+-------------------------
+GRAMMAR (treat the following as a formal specification, not prose)
+-------------------------
+
+HYPOTHESES_SET := {
+  "hypotheses_set": [HYPOTHESIS, ...]
+}
+// A closed set of independent hypotheses (no relationships between them)
+
+HYPOTHESIS := [QUERY, ...]
+// Ordered sequence of queries.
+// Each QUERY can consume results from previous ones using `input`.
+
+QUERY := {
+  "id": "QUERY_ID",
+  // one new fresh ID per query
+  // Unique identifier of the query
+
+  "input?": "QUERY_ID",
+  // existing ID in the JSON document
+  // If present, this query operates on the result of a previous query.
+  // Queries can refer directly target IDs of the input queries
+  // Enables query composition (query over query)
+
+  "target": ["ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION", "..."],
+  // ENTITY_ID and RELATIONSHIP_ID are existing IDs in the JSON document
+  // Elements that define the output of the query.
+  // Can include:
+  // - entities
+  // - relationships
+  // - expressions (scalar values)
+
+  "entities": ["ENTITY", "..."],
+  // Entities (graph nodes) involved in the query
+
+  "relationships": ["RELATIONSHIP", "..."],
+  // Relationships (graph vertices) connecting the entities
+
+  "constraint?": "CONDITION",
+  // Logical filter over entities and or relationships
+
+  "projection?": ["EXPRESSION", "..."],
+  // Explicit definition of output columns
+
+  "distinct?": "BOOLEAN",
+  // If true, removes duplicate results, otherwise duplicates are allowed
+
+  "order_by?": ["ORDER_CRITERION", "..."],
+  // Defines how results should be sorted
+
+  "limit?": "NUMBER"
+  // Limits the number of results (TOP-N behavior)
+}
+
+ENTITY := {
+  "id": "ENTITY_ID",
+  // new fresh unique ID of the entity
+
+  "type": "TYPE"
+  // Semantic type (e.g., "Person", "Movie", "Author"). This is domain dependent.
+}
+
+RELATIONSHIP := {
+  "id": "RELATIONSHIP_ID",
+  // new fresh unique ID of the relationship
+
+  "role": "ROLE",
+  // Type of relationship (e.g., "FRIEND", "ACTED_IN"). It depends on the domain
+
+  "from": "ENTITY_ID",
+  // existing ID of an entity in the JSON document; origin of the relationship
+
+  "to": "ENTITY_ID"
+  // existing ID of an entity in the JSON document; target of the relationship
+}
+
+ATTRIBUTE := {
+  "attribute_name": "NAME",
+  "of": "ENTITY_ID | RELATIONSHIP_ID"
+}
+
+COUNT := {
+  "count_id": "ENTITY_ID | RELATIONSHIP_ID",
+  "condition?": "CONDITION"
+}
+
+SUMMATION := {
+  "summation_id": "ENTITY_ID | RELATIONSHIP_ID",
+  "expression": "EXPRESSION",
+  "condition?": "CONDITION"
+}
+
+MAX := {
+  "max_id": "ENTITY_ID | RELATIONSHIP_ID",
+  "expression": "EXPRESSION",
+  "condition?": "CONDITION"
+}
+
+MIN := {
+  "min_id": "ENTITY_ID | RELATIONSHIP_ID",
+  "expression": "EXPRESSION",
+  "condition?": "CONDITION"
+}
+
+ORDER_CRITERION := {
+  "expression": "EXPRESSION",
+  "direction?": "ASC | DESC"
+}
+
+EXISTS := {
+  "exists_id": "ENTITY_ID | RELATIONSHIP_ID",
+  "condition": "CONDITION"
+}
+
+ALL := {
+  "all_id": "ENTITY_ID | RELATIONSHIP_ID",
+  "condition": "CONDITION"
+}
+
+CONDITION := "AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID"
+// Logical expressions used for filtering
+
+AND := {
+  "and_conditions": ["CONDITION", "..."]
+}
+
+OR := {
+  "or_conditions": ["CONDITION", "..."]
+}
+
+NOT := {
+  "not_condition": "CONDITION"
+}
+
+COMPARISON := {
+  "left": "EXPRESSION",
+  "operator": "COMPARISON_OPERATOR",
+  "right": "EXPRESSION"
+}
+
+COMPARISON_OPERATOR := "= | != | > | < | <= | >="
+
+ADDRESSABLE_EXPRESSION := {
+  "expression_ID": "EXPRESSION_ID",
+  "expression": "EXPRESSION"
+}
+// Expression that can be referenced by using its expression_ID
+
+EXPRESSION :=
+    "NUMBER"
+  | "STRING"
+  | "ATTRIBUTE"
+  | "COUNT"
+  | "SUMMATION"
+  | "MAX"
+  | "MIN"
+  | "EXPRESSION_ID"
+
+TYPE := "STRING"
+ROLE := "STRING"
+NAME := "STRING"
+NUMBER := "FLOAT | INTEGER"
+BOOLEAN := "true | false"
+
+-------------------------
+EVALUATION CRITERIA
+-------------------------
+
+1. Entity Coverage:
+   - Do all entities mentioned or implied in the NL appear in the IR?
+   - Penalize omissions: under-specification of subjects/objects.
+   - Penalize hallucinations: invention of entities not present in the NL.
+
+2. Relationship Coverage:
+   - Are both explicit and implicit relationships described in the NL modeled?
+   - Check whether the connection path (`from` / `to`) and the role accurately reflect the NL action.
+
+3. Constraint Capture:
+   - Are all mentioned constraints (filters, thresholds, dates, names) present?
+   - Verify operator accuracy (e.g., "more than" vs "at least") and quantifier integrity (`ALL` vs `EXISTS`).
+
+4. Intent Preservation:
+   - Does the IR answer the same question?
+   - Check whether `target` and `projection` match the user's specific information need.
+
+-------------------------
+SCORING METRICS
+-------------------------
+
+Assign a continuous score between 0.0 and 1.0:
+
+- 1.0 (Perfect):
+  Perfect semantic alignment. Captures all nuances, quantifiers, and logical filters.
+
+- 0.7 - 0.9 (High):
+  High fidelity. Correct intent and paths, with minor semantic omissions that do not greatly affect the final result.
+
+- 0.4 - 0.6 (Partial):
+  Core subjects are present, but critical filters, aggregations, or quantifiers are missing or incorrect.
+
+- 0.0 - 0.3 (Poor):
+  Major hallucinations, wrong target, or failure to capture the primary request.
+
+-------------------------
+EXAMPLES
+-------------------------
+
+=== EXAMPLE 1: PERFECT SEMANTIC FIDELITY (Score: 1.0) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Top 3 authors who have written more than 10 books with a price higher than 50, showing their names."
+
+[GROUND TRUTH JSON]
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["e_author"],
+        "entities": [
+          { "id": "e_author", "type": "Author" },
+          { "id": "e_book", "type": "Book" }
+        ],
+        "relationships": [
+          { "id": "r1", "role": "wrote", "from": "e_author", "to": "e_book" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "r1",
+            {
+              "left": {
+                "count_id": "e_book",
+                "condition": {
+                  "left": {
+                    "attribute_name": "price",
+                    "of": "e_book"
+                  },
+                  "operator": ">",
+                  "right": 50
+                }
+              },
+              "operator": ">",
+              "right": 10
+            }
+          ]
+        },
+        "projection": [
+          {
+            "attribute_name": "name",
+            "of": "e_author"
+          }
+        ],
+        "limit": 3
+      }
+    ]
+  ]
+}
+
+[CANDIDATE JSON]
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "query_01",
+        "target": ["writer_id"],
+        "entities": [
+          { "id": "writer_id", "type": "Writer" },
+          { "id": "work_id", "type": "Publication" }
+        ],
+        "relationships": [
+          { "id": "w1", "role": "authored", "from": "writer_id", "to": "work_id" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "w1",
+            {
+              "left": {
+                "count_id": "work_id",
+                "condition": {
+                  "left": {
+                    "attribute_name": "cost",
+                    "of": "work_id"
+                  },
+                  "operator": ">",
+                  "right": 50
+                }
+              },
+              "operator": ">",
+              "right": 10
+            }
+          ]
+        },
+        "projection": [
+          {
+            "attribute_name": "name",
+            "of": "writer_id"
+          }
+        ],
+        "limit": 3
+      }
+    ]
+  ]
+}
+
+[EXPECTED OUTPUT]
+{
+  "rationale": "Perfect semantic faithfulness. Although the candidate uses synonyms ('Writer', 'Publication', 'cost') and different IDs, the logical intent—filtering by price > 50, count > 10, and projection of the name—is identical to the ground truth.",
+  "score": 1.0
+}
+
+=== EXAMPLE 2: CRITICAL SEMANTIC OMISSION (Score: 0.4) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"List the flights where every passenger is over 18 years old."
+
+[GROUND TRUTH JSON]
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["e_flight"],
+        "entities": [
+          { "id": "e_flight", "type": "Flight" },
+          { "id": "e_pass", "type": "Person" }
+        ],
+        "relationships": [
+          { "id": "r1", "role": "has_passenger", "from": "e_pass", "to": "e_flight" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "r1",
+            {
+              "all_id": "e_pass",
+              "condition": {
+                "left": {
+                  "attribute_name": "age",
+                  "of": "e_pass"
+                },
+                "operator": ">",
+                "right": 18
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+
+[CANDIDATE JSON]
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["e_flight"],
+        "entities": [
+          { "id": "e_flight", "type": "Flight" },
+          { "id": "e_pass", "type": "Person" }
+        ],
+        "relationships": [
+          { "id": "r1", "role": "has_passenger", "from": "e_pass", "to": "e_flight" }
+        ],
+        "constraint": {
+          "left": {
+            "attribute_name": "age",
+            "of": "e_pass"
+          },
+          "operator": ">",
+          "right": 18
+        }
+      }
+    ]
+  ]
+}
+
+[EXPECTED OUTPUT]
+{
+  "rationale": "Major semantic deviation. The candidate captures the age filter but completely omits the universal quantifier ('every passenger'). This changes the query from 'all passengers are adults' to 'at least one passenger is an adult', which fundamentally alters the search results.",
+  "score": 0.4
+}
+
+-------------------------
+OUTPUT FORMAT
+-------------------------
+
+You must return ONLY a valid JSON object with the following structure, without markdown code blocks:
+
+{
+  "rationale": "A brief explanation focusing on semantic alignment, logical intent, and coverage.",
+  "score": [Float between 0.0 and 1.0]
+}
