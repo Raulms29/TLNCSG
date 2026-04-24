@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-EVALUATOR_USER_PROMPT_TEMPLATE = """Please evaluate the following Semantic Parsing result.
+EVALUATOR_USER_PROMPT_TEMPLATE = """Please evaluate the following Semantic Parsing result according to the previously defined method and criteria.
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 {query_text}
@@ -14,8 +14,8 @@ EVALUATOR_USER_PROMPT_TEMPLATE = """Please evaluate the following Semantic Parsi
 [CANDIDATE JSON]
 {candidate_json}
 
-Carefully analyze the differences, consider valid semantic variations and ambiguity in the original query, and output your evaluation strictly in the requested JSON format."""
-
+Carefully analyze the data and output your evaluation strictly in the requested JSON format
+"""
 
 DEFAULT_GROUND_TRUTHS: dict[str, dict[str, Any]] = {
     "Q01": {

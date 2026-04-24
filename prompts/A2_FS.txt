@@ -39,8 +39,8 @@ QUERY := {
   "entities": ["ENTITY", "..."],
   // Entities (graph nodes) involved in the query
 
-  "relationships": ["RELATIONSHIP", "..."],
-  // Relationships (graph vertices) connecting the entities
+  "relationships?": ["RELATIONSHIP", "..."],
+  // Optional relationships (graph vertices) connecting the entities
 
   "constraint?": "CONDITION",
   // Logical filter over entities and or relationships
@@ -180,6 +180,7 @@ EVALUATION CRITERIA
 2. Relationship Coverage:
    - Are both explicit and implicit relationships described in the NL modeled?
    - Check whether the connection path (`from` / `to`) and the role accurately reflect the NL action.
+   - **Bidirectional Tolerance:** For inherently undirected relationships (e.g., "married to", "neighbor of"), accept a single directional edge (A -> B) as fully faithful. However, for mutually directed actions (e.g., "authors who cited each other"), both directional edges (A -> B AND B -> A) MUST be present to satisfy the semantic constraint.
 
 3. Constraint Capture:
    - Are all mentioned constraints (filters, thresholds, dates, names) present?
@@ -385,6 +386,68 @@ EXAMPLES
 {
   "rationale": "Major semantic deviation. The candidate captures the age filter but completely omits the universal quantifier ('every passenger'). This changes the query from 'all passengers are adults' to 'at least one passenger is an adult', which fundamentally alters the search results.",
   "score": 0.4
+}
+
+=== EXAMPLE 3: UNDIRECTED RELATIONSHIP TOLERANCE (Score: 1.0) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Which actors got married in 1980?"
+
+[GROUND TRUTH JSON]
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["a1", "a2"],
+        "entities": [
+          { "id": "a1", "type": "Actor" },
+          { "id": "a2", "type": "Actor" }
+        ],
+        "relationships": [
+          { "id": "r_mar1", "role": "MARRIED_TO", "from": "a1", "to": "a2" },
+          { "id": "r_mar2", "role": "MARRIED_TO", "from": "a2", "to": "a1" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "r_mar1", "r_mar2",
+            { "left": { "attribute_name": "year", "of": "r_mar1" }, "operator": "=", "right": 1980 }
+          ]
+        }
+      }
+    ]
+  ]
+}
+
+[CANDIDATE JSON]
+{
+  "hypotheses_set": [
+    [
+      {
+        "id": "q1",
+        "target": ["a1", "a2"],
+        "entities": [
+          { "id": "a1", "type": "Actor" },
+          { "id": "a2", "type": "Actor" }
+        ],
+        "relationships": [
+          { "id": "r_mar", "role": "MARRIED", "from": "a1", "to": "a2" }
+        ],
+        "constraint": {
+          "and_conditions": [
+            "r_mar",
+            { "left": { "attribute_name": "year", "of": "r_mar" }, "operator": "=", "right": 1980 }
+          ]
+        }
+      }
+    ]
+  ]
+}
+
+[EXPECTED OUTPUT]
+{
+  "rationale": "Perfect semantic faithfulness. Although the Candidate omitted the reverse relationship (a2 -> a1), 'MARRIED' is an inherently undirected concept. Modeling a single edge fully captures the semantic intent without penalizing for under-specification.",
+  "score": 1.0
 }
 
 -------------------------
