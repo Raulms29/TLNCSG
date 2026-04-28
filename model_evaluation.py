@@ -2,15 +2,6 @@ import utils
 from ollama import Client
 
 models = {
-    "llama3.1:8b": {
-        "enabled": True,
-        "display_name": "Llama 3.1 8B",
-        "parameters": "8B",
-        "supports_thinking": False,
-        "temperature": 0.1,
-        "g_cypher": True,
-        "g_sparql": True,
-    },
     "deepseek-r1:8b": {
         "enabled": True,
         "display_name": "DeepSeek R1 8B",
@@ -114,6 +105,15 @@ models = {
         "enabled": True,
         "display_name": "Qwen 3.6 35B-A3B",
         "parameters": "35B-A3B",
+        "supports_thinking": False,
+        "temperature": 0.1,
+        "g_cypher": True,
+        "g_sparql": True,
+    },
+    "llama3.1:8b": {
+        "enabled": True,
+        "display_name": "Llama 3.1 8B",
+        "parameters": "8B",
         "supports_thinking": False,
         "temperature": 0.1,
         "g_cypher": True,
