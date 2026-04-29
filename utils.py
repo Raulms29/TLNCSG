@@ -1,5 +1,6 @@
 import json
 import re
+import time
 import itertools
 from pathlib import Path
 from difflib import SequenceMatcher
@@ -74,6 +75,24 @@ def build_chat_messages(system_prompt: str, query: str) -> list[dict[str, str]]:
     ]
 
 
+def _call_ollama_with_retry(
+    ollama_client: Any, max_retries: int = 10, wait_seconds: int = 10, **kwargs
+) -> dict:
+    """Wrapper to retry Ollama API calls on failure."""
+    for attempt in range(max_retries):
+        try:
+            return ollama_client.chat(**kwargs)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"Ollama call failed after {max_retries} attempts.")
+                return {"message": {"content": ""}}
+            print(
+                f"Ollama call failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_seconds} seconds..."
+            )
+            time.sleep(wait_seconds)
+    return {"message": {"content": ""}}
+
+
 def call_ollama(
     ollama_client: Any,
     model_name: str,
@@ -84,14 +103,15 @@ def call_ollama(
     format_json: bool = False,
 ) -> str:
     """Generic Ollama server call used across the project."""
-    response = ollama_client.chat(
+    response = _call_ollama_with_retry(
+        ollama_client=ollama_client,
         model=model_name,
         messages=build_chat_messages(system_prompt, query),
         options=dict(options or {}),
         think=thinking,
     )
     content = response["message"]["content"]
-    return _format_json_response(content) if format_json else content
+    return _format_json_response(content) if format_json and content else content
 
 
 def run_ollama_once(
@@ -133,13 +153,14 @@ def run_ollama_once_with_metadata(
     """
     options = dict(base_options)
     options["temperature"] = float(temperature)
-    response = ollama_client.chat(
+    response = _call_ollama_with_retry(
+        ollama_client=ollama_client,
         model=model_name,
         messages=build_chat_messages(system_prompt, query),
         options=options,
         think=thinking,
     )
-    content = response["message"]["content"]
+    content = response.get("message", {}).get("content", "")
 
     total_ns = int(response.get("total_duration", 0) or 0)
     prompt_eval_ns = int(response.get("prompt_eval_duration", 0) or 0)
