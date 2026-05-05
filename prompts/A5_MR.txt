@@ -5,69 +5,57 @@ You must evaluate exclusively for bloat, redundancy, and unnecessary elements. D
 Output a minimality score as a continuous value between 0.0 and 1.0.
 
 -------------------------
-GRAMMAR (treat the following as a formal specification, not prose)
+
+GRAMMAR
+
 -------------------------
+HYPOTHESES_SET := { "hypotheses_set": [HYPOTHESIS, ...] }
 
-HYPOTHESES_SET := {
-  "hypotheses_set": [HYPOTHESIS, ...]
-}
-// A closed set of independent hypotheses (no relationships between them)
-
-HYPOTHESIS := [QUERY, ...]
-// Ordered sequence of queries.
-// Each QUERY can consume results from previous ones using `input`.
+HYPOTHESIS := [QUERY, ...] 
 
 QUERY := {
-  "id": "QUERY_ID",
-  "input?": "QUERY_ID",
-  "target": ["ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION", "..."],
-  "entities": ["ENTITY", "..."],
-  "relationships?": ["RELATIONSHIP", "..."],
-  "constraint?": "CONDITION",
-  "projection?": ["EXPRESSION", "..."],
-  "distinct?": "BOOLEAN",
-  "order_by?": ["ORDER_CRITERION", "..."],
-  "limit?": "NUMBER"
+  id: QUERY_ID, 
+  input?: QUERY_ID,
+  target: [ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION, ...],
+  entities: [ENTITY, ...], 
+  relationships?: [RELATIONSHIP, ...], 
+  constraint?: CONDITION,
+  projection?: [EXPRESSION, ...],
+  distinct?: BOOLEAN,
+  order_by?: [ORDER_CRITERION, ...],
+  limit?: NUMBER
 }
 
-ENTITY := {
-  "id": "ENTITY_ID",
-  "type": "TYPE"
-}
+ENTITY := { id: ENTITY_ID, type: TYPE }
+RELATIONSHIP := { id: RELATIONSHIP_ID, role: ROLE, from: ENTITY_ID, to: ENTITY_ID }
+ATTRIBUTE := { attribute_name: NAME, of: ENTITY_ID | RELATIONSHIP_ID }
+COUNT := { count_id: ENTITY_ID | RELATIONSHIP_ID, condition?: CONDITION }
+SUMMATION := { summation_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
+MAX := { max_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
+MIN := { min_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
+ORDER_CRITERION := { expression: EXPRESSION, direction?: "ASC" | "DESC" }
+EXISTS := { exists_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION }
+ALL := { all_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION  }
 
-RELATIONSHIP := {
-  "id": "RELATIONSHIP_ID",
-  "role": "ROLE",
-  "from": "ENTITY_ID",
-  "to": "ENTITY_ID"
-}
+CONDITION := AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID
+AND := { and_conditions: [CONDITION, ...] }
+OR := { or_conditions: [CONDITION, ...] }
+NOT := { not_condition: CONDITION }
+COMPARISON := { left: EXPRESSION, operator: COMPARISON_OPERATOR, right: EXPRESSION }
+COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">=" 
+ADDRESSABLE_EXPRESSION := { expression_ID: EXPRESSION_ID, expression: EXPRESSION }
+EXPRESSION := NUMBER | STRING | ATTRIBUTE | COUNT | SUMMATION | MAX | MIN | EXPRESSION_ID
 
-ATTRIBUTE := { "attribute_name": "NAME", "of": "ENTITY_ID | RELATIONSHIP_ID" }
-COUNT := { "count_id": "ENTITY_ID | RELATIONSHIP_ID", "condition?": "CONDITION" }
-SUMMATION := { "summation_id": "ENTITY_ID | RELATIONSHIP_ID", "expression": "EXPRESSION", "condition?": "CONDITION" }
-MAX := { "max_id": "ENTITY_ID | RELATIONSHIP_ID", "expression": "EXPRESSION", "condition?": "CONDITION" }
-MIN := { "min_id": "ENTITY_ID | RELATIONSHIP_ID", "expression": "EXPRESSION", "condition?": "CONDITION" }
-ORDER_CRITERION := { "expression": "EXPRESSION", "direction?": "ASC | DESC" }
-EXISTS := { "exists_id": "ENTITY_ID | RELATIONSHIP_ID", "condition": "CONDITION" }
-ALL := { "all_id": "ENTITY_ID | RELATIONSHIP_ID", "condition": "CONDITION" }
-
-CONDITION := "AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID"
-AND := { "and_conditions": ["CONDITION", "..."] }
-OR := { "or_conditions": ["CONDITION", "..."] }
-NOT := { "not_condition": "CONDITION" }
-COMPARISON := { "left": "EXPRESSION", "operator": "COMPARISON_OPERATOR", "right": "EXPRESSION" }
-COMPARISON_OPERATOR := "= | != | > | < | <= | >="
-ADDRESSABLE_EXPRESSION := { "expression_ID": "EXPRESSION_ID", "expression": "EXPRESSION" }
-EXPRESSION := "NUMBER" | "STRING" | "ATTRIBUTE" | "COUNT" | "SUMMATION" | "MAX" | "MIN" | "EXPRESSION_ID"
-
-TYPE := "STRING"
-ROLE := "STRING"
-NAME := "STRING"
-NUMBER := "FLOAT | INTEGER"
-BOOLEAN := "true | false"
+TYPE := STRING
+ROLE := STRING
+NAME := STRING
+NUMBER := FLOAT | INTEGER
+BOOLEAN := true | false
 
 -------------------------
+
 EVALUATION CRITERIA
+
 -------------------------
 
 1. Unused or Orphaned Elements:
@@ -86,7 +74,9 @@ EVALUATION CRITERIA
    - Are simple conditions unnecessarily wrapped in deep, redundant logical blocks? (e.g., wrapping a single comparison inside an `and_conditions` which is inside another `and_conditions`).
 
 -------------------------
+
 SCORING METRICS
+
 -------------------------
 
 Assign a continuous score between 0.0 and 1.0:
@@ -104,7 +94,9 @@ Assign a continuous score between 0.0 and 1.0:
   Highly bloated and redundant. Massive duplication of logic, numerous orphaned entities, redundant graph paths, and excessively deep/unnecessary constraint nesting.
 
 -------------------------
+
 EXAMPLES
+
 -------------------------
 
 === EXAMPLE 1: PERFECT MINIMALITY (Score: 1.0) ===
@@ -230,7 +222,9 @@ EXAMPLES
 }
 
 -------------------------
+
 OUTPUT FORMAT
+
 -------------------------
 
 You must return ONLY a valid JSON object with the following structure, without markdown code blocks:

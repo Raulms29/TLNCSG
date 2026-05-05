@@ -5,169 +5,57 @@ You must evaluate exclusively structural integrity, grammar compliance, and inte
 Do NOT evaluate semantic accuracy, synonyms, or logical meaning in this step. Even if the Candidate is semantically "better" than the Ground Truth, if it breaks the grammar, it must be penalized.
 
 -------------------------
-GRAMMAR (treat the following as a formal specification, not prose)
+
+GRAMMAR
+
 -------------------------
+HYPOTHESES_SET := { "hypotheses_set": [HYPOTHESIS, ...] }
 
-HYPOTHESES_SET := {
-  "hypotheses_set": [HYPOTHESIS, ...]
-}
-// A JSON object containing a list of independent hypotheses (no relationships between them)
-
-HYPOTHESIS := [QUERY, ...]
-// Ordered sequence of queries.
-// Each QUERY can consume results from previous ones using `input`.
+HYPOTHESIS := [QUERY, ...] 
 
 QUERY := {
-  "id": "QUERY_ID",
-  // one new fresh ID per query
-  // Unique identifier of the query
-
-  "input?": "QUERY_ID",
-  // existing ID in the JSON document
-  // If present, this query operates on the result of a previous query.
-  // Queries can refer directly target IDs of the input queries
-  // Enables query composition (query over query)
-
-  "target": ["ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION", "..."],
-  // ENTITY_ID and RELATIONSHIP_ID are existing IDs in the JSON document
-  // Elements that define the output of the query.
-  // Can include:
-  // - entities
-  // - relationships
-  // - expressions (scalar values)
-
-  "entities": ["ENTITY", "..."],
-  // Entities (graph nodes) involved in the query
-
-  "relationships?": ["RELATIONSHIP", "..."],
-  // Optional relationships (graph edges) connecting the entities
-
-  "constraint?": "CONDITION",
-  // Logical filter over entities and/or relationships
-
-  "projection?": ["EXPRESSION", "..."],
-  // Explicit definition of output columns
-
-  "distinct?": "BOOLEAN",
-  // If true, removes duplicate results, otherwise duplicates are allowed
-
-  "order_by?": ["ORDER_CRITERION", "..."],
-  // Defines how results should be sorted
-
-  "limit?": "NUMBER"
-  // Limits the number of results (TOP-N behavior)
+  id: QUERY_ID, 
+  input?: QUERY_ID,
+  target: [ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION, ...],
+  entities: [ENTITY, ...], 
+  relationships?: [RELATIONSHIP, ...], 
+  constraint?: CONDITION,
+  projection?: [EXPRESSION, ...],
+  distinct?: BOOLEAN,
+  order_by?: [ORDER_CRITERION, ...],
+  limit?: NUMBER
 }
 
-ENTITY := {
-  "id": "ENTITY_ID",
-  // new fresh unique ID of the entity
+ENTITY := { id: ENTITY_ID, type: TYPE }
+RELATIONSHIP := { id: RELATIONSHIP_ID, role: ROLE, from: ENTITY_ID, to: ENTITY_ID }
+ATTRIBUTE := { attribute_name: NAME, of: ENTITY_ID | RELATIONSHIP_ID }
+COUNT := { count_id: ENTITY_ID | RELATIONSHIP_ID, condition?: CONDITION }
+SUMMATION := { summation_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
+MAX := { max_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
+MIN := { min_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
+ORDER_CRITERION := { expression: EXPRESSION, direction?: "ASC" | "DESC" }
+EXISTS := { exists_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION }
+ALL := { all_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION  }
 
-  "type": "TYPE"
-  // Semantic type (e.g., "Person", "Movie", "Author"). This is domain dependent.
-}
+CONDITION := AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID
+AND := { and_conditions: [CONDITION, ...] }
+OR := { or_conditions: [CONDITION, ...] }
+NOT := { not_condition: CONDITION }
+COMPARISON := { left: EXPRESSION, operator: COMPARISON_OPERATOR, right: EXPRESSION }
+COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">=" 
+ADDRESSABLE_EXPRESSION := { expression_ID: EXPRESSION_ID, expression: EXPRESSION }
+EXPRESSION := NUMBER | STRING | ATTRIBUTE | COUNT | SUMMATION | MAX | MIN | EXPRESSION_ID
 
-RELATIONSHIP := {
-  "id": "RELATIONSHIP_ID",
-  // new fresh unique ID of the relationship
-
-  "role": "ROLE",
-  // Type of relationship (e.g., "FRIEND", "ACTED_IN"). It depends on the domain
-
-  "from": "ENTITY_ID",
-  // existing ID of an entity in the JSON document
-
-  "to": "ENTITY_ID"
-  // existing ID of an entity in the JSON document
-}
-
-ATTRIBUTE := {
-  "attribute_name": "NAME",
-  "of": "ENTITY_ID | RELATIONSHIP_ID"
-}
-
-COUNT := {
-  "count_id": "ENTITY_ID | RELATIONSHIP_ID",
-  "condition?": "CONDITION"
-}
-
-SUMMATION := {
-  "summation_id": "ENTITY_ID | RELATIONSHIP_ID",
-  "expression": "EXPRESSION",
-  "condition?": "CONDITION"
-}
-
-MAX := {
-  "max_id": "ENTITY_ID | RELATIONSHIP_ID",
-  "expression": "EXPRESSION",
-  "condition?": "CONDITION"
-}
-
-MIN := {
-  "min_id": "ENTITY_ID | RELATIONSHIP_ID",
-  "expression": "EXPRESSION",
-  "condition?": "CONDITION"
-}
-
-ORDER_CRITERION := {
-  "expression": "EXPRESSION",
-  "direction?": "ASC" | "DESC"
-}
-
-EXISTS := {
-  "exists_id": "ENTITY_ID | RELATIONSHIP_ID",
-  "condition": "CONDITION"
-}
-
-ALL := {
-  "all_id": "ENTITY_ID | RELATIONSHIP_ID",
-  "condition": "CONDITION"
-}
-
-CONDITION := "AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID"
-
-AND := {
-  "and_conditions": ["CONDITION", "..."]
-}
-
-OR := {
-  "or_conditions": ["CONDITION", "..."]
-}
-
-NOT := {
-  "not_condition": "CONDITION"
-}
-
-COMPARISON := {
-  "left": "EXPRESSION",
-  "operator": "COMPARISON_OPERATOR",
-  "right": "EXPRESSION"
-}
-
-COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">="
-
-ADDRESSABLE_EXPRESSION := {
-  "expression_ID": "EXPRESSION_ID",
-  "expression": "EXPRESSION"
-}
-
-EXPRESSION :=
-    "NUMBER"
-  | "STRING"
-  | "ATTRIBUTE"
-  | "COUNT"
-  | "SUMMATION"
-  | "MAX"
-  | "MIN"
-  | "EXPRESSION_ID"
-
-TYPE := "STRING"
-ROLE := "STRING"
-NAME := "STRING"
-NUMBER := "FLOAT | INTEGER"
-BOOLEAN := "true | false"
+TYPE := STRING
+ROLE := STRING
+NAME := STRING
+NUMBER := FLOAT | INTEGER
+BOOLEAN := true | false
 
 -------------------------
+
 EVALUATION CRITERIA
+
 -------------------------
 
 1. JSON Validity & Root Structure:
@@ -186,7 +74,9 @@ EVALUATION CRITERIA
    - No dangling pointers.
 
 -------------------------
+
 SCORING METRICS
+
 -------------------------
 
 - 1.0 (Yes):
@@ -201,7 +91,9 @@ SCORING METRICS
   Root is a raw array instead of an object. Dangling references.
 
 -------------------------
+
 EXAMPLES
+
 -------------------------
 
 === EXAMPLE 1: COMPLEX ANALYTIC QUERY (Score: 1.0) ===
@@ -394,7 +286,9 @@ EXAMPLES
 }
 
 -------------------------
+
 OUTPUT FORMAT
+
 -------------------------
 
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:
