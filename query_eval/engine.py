@@ -13,7 +13,6 @@ import utils
 from .config import normalize_criteria_config
 from .defaults import DEFAULT_GROUND_TRUTHS, EVALUATOR_USER_PROMPT_TEMPLATE
 
-
 safe_name = utils._safe_name
 
 
@@ -94,7 +93,8 @@ def _evaluate_candidate(
         candidate_json=candidate_json,
     )
 
-    response = ollama_client.chat(
+    response = utils._call_ollama_with_retry(
+        ollama_client=ollama_client,
         model=evaluator_model,
         messages=[
             {"role": "system", "content": evaluator_system_prompt},
@@ -104,7 +104,7 @@ def _evaluate_candidate(
         think=bool(evaluator_thinking),
     )
 
-    raw_response = response["message"]["content"]
+    raw_response = response.get("message", {}).get("content", "")
     score, rationale, error = _parse_eval_response(raw_response)
     return score, rationale, error, raw_response
 
@@ -142,9 +142,10 @@ def evaluate_execution_file(
         )
 
     evaluated_rows: list[dict[str, Any]] = []
+
+    valid_rows = []
     for _, row in df.iterrows():
         query_id = str(row.get("Query ID", "")).strip()
-        query_text = str(row.get("Query", "")).strip()
         row_model = str(row.get("Model", "")).strip()
 
         if selected_query_ids and query_id not in selected_query_ids:
@@ -152,15 +153,34 @@ def evaluate_execution_file(
         if test_model and row_model != str(test_model).strip():
             continue
 
-        candidate_raw = str(row.get("Response", ""))
-        candidate_json = clean_json_response(candidate_raw)
+        valid_rows.append(row)
 
-        ground_truth_obj = ground_truths.get(query_id)
-        ground_truth_json = ground_truth_to_json_text(ground_truth_obj)
+    for criteria_idx, (criterion_id, criterion_cfg) in enumerate(
+        criteria_config.items(), start=1
+    ):
+        print(
+            f"    - Evaluating Criterion {criterion_id} [{criteria_idx}/{len(criteria_config)}]"
+        )
 
-        for criterion_id, criterion_cfg in criteria_config.items():
-            if query_id not in criterion_cfg["query_ids"]:
-                continue
+        applicable_rows = [
+            r
+            for r in valid_rows
+            if str(r.get("Query ID", "")).strip() in criterion_cfg["query_ids"]
+        ]
+        total_runs = len(applicable_rows)
+
+        for run_idx, row in enumerate(applicable_rows, start=1):
+            if run_idx % 5 == 0 or run_idx == 1 or run_idx == total_runs:
+                print(f"      - Run [{run_idx}/{total_runs}]")
+
+            query_id = str(row.get("Query ID", "")).strip()
+            query_text = str(row.get("Query", "")).strip()
+
+            candidate_raw = str(row.get("Response", ""))
+            candidate_json = clean_json_response(candidate_raw)
+
+            ground_truth_obj = ground_truths.get(query_id)
+            ground_truth_json = ground_truth_to_json_text(ground_truth_obj)
 
             score, rationale, error, eval_raw = _evaluate_candidate(
                 ollama_client=ollama_client,
@@ -547,6 +567,50 @@ def evaluate_summary_folder(
         per_file_paths.append(str(file_out))
 
         all_frames.append(evaluated_df)
+
+        # Actualizar archivos acumulativos parciales para evitar pérdidas en caso de error
+        partial_df = pd.concat(all_frames, ignore_index=True)
+        partial_df.to_csv(
+            output_dir / f"evaluation_all_runs_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+
+        p_aggs = _aggregate_outputs(partial_df, criteria_config=normalized_criteria)
+        p_aggs[0].to_csv(
+            output_dir
+            / f"evaluation_model_mode_query_criterion_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+        p_aggs[1].to_csv(
+            output_dir
+            / f"evaluation_model_mode_criterion_overall_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+        p_aggs[2].to_csv(
+            output_dir
+            / f"evaluation_query_criterion_overall_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+        p_aggs[3].to_csv(
+            output_dir / f"evaluation_model_mode_query_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+        p_aggs[4].to_csv(
+            output_dir / f"evaluation_model_mode_overall_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+        p_aggs[5].to_csv(
+            output_dir / f"evaluation_query_overall_partial_{execution_id}.csv",
+            index=False,
+            encoding="utf-8",
+        )
+        print("    Updated partial global summary files.")
 
     if not all_frames:
         raise ValueError("No rows matched the selected test filters")

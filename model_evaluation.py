@@ -181,7 +181,14 @@ queries = [
 ]
 
 OLLAMA_SERVER = "http://156.35.95.33:11434"
-OLLAMA_OPTIONS = {}
+OLLAMA_OPTIONS = {
+    # Limita la respuesta generada. Sabiendo que el 95% de las respuestas válidas
+    # se resuelven en < 1200 tokens y la mediana en 200.
+    "num_predict": 2048,
+    # Define el tamaño de contexto total (entrada + salida esperada).
+    # He tenido prompts de hasta 4096 tokens.
+    "num_ctx": 8192,
+}
 
 SYSTEM_PROMPT_PATH = "prompts/SYSTEM_PROMPT.txt"
 SYSTEM_PROMPT = utils.load_prompt_file(SYSTEM_PROMPT_PATH)

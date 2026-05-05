@@ -465,6 +465,9 @@ def compute_model_mode_metrics(
 
     temperature = float(model_config["temperature"])
     for run_idx in range(1, runs_per_model + 1):
+        if run_idx % 5 == 0 or run_idx == 1 or run_idx == runs_per_model:
+            print(f"      - Run [{run_idx}/{runs_per_model}]")
+
         for query in queries:
             response, inference_seconds, response_meta = run_ollama_once_with_metadata(
                 ollama_client=ollama_client,
