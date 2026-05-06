@@ -1,0 +1,7202 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,116.891214,True,stop,3360,0.880001,424,114.886751,3.6906,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_movie_cast"",
+            ""role"": ""also_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_same_movie_cast"",
+                    {
+                      ""left"": {
+                        ""attribute_name"": ""birth_year"",
+                        ""of"": ""e_actor""
+                      },
+                      ""operator"": ""="",
+                      ""right"": {
+                        ""attribute_name"": ""birth_year"",
+                        ""of"": ""e_other_actor""
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+2,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,481.152085,False,stop,3360,0.272424,1702,478.295673,3.5585,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    {
+                      ""exists_id"": ""e_other_actor"",
+                      ""condition"": {
+                        ""and_conditions"": [
+                          {
+                            ""id"": ""e_other_actor_rel"",
+                            ""input"": ""q1""
+                          },
+                          {
+                            ""left"": {
+                              ""attribute_name"": ""birth_year"",
+                              ""of"": ""e_actor""
+                            },
+                            ""operator"": ""="",
+                            ""right"": {
+                              ""attribute_name"": ""birth_year"",
+                              ""of"": ""e_other_actor""
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        ]
+      }
+    ]
+  ]
+}
+```
+
+Wait, the grammar for self-referential logic in a single query is tricky. Let me refine the `count_id` condition to be strictly within the scope of the provided grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    {
+                      ""exists_id"": ""e_other_actor"",
+                      ""condition"": {
+                        ""and_conditions"": [
+                          {
+                            ""id"": ""r_other_cast"",
+                            ""input"": ""q1""
+                          },
+                          {
+                            ""left"": {
+                              ""attribute_name"": ""birth_year"",
+                              ""of"": ""e_actor""
+                            },
+                            ""operator"": ""="",
+                            ""right"": {
+                              ""attribute_name"": ""birth_year"",
+                              ""of"": ""e_other_actor""
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        ]
+      }
+    ]
+  ]
+}
+```
+
+Actually, looking at the grammar, `EXISTS` is used for checking presence. I will use a cleaner approach for the ""same year as another"" logic.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    {
+                      ""exists_id"": ""e_other_actor"",
+                      ""condition"": {
+                        ""and_conditions"": [
+                          {
+                            ""id"": ""r_other_cast"",
+                            ""input"": ""q1""
+                          },
+                          {
+                            ""left"": {
+                              ""attribute_name"": ""birth_year"",
+                              ""of"": ""e_actor""
+                            },
+                            ""operator"": ""="",
+                            ""right"": {
+                              ""attribute_name"": ""birth_year"",
+                              ""of"": ""e_other_actor""
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, the grammar doesn't explicitly support `input` in `AND`. I will simplify the logic to represent the semantic intent within the constraints of the provided grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    {
+                      ""exists_id"": ""e_other_actor"",
+                      ""condition"": {
+                        ""left"": {
+                          ""attribute_name"": ""birth_year"",
+                          ""of"": ""e_actor""
+                        },
+                        ""operator"": ""="",
+                        ""right"": {
+                          ""attribute_name"": ""birth_year"",
+                          ""of"": ""e_other_actor""
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+3,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,192.287624,True,stop,3360,0.282335,683,190.544656,3.5845,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""role"": ""shares_birth_year"",
+                    ""from"": ""e_actor"",
+                    ""to"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I need to represent the ""same year as another actor"" logic more precisely within the constraints. Let's refine the `count_id` condition.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+4,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,513.58139,True,stop,3360,0.283419,1801,510.540516,3.5276,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is to use the `count_id` on the entity `e_actor` with a condition that checks for the existence of the shared birth year relationship.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"":
+              ""e_other_actor"",
+            ""to"":
+              ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"":
+              ""e_actor"",
+            ""to"":
+              ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final check on the grammar: `count_id` takes an `ENTITY_ID` and an optional `CONDITION`. The condition can be an `AND`.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+5,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,193.95711,True,stop,3360,0.280702,683,192.261972,3.5524,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""role"": ""shares_birth_year"",
+                    ""from"": ""e_actor"",
+                    ""to"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I need to represent the ""same year as another actor"" logic more precisely within the constraints. Let's refine the `count_id` condition.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+6,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,512.698002,True,stop,3360,0.285466,1801,509.433499,3.5353,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is to use the `count_id` on the entity `e_actor` with a condition that checks for the existence of the shared birth year relationship.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"":
+              ""e_other_actor"",
+            ""to"":
+              ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"":
+              ""e_actor"",
+            ""to"":
+              ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final check on the grammar: `count_id` takes an `ENTITY_ID` and an optional `CONDITION`. The condition can be an `AND`.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+7,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,195.448738,True,stop,3360,0.284977,683,193.651568,3.527,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""role"": ""shares_birth_year"",
+                    ""from"": ""e_actor"",
+                    ""to"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I need to represent the ""same year as another actor"" logic more precisely within the constraints. Let's refine the `count_id` condition.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+8,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,195.156976,True,stop,3360,0.31345,683,193.44667,3.5307,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""role"": ""shares_birth_year"",
+                    ""from"": ""e_actor"",
+                    ""to"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I need to represent the ""same year as another actor"" logic more precisely within the constraints. Let's refine the `count_id` condition.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+9,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,225.697902,True,stop,3360,0.285015,793,223.891333,3.5419,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor' requires a self-referential check on the actor entity within the context of the same movie.""
+      }
+    ],
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+10,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,583.834084,True,length,3360,0.276126,2048,580.239645,3.5296,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I must strictly follow the provided structure. Let's refine the `constraint` to be valid according to the grammar provided.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the grammar doesn't allow for arbitrary ""RelationshipCheck"". I must use the provided `EXISTS` or `ALL` or `COUNT`. Let's use `COUNT` with a condition that checks for the existence of another actor with the same birth year.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, the grammar doesn't support `e_actor_2` as a variable. I will model the core requirement: a movie where the count of actors meeting a specific condition (having a peer with the same birth year) is > 4.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                    ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_peer_year""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Since the grammar is strictly schema-independent and doesn't allow for variable binding (like `e_actor_2`), the most accurate way to represent the *intent* within the provided grammar is to focus on the count of actors in the movie that satisfy the existence of a shared attribute.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""shared_birth_year""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, looking at the examples, the grammar is quite limited for complex self-joins. I will provide the most logical interpretation possible.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"
+11,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,584.118212,True,length,3360,0.281303,2048,580.733755,3.5266,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+12,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,580.416507,True,length,3360,0.282521,2048,577.075028,3.5489,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+13,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,225.196824,True,stop,3360,0.283612,793,223.360434,3.5503,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor' requires a self-referential check on the actor entity within the context of the same movie.""
+      }
+    ],
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""shared_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+14,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,517.766683,True,stop,3360,0.283853,1827,514.722144,3.5495,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who satisfy a condition]"" using the provided grammar is to use a `count_id` on the entity `e_actor` with a condition that checks for the existence of the shared birth year relationship.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"":
+              ""e_other_actor"",
+            ""to"":
+              ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"":
+              ""e_actor"",
+            ""to"":
+              ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final check on the grammar: `count_id` is an `EXPRESSION`. `condition` inside `count_id` is a `CONDITION`. `r_in_movie` is a `RELATIONSHIP_ID` which is a `CONDITION`. This is valid.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+15,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,580.999612,True,length,3360,0.28134,2048,577.498568,3.5463,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who satisfy a condition]"" using the provided grammar is to use a `count_id` on the primary entity type being filtered.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_shared_year"",
+                  ""condition"": {
+                    ""id"": ""r_shared_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Since the grammar doesn't allow for complex self-joins or arbitrary existential quantification of secondary entities without defining them, I will provide the most structurally sound version that follows the `count_id` pattern for the primary constraint.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_other_birth_year""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final attempt at a clean, valid JSON following the grammar strictly:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_duplicate""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Wait, the `right` value in `COMPARISON` must be a `NUMBER`, `STRING`, `ATTRIBUTE`, `COUNT`, `SUMMATION`, `MAX`, `MIN`, or `EXPRESSION_ID`. `e_actor_duplicate` is an `EXPRESSION_ID`. This is valid.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie"
+16,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,580.191771,True,length,3360,0.282558,2048,576.67075,3.5514,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+17,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,581.167194,True,length,3360,0.282539,2048,577.67272,3.5453,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+18,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,581.073035,True,length,3360,0.285059,2048,577.720127,3.545,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+19,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,517.051635,True,stop,3360,0.285915,1827,513.920667,3.555,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who satisfy a condition]"" using the provided grammar is to use a `count_id` on the entity `e_actor` with a condition that checks for the existence of the shared birth year relationship.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"":
+              ""e_other_actor"",
+            ""to"":
+              ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"":
+              ""e_actor"",
+            ""to"":
+              ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final check on the grammar: `count_id` is an `EXPRESSION`. `condition` inside `count_id` is a `CONDITION`. `r_in_movie` is a `RELATIONSHIP_ID` which is a `CONDITION`. This is valid.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+20,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,512.472975,True,stop,3360,0.281287,1809,509.263428,3.5522,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is to use the `count_id` on the entity `e_actor` with a condition that checks for the existence of the shared birth year relationship.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"":
+              ""e_other_actor"",
+            ""to"":
+              ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"":
+              ""e_actor"",
+            ""to"":
+              ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final check on the grammar: `count_id` takes an `ENTITY_ID` or `RELATIONSHIP_ID` and an optional `condition`. The condition can be an `AND`.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""born_same_year_as"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+21,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,580.9273,True,length,3360,0.280192,2048,577.435529,3.5467,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypothesies_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_actor_in_movie"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_actor_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_shared_year"",
+                  ""condition"": {
+                    ""id"": ""r_shared_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `exists_id` to take a `condition` that is a `Relationship`. It only allows `EXISTS` to check for a relationship/entity without attribute filtering.
+
+Let's try again, strictly following the grammar:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_other_birth_year""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar is quite restrictive for self-joins. I will provide the most logical interpretation allowed by the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_duplicate""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Wait, the `right` in `COMPARISON` must be a `NUMBER`, `STRING`, `ATTRIBUTE`, `COUNT`, `SUMMATION`, `MAX`, `MIN`, or `EXPRESSION_ID`. `e_actor_duplicate` is not a valid expression ID in the grammar.
+
+Final attempt at a valid JSON following the grammar:
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        "
+22,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,194.018123,True,stop,3360,0.276214,683,192.33194,3.5512,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""role"": ""shares_birth_year"",
+                    ""from"": ""e_actor"",
+                    ""to"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I need to represent the ""same year as another actor"" logic more precisely within the constraints. Let's refine the `count_id` condition.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+23,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,581.122106,True,length,3360,0.283002,2048,577.8195,3.5444,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+24,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,496.024225,True,stop,3360,0.287255,1750,493.052324,3.5493,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""role"": ""shares_birth_year"",
+                    ""from"": ""e_actor"",
+                    ""to"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar and the logic for ""born in the same year as another actor in the cast"", I need to represent the self-relationship or the comparison of attributes. Let's refine the constraint to be more precise within the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth_year"",
+                  ""condition"": {
+                    ""and_conditions"": [
+                      ""r_cast"",
+                      {
+                        ""left"": {
+                          ""attribute_name"": ""birth_year"",
+                          ""of"": ""e_actor""
+                        },
+                        ""operator"": ""="",
+                        ""right"": {
+                          ""attribute_name"": ""birth_year"",
+                          ""of"": ""e_actor_other""
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the grammar doesn't allow for an ""e_actor_other"" variable declaration inside a constraint easily without a relationship. Let's use the relationship to link the two actors.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_same_year"",
+                    {
+                      ""left"": {
+                        ""attribute_name"": ""birth_year"",
+                        ""of"": ""e_actor_1""
+                      },
+                      ""operator"": ""="",
+                      ""right"": {
+                        ""attribute_name"": ""birth_year"",
+                        ""of"": ""e_actor_2""
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final attempt at a clean, valid IR:
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_other_in_movie"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_same_birth_year"",
+                    {
+                      ""left"": {
+                        ""attribute_name"": ""birth_year"",
+                        ""of"": ""e_actor""
+                      },
+                      ""operator"": ""="",
+                      ""right"": {
+                        ""attribute_name"": ""birth_year"",
+                        ""of"": ""e_other_actor""
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+25,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,581.300884,True,length,3360,0.279149,2048,577.971682,3.5434,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who satisfy a condition]"" using the provided grammar is to use a `count_id` on the primary entity type being filtered.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_shared_year"",
+                  ""condition"": {
+                    ""id"": ""r_shared_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Since the grammar doesn't allow for complex self-joins or arbitrary existential quantification of secondary entities without defining them, I will provide the most structurally sound version that follows the `count_id` pattern for the primary constraint.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_other_birth_year""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Final attempt at a clean, valid JSON following the grammar strictly:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_duplicate""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Wait, the `right` value in `COMPARISON` must be a `NUMBER`, `STRING`, `ATTRIBUTE`, `COUNT`, `SUMMATION`, `MAX`, `MIN`, or `EXPRESSION_ID`. `e_actor_duplicate` is an `EXPRESSION_ID`. This is valid.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie"
+26,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,581.212964,True,length,3360,0.282477,2048,577.86831,3.5441,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+27,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,223.009154,True,stop,3360,0.283437,788,221.19735,3.5624,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor' requires a self-referential check on the actor entity within the context of the movie's cast.""
+      }
+    ],
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth_year"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth_year""
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+28,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,517.470219,True,stop,3360,0.284498,1827,514.12953,3.5536,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I must strictly follow the provided structure. Let's refine the `constraint` to be valid according to the grammar provided.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the grammar doesn't allow for arbitrary ""RelationshipCheck"". I must use the provided `EXISTS` or `ALL` or `COUNT`. Let's use `COUNT` with a condition that checks for the existence of another actor with the same birth year.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor_sibling_year""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Since the grammar is strictly limited, and I cannot define a new variable `e_actor_sibling_year`, I will represent the semantic intent using the most valid structural approximation allowed by the grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+*Self-correction*: The grammar doesn't support comparing an attribute to an entity directly in a way that implies ""another"" entity. However, I will provide the most logically sound JSON following the provided rules.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""e_actor""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+29,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,580.981988,True,length,3360,0.28106,2048,577.582727,3.5458,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth"",
+            ""role"": ""share_birth_year"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            ""r_same_birth"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_birth"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_1""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor_2""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_same_year"",
+                  ""condition"": {
+                    ""id"": ""r_same_year"",
+                    ""type"": ""Relationship""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, I must follow the grammar exactly. The grammar does not allow `type: ""Relationship""`. I will use the most direct interpretation of the text.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, the grammar doesn't allow comparing an attribute to itself in a way that implies a *different* entity without a second entity ID. However, I will provide the most logical semantic mapping possible within the constraints.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_cast"",
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": {
+                      ""attribute_name"": ""birth_year"",
+                      ""of"": ""e_actor""
+                    }
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules:
+
+```json
+{
+  ""hypotheses_set"": [
+    ["
+30,Q02,Give me the movies that have more than four actors born in the same year as another actor in the cast,gemma4:26b,False,0.05,381.009323,True,stop,3360,0.2844,1348,378.509577,3.5613,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""exists_id"": ""r_duplicate_birth"",
+                  ""condition"": {
+                    ""id"": ""r_duplicate_birth"",
+                    ""type"": ""RelationshipCheck""
+                  }
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            },
+            {
+              ""exists_id"": ""r_duplicate_birth"",
+              ""condition"": {
+                ""id"": ""r_duplicate_birth"",
+                ""type"": ""RelationshipCheck""
+              }
+            }
+          ]
+        },
+        ""note"": ""The logic for 'born in the same year as another actor in the cast' requires a self-referential check on actors within the same movie context. In a schema-independent IR, this is represented by the existence of a relationship between two actors sharing a birth year attribute within the same movie scope.""
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar, I cannot define a ""RelationshipCheck"" type. I must use the provided grammar. Let's refine the logic to be strictly within the grammar.
+
+```json
+{
+  ""hypothesies_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor_1"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_actor_2"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_cast_1"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_cast_2"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor_2"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_birth_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor_1"",
+            ""to"": ""e_actor_2""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_cast_1"",
+            ""r_cast_2"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor_1"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_cast_1"",
+                    ""r_same_birth_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""more than four actors [who meet a condition]"" using the provided grammar is to use a `count_id` on the entity `e_actor` with a condition that checks for the existence of the shared birth year relationship.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""e_other_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_also_in_movie"",
+            ""role"": ""is_in"",
+            ""from"": ""e_other_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_same_year"",
+            ""role"": ""shares_birth_year_with"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_other_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_in_movie"",
+            {
+              ""left"": {
+                ""count_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_in_movie"",
+                    ""r_same_year""
+                  ]
+                }
+              },
+              ""operator"": "">"",
+              ""right"": 4
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
