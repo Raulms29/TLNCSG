@@ -158,16 +158,19 @@ def evaluate_execution_file(
     for criteria_idx, (criterion_id, criterion_cfg) in enumerate(
         criteria_config.items(), start=1
     ):
-        print(
-            f"    - Evaluating Criterion {criterion_id} [{criteria_idx}/{len(criteria_config)}]"
-        )
-
         applicable_rows = [
             r
             for r in valid_rows
             if str(r.get("Query ID", "")).strip() in criterion_cfg["query_ids"]
         ]
         total_runs = len(applicable_rows)
+
+        if total_runs == 0:
+            continue
+
+        print(
+            f"    - Evaluating Criterion {criterion_id} [{criteria_idx}/{len(criteria_config)}]"
+        )
 
         for run_idx, row in enumerate(applicable_rows, start=1):
             if run_idx % 5 == 0 or run_idx == 1 or run_idx == total_runs:

@@ -815,7 +815,7 @@ def run_models_summary(
             ollama_client=ollama_client,
             model_name=model_name,
             model_config=model_config,
-            warmup_query="Hi there! This is a warmup call to load the model.",
+            warmup_query="Hi there! This is a warmup call to load the model. Please just responde with the single word 'Warmup' in your response.",
             system_prompt=system_prompt,
             base_options=base_options,
         )

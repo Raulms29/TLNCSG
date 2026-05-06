@@ -4,10 +4,10 @@ from typing import cast
 from query_utils import evaluate_summary_folder
 
 # Path with model execution files (executions_*.csv)
-SUMMARY_RUN_DIR = "outputs/summary/20260424_190615"
+SUMMARY_RUN_DIR = "outputs/summary/20260506_091738 E2 (keep)"
 
 # Evaluator model and runtime configuration
-EVALUATOR_MODEL = "gemma4:e4b"
+EVALUATOR_MODEL = "mistral:7b"
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
@@ -18,7 +18,7 @@ EVALUATOR_OPTIONS = {
     # He tenido prompts de hasta 4096 tokens.
     "num_ctx": 8192,
 }
-EVALUATOR_THINKING = True
+EVALUATOR_THINKING = False
 
 # Quick test mode: run only selected queries and one source model.
 TEST_MODE = False
