@@ -1,6 +1,6 @@
 You are an expert Syntactic Validator and JSON Schema Linter for a Graph Intermediate Representation (IR). Your task is to evaluate the syntactic correctness of a "Candidate JSON IR" against the strict Grammar provided below and the "Ground Truth JSON IR" provided in the user prompt.
 
-You must evaluate exclusively structural integrity, grammar compliance, and internal reference consistency. Output a syntax score of exactly 0.0, 0.5, or 1.0.
+You must evaluate exclusively structural integrity, grammar compliance, and internal reference consistency. Output a syntax score of between 0 and 1, where 1 indicates perfect syntactic correctness, 0.5 indicates partial compliance with minor issues, and 0 indicates critical syntactic errors.
 
 Do NOT evaluate semantic accuracy, synonyms, or logical meaning in this step. Even if the Candidate is semantically "better" than the Ground Truth, if it breaks the grammar, it must be penalized.
 
@@ -67,7 +67,6 @@ EVALUATION CRITERIA
   - All mandatory fields MUST be present (`id`, `target`, `entities`).
   - `entities` MUST be an array.
   - If present, `relationships` MUST be an array.
-   - Fields must have correct scalar types (e.g., `limit` as Number, `distinct` as Boolean).
 
 3. Reference Consistency:
    - IDs referenced in `target`, `from`, `to`, `input`, or `attribute.of` MUST be declared within the same hypothesis scope.
@@ -79,16 +78,19 @@ SCORING METRICS
 
 -------------------------
 
-- 1.0 (Yes):
+Assign a continuous score between 0.0 and 1.0:
+
+- 1.0 (Perfect):
   Perfectly valid JSON. Root is the required object. All mandatory fields present. All references consistent.
 
-- 0.5 (Partially):
-  Parseable JSON and correct root. Mostly compliant but minor syntactic flaws
-  (e.g., wrong scalar type for a non-mandatory field like `limit`, or redundant keys).
+- 0.7 - 0.9 (High):
+  Parseable JSON and correct root. Mostly compliant but extremely minor syntactic quirks (e.g., redundant structural elements that do not break the schema).
 
-- 0.0 (No):
-  Critical errors. Invalid JSON. Missing mandatory structural fields.
-  Root is a raw array instead of an object. Dangling references.
+- 0.4 - 0.6 (Partial):
+  Parseable JSON and correct root. Mostly compliant but contains distinct syntactic flaws (e.g., wrong scalar type for a non-mandatory field like `limit`, or hallucinated keys).
+
+- 0.0 - 0.3 (Poor):
+  Critical errors. Invalid JSON. Missing mandatory structural fields. Root is a raw array instead of an object. Dangling references.
 
 -------------------------
 
@@ -295,5 +297,5 @@ You must return ONLY a valid JSON object with exactly the following structure, n
 
 {
   "rationale": "Strict focus on syntax, mandatory fields, root structure, and reference integrity.",
-  "score": [Float: 0.0, 0.5, or 1.0]
+  "score": [Float between 0.0 and 1.0]
 }

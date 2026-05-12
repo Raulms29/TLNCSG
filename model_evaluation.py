@@ -182,11 +182,11 @@ queries = [
 
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {
-    # Limita la respuesta generada. Sabiendo que el 95% de las respuestas válidas
-    # se resuelven en < 1200 tokens y la mediana en 200.
-    "num_predict": 2048,
+    # Limita la respuesta generada. Para modelos con "Thinking" (CoT),
+    # el límite debe ser alto para acomodar el bloque de razonamiento.
+    "num_predict": 3072,
     # Define el tamaño de contexto total (entrada + salida esperada).
-    # He tenido prompts de hasta 4096 tokens.
+    # He tenido prompts de hasta 4000 tokens.
     "num_ctx": 8192,
 }
 

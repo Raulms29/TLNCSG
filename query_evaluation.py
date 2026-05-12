@@ -7,7 +7,7 @@ from query_utils import evaluate_summary_folder
 SUMMARY_RUN_DIR = "outputs/summary/20260506_091738 E2 (keep)"
 
 # Evaluator model and runtime configuration
-EVALUATOR_MODEL = "mistral:7b"
+EVALUATOR_MODEL = "deepseek-r1:8b"
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
@@ -16,9 +16,9 @@ EVALUATOR_OPTIONS = {
     "num_predict": 2048,
     # Define el tamaño de contexto total (entrada + salida esperada).
     # He tenido prompts de hasta 4096 tokens.
-    "num_ctx": 8192,
+    "num_ctx": 12288,
 }
-EVALUATOR_THINKING = False
+EVALUATOR_THINKING = True
 
 # Quick test mode: run only selected queries and one source model.
 TEST_MODE = False
