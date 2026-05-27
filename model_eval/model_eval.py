@@ -194,7 +194,7 @@ OLLAMA_OPTIONS = {
     "num_ctx": 8192,
 }
 
-SYSTEM_PROMPT_PATH = "prompts/SYSTEM_PROMPT.txt"
+SYSTEM_PROMPT_PATH = "prompts/SYSTEM_PROMPT.prompt.md"
 SYSTEM_PROMPT = utils.load_prompt_file(SYSTEM_PROMPT_PATH)
 RUNS_PER_MODEL = 30
 OUTPUT_DIR = "outputs/summary"

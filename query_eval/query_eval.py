@@ -47,37 +47,37 @@ CRITERIA_CONFIG = {
         "name": "Syntactic Correctness (Well-formedness)",
         "weight": 1 / 6,
         "query_ids": CRITERION_1_QUERY_IDS,
-        "prompt_file": f"{PROMPTS_DIR}/A1_CS.txt",
+        "prompt_file": f"{PROMPTS_DIR}/A1_CS.prompt.md",
     },
     "A2_FS": {
         "name": "Semantic Faithfulness",
         "weight": 1 / 6,
         "query_ids": CRITERION_2_QUERY_IDS,
-        "prompt_file": f"{PROMPTS_DIR}/A2_FS.txt",
+        "prompt_file": f"{PROMPTS_DIR}/A2_FS.prompt.md",
     },
     "A3_SQ": {
         "name": "Structural Quality",
         "weight": 1 / 6,
         "query_ids": CRITERION_3_QUERY_IDS,
-        "prompt_file": f"{PROMPTS_DIR}/A3_SQ.txt",
+        "prompt_file": f"{PROMPTS_DIR}/A3_SQ.prompt.md",
     },
     "A4_HQ": {
         "name": "Hypothesis Quality",
         "weight": 1 / 6,
         "query_ids": CRITERION_4_QUERY_IDS,
-        "prompt_file": f"{PROMPTS_DIR}/A4_HQ.txt",
+        "prompt_file": f"{PROMPTS_DIR}/A4_HQ.prompt.md",
     },
     "A5_MR": {
         "name": "Minimality and Non-redundancy",
         "weight": 1 / 6,
         "query_ids": CRITERION_5_QUERY_IDS,
-        "prompt_file": f"{PROMPTS_DIR}/A5_MR.txt",
+        "prompt_file": f"{PROMPTS_DIR}/A5_MR.prompt.md",
     },
     "A6_AP": {
         "name": "Aggregation and Projection Correctness",
         "weight": 1 / 6,
         "query_ids": CRITERION_6_QUERY_IDS,
-        "prompt_file": f"{PROMPTS_DIR}/A6_AP.txt",
+        "prompt_file": f"{PROMPTS_DIR}/A6_AP.prompt.md",
     },
 }
 

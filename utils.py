@@ -938,5 +938,5 @@ def load_prompt_file(prompt_path: str | Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-DEFAULT_SYSTEM_PROMPT_PATH = Path("prompts") / "SYSTEM_PROMPT.txt"
+DEFAULT_SYSTEM_PROMPT_PATH = Path("prompts") / "SYSTEM_PROMPT.prompt.md"
 SYSTEM_PROMPT = load_prompt_file(DEFAULT_SYSTEM_PROMPT_PATH)
