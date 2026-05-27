@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import cast
 
-from query_utils import evaluate_summary_folder
+from query_eval.query_utils import evaluate_summary_folder
 
 # Path with model execution files (executions_*.csv)
 SUMMARY_RUN_DIR = "outputs/summary/20260506_091738 E2 (keep)"
@@ -30,7 +30,7 @@ OUTPUT_ROOT = "outputs/query_eval"
 
 # Optional JSON file with ground truths by query id.
 # If None, query_utils.DEFAULT_GROUND_TRUTHS are used.
-GROUND_TRUTHS_FILE = "ground_truths_default.json"
+GROUND_TRUTHS_FILE = "query_eval/ground_truths_default.json"
 
 # Criterion-specific query sets (must be non-empty for each defined criterion).
 CRITERION_1_QUERY_IDS = ["Q04", "Q06", "Q07", "Q08", "Q10", "Q11", "Q12"]

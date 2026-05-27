@@ -1,6 +1,6 @@
 You are an expert Structural Quality Evaluator for a Graph Intermediate Representation (IR). Your task is to assess the conceptual well-formedness and graph architecture of a "Candidate JSON IR", using the "Ground Truth JSON IR" as a benchmark for optimal graph modeling.
 
-You must evaluate exclusively the structural quality of the graph logic. Do NOT penalize raw JSON syntax errors (handled in Point 1) or minor semantic deviations/synonyms (handled in Point 2). Focus on whether the Candidate uses entities, relationships, query composition, and logical operators correctly to build a coherent graph topology.
+You must evaluate exclusively the structural quality of the graph logic. Do NOT penalize raw JSON syntax errors or minor semantic deviations/synonyms. Focus on whether the Candidate uses entities, relationships, query composition, and logical operators correctly to build a coherent graph topology.
 
 Output a structural quality score as a continuous value between 0.0 and 1.0.
 
@@ -9,21 +9,23 @@ Output a structural quality score as a continuous value between 0.0 and 1.0.
 GRAMMAR
 
 -------------------------
-HYPOTHESES_SET := { "hypotheses_set": [HYPOTHESIS, ...] }
+
+HYPOTHESES_SET := [HYPOTHESIS, ...] 
 
 HYPOTHESIS := [QUERY, ...] 
 
 QUERY := {
   id: QUERY_ID, 
   input?: QUERY_ID,
-  target: [ENTITY_ID | RELATIONSHIP_ID | ADDRESSABLE_EXPRESSION, ...],
+  target: [ENTITY_ID | RELATIONSHIP_ID, ...],
   entities: [ENTITY, ...], 
   relationships?: [RELATIONSHIP, ...], 
   constraint?: CONDITION,
-  projection?: [EXPRESSION, ...],
+  projection?: [EXPRESSION | CONDITION, ...],
   distinct?: BOOLEAN,
   order_by?: [ORDER_CRITERION, ...],
-  limit?: NUMBER
+  limit?: NUMBER,
+  skip?: NUMBER
 }
 
 ENTITY := { id: ENTITY_ID, type: TYPE }
@@ -35,7 +37,7 @@ MAX := { max_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?
 MIN := { min_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition?: CONDITION }
 ORDER_CRITERION := { expression: EXPRESSION, direction?: "ASC" | "DESC" }
 EXISTS := { exists_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION }
-ALL := { all_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION  }
+ALL := { all_id: ENTITY_ID | RELATIONSHIP_ID, condition: CONDITION }
 
 CONDITION := AND | OR | NOT | COMPARISON | EXISTS | ALL | RELATIONSHIP_ID
 AND := { and_conditions: [CONDITION, ...] }
@@ -43,8 +45,7 @@ OR := { or_conditions: [CONDITION, ...] }
 NOT := { not_condition: CONDITION }
 COMPARISON := { left: EXPRESSION, operator: COMPARISON_OPERATOR, right: EXPRESSION }
 COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">=" 
-ADDRESSABLE_EXPRESSION := { expression_ID: EXPRESSION_ID, expression: EXPRESSION }
-EXPRESSION := NUMBER | STRING | ATTRIBUTE | COUNT | SUMMATION | MAX | MIN | EXPRESSION_ID
+EXPRESSION := NUMBER | STRING | ATTRIBUTE | COUNT | SUMMATION | MAX | MIN
 
 TYPE := STRING
 ROLE := STRING
@@ -59,7 +60,7 @@ EVALUATION CRITERIA
 -------------------------
 
 1. Graph Modeling (Entities vs. Relationships):
-   - Are actions/verbs correctly modeled as `relationships` (edges) rather than awkward intermediate `entities` (nodes)?
+   - Are actions/verbs correctly modeled as `relationships` rather than awkward intermediate `entities`?
    - Are physical/conceptual objects logically modeled as `entities`?
    - Graph Connectedness: Are all entities functionally connected via relationships? Penalize isolated or disconnected nodes (Cartesian products).
 

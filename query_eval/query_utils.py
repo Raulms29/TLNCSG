@@ -1,4 +1,4 @@
-from query_eval import (
+from query_eval.utils import (
     DEFAULT_CRITERIA_CONFIG,
     DEFAULT_GROUND_TRUTHS,
     EVALUATOR_USER_PROMPT_TEMPLATE,
