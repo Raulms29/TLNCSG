@@ -1,0 +1,890 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,449.561861,False,stop,3449,20.741126,1498,426.215336,3.5147,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_earns"",
+            ""role"": ""earns"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_arg_actor_earns"",
+            ""role"": ""earns"",
+            ""from"": ""e_argentine_actor"",
+            ""to"": ""e_argentine_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""left"": {
+                ""all_id"": ""e_actor"",
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_acts"",
+                    {
+                      ""left"": {
+                        ""attribute_name"": ""earnings"",
+                        ""of"": ""e_actor""
+                      },
+                      ""operator"": "">"",
+                      ""right"": {
+                        ""max_id"": ""e_argentine_actor"",
+                        ""expression"": {
+                          ""attribute_name"": ""earnings"",
+                          ""of"": ""e_argentine_actor""
+                        },
+                        ""condition"": {
+                          ""left"": {
+                            ""attribute_name"": ""nationality"",
+                            ""of"": ""e_argentine_actor""
+                          },
+                          ""operator"": ""="",
+                          ""right"": ""Argentine""
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              ""operator"": ""exists"",
+              ""right"": ""r_acts""
+            }
+          ]
+        ]
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar and logic for the ""highest-paid"" part, I need to refine the `MAX` usage. Let's correct the structure to match the grammar precisely.
+
+```json
+{
+  ""hypothes_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_acts"",
+                  {
+                    ""left"": {
+                      ""attribute_name"": ""earnings"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_actor"",
+                      ""expression"": {
+                        ""attribute_name"": ""earnings"",
+                        ""of"": ""e_argentine_actor""
+                      },
+                      ""condition"": {
+                        ""left"": {
+                          ""attribute_name"": ""nationality"",
+                          ""of"": ""e_argentine_actor""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentine""
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the `MAX` expression in the grammar is `MAX := { max_id: ENTITY_ID | RELATIONSHIP_ID, expression: EXPRESSION, condition: CONDITION }`. The `expression` is the value being maximized.
+
+Final attempt at the correct structure:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_acts"",
+                  {
+                    ""left"": {
+                      ""attribute_name"": ""earnings"",
+                      ""of"": ""e_actor""
+                    },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_actor"",
+                      ""expression"": {
+                        ""attribute_name"": ""earnings"",
+                        ""of"": ""e_argentine_actor""
+                      },
+                      ""condition"": {
+                        ""left"": {
+                          ""attribute_name"": ""nationality"",
+                          ""of"": ""e_argentine_actor""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentine""
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+2,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,295.722497,True,stop,3449,0.28751,1024,293.657717,3.4871,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_is_argentine"",
+            ""role"": ""is_nationality"",
+            ""from"": ""e_argentine_actor"",
+            ""to"": ""e_country""
+          },
+          {
+            ""id"": ""e_country"",
+            ""type"": ""Location""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""left"": {
+                ""max_id"": ""e_argentine_actor"",
+                ""expression"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_argentine_actor""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""nationality"",
+                    ""of"": ""e_argentine_actor""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""operator"": ""<"",
+              ""right"": {
+                ""all_id"": ""e_actor"",
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_actor""
+                  },
+                  ""operator"": "">"",
+                  ""right"": {
+                    ""max_id"": ""e_argentine_actor"",
+                    ""expression"": {
+                      ""attribute_name"": ""earnings"",
+                      ""of"": ""e_argentine_actor""
+                    },
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""nationality"",
+                        ""of"": ""e_argentine_actor""
+                      },
+                      ""operator"": ""="",
+                      ""right"": ""Argentine""
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar and logic for ""all"" and ""max"" more closely to ensure strict adherence:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_arg_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_actor""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""max_id"": ""e_arg_actor"",
+                  ""expression"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_arg_actor""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""nationality"",
+                      ""of"": ""e_arg_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Argentine""
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+3,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,295.719452,True,stop,3449,0.285745,1024,293.640516,3.4873,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_is_argentine"",
+            ""role"": ""is_nationality"",
+            ""from"": ""e_argentine_actor"",
+            ""to"": ""e_country""
+          },
+          {
+            ""id"": ""e_country"",
+            ""type"": ""Location""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""left"": {
+                ""max_id"": ""e_argentine_actor"",
+                ""expression"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_argentine_actor""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""nationality"",
+                    ""of"": ""e_argentine_actor""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""operator"": ""<"",
+              ""right"": {
+                ""all_id"": ""e_actor"",
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_actor""
+                  },
+                  ""operator"": "">"",
+                  ""right"": {
+                    ""max_id"": ""e_argentine_actor"",
+                    ""expression"": {
+                      ""attribute_name"": ""earnings"",
+                      ""of"": ""e_argentine_actor""
+                    },
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""nationality"",
+                        ""of"": ""e_argentine_actor""
+                      },
+                      ""operator"": ""="",
+                      ""right"": ""Argentine""
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar and logic for ""all"" and ""max"" more closely to ensure strict adherence:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_arg_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_actor""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""max_id"": ""e_arg_actor"",
+                  ""expression"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_arg_actor""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""nationality"",
+                      ""of"": ""e_arg_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Argentine""
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+4,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,295.759816,True,stop,3449,0.289598,1024,293.630621,3.4874,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_is_argentine"",
+            ""role"": ""is_nationality"",
+            ""from"": ""e_argentine_actor"",
+            ""to"": ""e_country""
+          },
+          {
+            ""id"": ""e_country"",
+            ""type"": ""Location""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""left"": {
+                ""max_id"": ""e_argentine_actor"",
+                ""expression"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_argentine_actor""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""nationality"",
+                    ""of"": ""e_argentine_actor""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""operator"": ""<"",
+              ""right"": {
+                ""all_id"": ""e_actor"",
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_actor""
+                  },
+                  ""operator"": "">"",
+                  ""right"": {
+                    ""max_id"": ""e_argentine_actor"",
+                    ""expression"": {
+                      ""attribute_name"": ""earnings"",
+                      ""of"": ""e_argentine_actor""
+                    },
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""nationality"",
+                        ""of"": ""e_argentine_actor""
+                      },
+                      ""operator"": ""="",
+                      ""right"": ""Argentine""
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar and logic for ""all"" and ""max"" more closely to ensure strict adherence:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_arg_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_actor""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""max_id"": ""e_arg_actor"",
+                  ""expression"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_arg_actor""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""nationality"",
+                      ""of"": ""e_arg_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Argentine""
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"
+5,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,295.877183,True,stop,3449,0.288035,1024,293.7755,3.4857,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_argentine_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          },
+          {
+            ""id"": ""r_is_argentine"",
+            ""role"": ""is_nationality"",
+            ""from"": ""e_argentine_actor"",
+            ""to"": ""e_country""
+          },
+          {
+            ""id"": ""e_country"",
+            ""type"": ""Location""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""left"": {
+                ""max_id"": ""e_argentine_actor"",
+                ""expression"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_argentine_actor""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""nationality"",
+                    ""of"": ""e_argentine_actor""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""operator"": ""<"",
+              ""right"": {
+                ""all_id"": ""e_actor"",
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_actor""
+                  },
+                  ""operator"": "">"",
+                  ""right"": {
+                    ""max_id"": ""e_argentine_actor"",
+                    ""expression"": {
+                      ""attribute_name"": ""earnings"",
+                      ""of"": ""e_argentine_actor""
+                    },
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""nationality"",
+                        ""of"": ""e_argentine_actor""
+                      },
+                      ""operator"": ""="",
+                      ""right"": ""Argentine""
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar and logic for ""all"" and ""max"" more closely to ensure strict adherence:
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_movie""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_movie"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_arg_actor"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_acts"",
+            ""role"": ""actor_in"",
+            ""from"": ""e_actor"",
+            ""to"": ""e_movie""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_acts"",
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""earnings"",
+                  ""of"": ""e_actor""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""max_id"": ""e_arg_actor"",
+                  ""expression"": {
+                    ""attribute_name"": ""earnings"",
+                    ""of"": ""e_arg_actor""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""nationality"",
+                      ""of"": ""e_arg_actor""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Argentine""
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```"

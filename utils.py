@@ -454,7 +454,7 @@ def compute_model_mode_metrics(
     runs_per_model: int,
     thinking: bool,
     query_id: str | None = None,
-    confidence_level: float = 0.95,
+    confidence_level: float | None = 0.95,
 ) -> tuple[dict, list[dict]]:
     """Compute summary metrics for one model and one run mode."""
     inference_times: list[float] = []
@@ -525,13 +525,13 @@ def compute_model_mode_metrics(
     # Use sample standard deviation (ddof=1) for better estimate with the samples and not the whole population
     std_time = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
 
-    if sample.size > 1:
+    if confidence_level is not None and sample.size > 1:
         (ci_low, ci_high), _, _ = compute_confidence_interval_with_method(
             scores=sample,
             confidence_level=confidence_level,
             alpha=0.05,
         )
-    else:
+    elif confidence_level is not None:
         ci_low, ci_high = (mean_time, mean_time)
 
     latency_percentiles = _compute_latency_percentiles(sample)
@@ -551,7 +551,7 @@ def compute_model_mode_metrics(
         "Valid JSON Rate": round(valid_json_rate, 2),
         "Avg IT (s)": round(mean_time, 4),
         "Std Dev IT (s)": round(std_time, 4),
-        "95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]",
+        **({"95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]"} if confidence_level is not None else {}),
         "P50 IT (s)": round(latency_percentiles["P50 IT (s)"], 4),
         "P90 IT (s)": round(latency_percentiles["P90 IT (s)"], 4),
         "P95 IT (s)": round(latency_percentiles["P95 IT (s)"], 4),
@@ -615,7 +615,7 @@ def _build_model_comparison_row(
     model_name: str,
     model_config: dict,
     thinking_mode: bool,
-    confidence_level: float = 0.95,
+    confidence_level: float | None = 0.95,
 ) -> dict:
     """Aggregate execution records into one model-level comparison row."""
     sample = np.array(
@@ -624,13 +624,13 @@ def _build_model_comparison_row(
     mean_time = float(np.mean(sample)) if sample.size else float("nan")
     std_time = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
 
-    if sample.size > 1:
+    if confidence_level is not None and sample.size > 1:
         (ci_low, ci_high), _, _ = compute_confidence_interval_with_method(
             scores=sample,
             confidence_level=confidence_level,
             alpha=0.05,
         )
-    else:
+    elif confidence_level is not None:
         ci_low, ci_high = (mean_time, mean_time)
 
     latency_percentiles = _compute_latency_percentiles(sample)
@@ -655,7 +655,7 @@ def _build_model_comparison_row(
         "Valid JSON Rate": round(valid_json_rate, 2),
         "Avg IT (s)": round(mean_time, 4),
         "Std Dev IT (s)": round(std_time, 4),
-        "95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]",
+        **({"95% CI (IT)": f"[{ci_low:.4f}, {ci_high:.4f}]"} if confidence_level is not None else {}),
         "P50 IT (s)": round(latency_percentiles["P50 IT (s)"], 4),
         "P90 IT (s)": round(latency_percentiles["P90 IT (s)"], 4),
         "P95 IT (s)": round(latency_percentiles["P95 IT (s)"], 4),
@@ -764,10 +764,15 @@ def run_models_summary(
     base_options: dict,
     runs_per_model: int,
     output_dir: str,
-    confidence_level: float = 0.95,
+    confidence_level: float | None = 0.95,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str], list[str], list[str], str, str]:
     """
     Run model summary benchmark and persist outputs.
+
+    Args:
+      confidence_level: Confidence level for interval calculation (e.g. 0.95).
+        Pass ``None`` to skip CI computation entirely — the ``95% CI (IT)``
+        column will be absent from all output DataFrames and CSV files.
 
     Returns:
       (
@@ -788,6 +793,11 @@ def run_models_summary(
 
     query_defs = _normalize_query_defs(queries)
     table_columns, file_columns, comparison_file_columns = _build_summary_columns()
+    if confidence_level is None:
+        _ci_col = "95% CI (IT)"
+        table_columns = [c for c in table_columns if c != _ci_col]
+        file_columns = [c for c in file_columns if c != _ci_col]
+        comparison_file_columns = [c for c in comparison_file_columns if c != _ci_col]
 
     summary_rows: list[dict] = []
     model_file_paths: list[str] = []
