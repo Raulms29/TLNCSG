@@ -341,9 +341,16 @@ def select_ci_method_by_normality(
     if arr.size < 3:
         return "parametric", float("nan")
 
-    _, p_value = shapiro(arr)
-    method = "parametric" if p_value > alpha else "bootstrap"
-    return method, float(p_value)
+    # Shapiro-Wilk test raises ValueError if the input array is constant
+    if np.all(arr == arr[0]):
+        return "parametric", float("nan")
+
+    try:
+        _, p_value = shapiro(arr)
+        method = "parametric" if p_value > alpha else "bootstrap"
+        return method, float(p_value)
+    except Exception:
+        return "parametric", float("nan")
 
 
 def compute_confidence_interval_with_method(

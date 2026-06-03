@@ -1,0 +1,776 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,qwen3.6:35b-a3b,False,0.1,127.912619,False,stop,3316,10.212825,351,116.853181,3.0038,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON has several significant issues. First, it contains a grammar error in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead of a value). Second, it fails to capture the 'top 5' logic correctly; instead of using a separate query or a limit to identify the top 5 directors, it attempts to use a 'condition' within a 'summation' involving a 'count_id', which is not semantically equivalent to selecting the top 5 highest-paid directors. Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it uses 'wealth' instead of 'money' (though this is a minor naming difference) and misses the structural decomposition (chained queries) used in the Ground Truth to handle the 'top 5' requirement.",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several significant issues. First, it contains a grammar error in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead of a value). Second, it fails to capture the 'top 5' logic correctly; instead of using a separate query or a limit to identify the top 5 directors, it attempts to use a 'condition' within a 'summation' involving a 'count_id', which is not semantically equivalent to selecting the top 5 highest-paid directors. Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it uses 'wealth' instead of 'money' (though this is a minor naming difference) and misses the structural decomposition (chained queries) used in the Ground Truth to handle the 'top 5' requirement."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,2,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,qwen3.6:35b-a3b,False,0.1,128.509861,False,stop,3316,10.225801,351,117.423484,2.9892,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation.",,"```json
+{
+  ""rationale"": ""The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,3,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,qwen3.6:35b-a3b,False,0.1,127.724046,False,stop,3316,10.209723,351,116.631511,3.0095,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation.",,"```json
+{
+  ""rationale"": ""The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,4,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,qwen3.6:35b-a3b,False,0.1,128.194151,False,stop,3316,10.215872,351,117.085858,2.9978,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation.",,"```json
+{
+  ""rationale"": ""The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,5,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,qwen3.6:35b-a3b,False,0.1,128.067325,False,stop,3316,10.262144,351,116.912498,3.0022,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation.",,"```json
+{
+  ""rationale"": ""The Candidate JSON contains several significant errors. First, it has a grammar violation in the 'entities' array: the third entity is missing the 'id' key (it uses 'e_director' as a key instead). Second, the logic for 'top 5 highest-paid directors combined' is incorrectly implemented; the Candidate attempts to use a 'condition' within a 'summation' involving a 'count_id' comparison, which does not correctly represent the 'top 5' logic (which requires an ordered subquery or limit). Third, the relationship 'r_director' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically incorrect. Finally, it fails to use the chained query approach (input/step-based) used in the Ground Truth to isolate the top 5 directors before performing the summation."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_actor""],
+        ""entities"": [
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_father"", ""type"": ""Person"" },
+          { ""e_director"", ""type"": ""Person"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_father"", ""role"": ""father_of"", ""from"": ""e_father"", ""to"": ""e_actor"" },
+          { ""id"": ""r_director"", ""role"": ""is_director"", ""from"": ""e_director"", ""to"": ""e_director"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e_father"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_director"" },
+                ""condition"": {
+                  ""left"": { ""count_id"": ""e_director"" },
+                  ""operator"": ""="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          { ""attribute_name"": ""name"", ""of"": ""e_actor"" }
+        ]
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv

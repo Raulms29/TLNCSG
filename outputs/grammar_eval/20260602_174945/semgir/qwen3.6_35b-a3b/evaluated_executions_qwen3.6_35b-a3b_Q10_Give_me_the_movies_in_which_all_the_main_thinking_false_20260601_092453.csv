@@ -1,0 +1,979 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b-a3b,False,0.1,219.79416,True,stop,3317,10.271278,621,208.366748,2.9803,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_role"", ""type"": ""Role"" },
+          { ""id"": ""e_movie_role"", ""type"": ""Role"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_role_movie"", ""role"": ""played_in"", ""from"": ""e_movie_role"", ""to"": ""e_movie"" },
+          { ""id"": ""r_role_actor"", ""role"": ""played_by"", ""from"": ""e_movie_role"", ""to"": ""e_actor"" },
+          { ""id"": ""r_role_arg"", ""role"": ""played_in"", ""from"": ""e_argentine_role"", ""to"": ""e_argentine_actor"" },
+          { ""id"": ""r_role_arg_act"", ""role"": ""played_by"", ""from"": ""e_argentine_role"", ""to"": ""e_argentine_actor"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+              ""operator"": ""="",
+              ""right"": ""Argentine""
+            },
+            {
+              ""left"": {
+                ""max_id"": ""e_argentine_role"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_argentine_role"" }
+              },
+              ""operator"": ""="",
+              ""right"": {
+                ""max_id"": ""e_argentine_role"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_argentine_role"" }
+              }
+            },
+            {
+              ""all_id"": ""e_movie_role"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_role_movie"",
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""e_movie_role"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_role"",
+                      ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_argentine_role"" }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON is significantly flawed in its logic and structure compared to the Ground Truth and the natural language query. 1. Semantic Hallucination: The Candidate introduces several unnecessary entities ('Role') and relationships that are not present in the query or the Ground Truth, making the graph unnecessarily complex and likely incorrect. 2. Logical Error: The constraint for finding the 'highest-paid' actor is implemented as a comparison of a max value to itself (max_id ... = max_id ...), which is a tautology and does not actually perform a selection or filtering of the highest-paid individual. 3. Structural Deviation: While the Ground Truth uses a chained query approach (q1_step1 to q1_step2) to isolate the reference actor, the Candidate attempts to do everything in a single, overly complex query that fails to correctly implement the 'all' quantifier logic relative to the specific reference actor. 4. Grammar: While the JSON is syntactically valid, the semantic logic is broken.",,"```json
+{
+  ""rationale"": ""The Candidate JSON is significantly flawed in its logic and structure compared to the Ground Truth and the natural language query. 1. Semantic Hallucination: The Candidate introduces several unnecessary entities ('Role') and relationships that are not present in the query or the Ground Truth, making the graph unnecessarily complex and likely incorrect. 2. Logical Error: The constraint for finding the 'highest-paid' actor is implemented as a comparison of a max value to itself (max_id ... = max_id ...), which is a tautology and does not actually perform a selection or filtering of the highest-paid individual. 3. Structural Deviation: While the Ground Truth uses a chained query approach (q1_step1 to q1_step2) to isolate the reference actor, the Candidate attempts to do everything in a single, overly complex query that fails to correctly implement the 'all' quantifier logic relative to the specific reference actor. 4. Grammar: While the JSON is syntactically valid, the semantic logic is broken."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""arg_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""arg_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""constraint"": {
+          ""left"": {
+            ""attribute_name"": ""nationality"",
+            ""of"": ""arg_actor""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        },
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""arg_actor""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 1
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""m""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""m"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""main_actor_in"",
+            ""from"": ""a"",
+            ""to"": ""m""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""all_id"": ""a"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""a""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""arg_actor""
+                }
+              }
+            }
+          ]
+        },
+        ""distinct"": true
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_role"", ""type"": ""Role"" },
+          { ""id"": ""e_movie_role"", ""type"": ""Role"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_role_movie"", ""role"": ""played_in"", ""from"": ""e_movie_role"", ""to"": ""e_movie"" },
+          { ""id"": ""r_role_actor"", ""role"": ""played_by"", ""from"": ""e_movie_role"", ""to"": ""e_actor"" },
+          { ""id"": ""r_role_arg"", ""role"": ""played_in"", ""from"": ""e_argentine_role"", ""to"": ""e_argentine_actor"" },
+          { ""id"": ""r_role_arg_act"", ""role"": ""played_by"", ""from"": ""e_argentine_role"", ""to"": ""e_argentine_actor"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+              ""operator"": ""="",
+              ""right"": ""Argentine""
+            },
+            {
+              ""left"": {
+                ""max_id"": ""e_argentine_role"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_argentine_role"" }
+              },
+              ""operator"": ""="",
+              ""right"": {
+                ""max_id"": ""e_argentine_role"",
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_argentine_role"" }
+              }
+            },
+            {
+              ""all_id"": ""e_movie_role"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_role_movie"",
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""e_movie_role"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_role"",
+                      ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_argentine_role"" }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q10_Give_me_the_movies_in_which_all_the_main_thinking_false_20260601_092453.csv
+semgir,2,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b-a3b,False,0.1,145.552632,True,stop,3317,10.193193,404,134.431679,3.0052,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_movie"", ""type"": ""Movie"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_star_arg"", ""role"": ""starred_in"", ""from"": ""e_argentine_actor"", ""to"": ""e_argentine_movie"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""salary"", ""of"": ""r_star"" },
+                ""operator"": "">"",
+                ""right"": {
+                  ""max_id"": ""e_argentine_movie"",
+                  ""expression"": {
+                    ""attribute_name"": ""salary"",
+                    ""of"": ""r_star_arg""
+                  },
+                  ""condition"": {
+                    ""and_conditions"": [
+                      {
+                        ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+                        ""operator"": ""="",
+                        ""right"": ""Argentine""
+                      },
+                      ""r_star_arg""
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON has several significant issues. First, it attempts to solve a complex multi-step query (finding the highest-paid actor first, then comparing) within a single query block, which leads to structural errors. Specifically, it references 'r_star' and 'r_star_arg' as if they were entities in the 'left' and 'right' parts of a comparison, but these are relationships, not entities with attributes like 'salary' directly accessible in that manner without proper quantification. Second, it introduces unnecessary and hallucinated entities like 'e_argentine_movie'. Third, the logic for finding the 'highest-paid' actor is not correctly implemented via a subquery or a limit/order_by clause as seen in the Ground Truth; instead, it uses a highly convoluted and semantically incorrect 'max_id' structure on a movie entity. While it attempts to capture the 'Argentine' constraint, the overall logic is broken and does not match the required semantic flow.",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several significant issues. First, it attempts to solve a complex multi-step query (finding the highest-paid actor first, then comparing) within a single query block, which leads to structural errors. Specifically, it references 'r_star' and 'r_star_arg' as if they were entities in the 'left' and 'right' parts of a comparison, but these are relationships, not entities with attributes like 'salary' directly accessible in that manner without proper quantification. Second, it introduces unnecessary and hallucinated entities like 'e_argentine_movie'. Third, the logic for finding the 'highest-paid' actor is not correctly implemented via a subquery or a limit/order_by clause as seen in the Ground Truth; instead, it uses a highly convoluted and semantically incorrect 'max_id' structure on a movie entity. While it attempts to capture the 'Argentine' constraint, the overall logic is broken and does not match the required semantic flow."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""arg_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""arg_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""constraint"": {
+          ""left"": {
+            ""attribute_name"": ""nationality"",
+            ""of"": ""arg_actor""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        },
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""arg_actor""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 1
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""m""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""m"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""main_actor_in"",
+            ""from"": ""a"",
+            ""to"": ""m""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""all_id"": ""a"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""a""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""arg_actor""
+                }
+              }
+            }
+          ]
+        },
+        ""distinct"": true
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_movie"", ""type"": ""Movie"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_star_arg"", ""role"": ""starred_in"", ""from"": ""e_argentine_actor"", ""to"": ""e_argentine_movie"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""salary"", ""of"": ""r_star"" },
+                ""operator"": "">"",
+                ""right"": {
+                  ""max_id"": ""e_argentine_movie"",
+                  ""expression"": {
+                    ""attribute_name"": ""salary"",
+                    ""of"": ""r_star_arg""
+                  },
+                  ""condition"": {
+                    ""and_conditions"": [
+                      {
+                        ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+                        ""operator"": ""="",
+                        ""right"": ""Argentine""
+                      },
+                      ""r_star_arg""
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q10_Give_me_the_movies_in_which_all_the_main_thinking_false_20260601_092453.csv
+semgir,3,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b-a3b,False,0.1,150.865824,True,stop,3317,10.196275,419,139.696049,2.9994,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_movie"", ""type"": ""Movie"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_star_arg"", ""role"": ""starred_in"", ""from"": ""e_argentine_actor"", ""to"": ""e_argentine_movie"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_star"",
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""r_star"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""r_star_arg"",
+                      ""expression"": { ""attribute_name"": ""salary"", ""of"": ""r_star_arg"" },
+                      ""condition"": {
+                        ""and_conditions"": [
+                          ""r_star_arg"",
+                          {
+                            ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+                            ""operator"": ""="",
+                            ""right"": ""Argentine""
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON has several significant issues. First, it attempts to solve the entire complex query in a single hypothesis, whereas the logic of 'highest-paid Argentine actor' requires a subquery or a specific aggregation/limit to identify a single reference value. Second, the Candidate uses 'salary' as an attribute of a relationship ('r_star'), which is semantically incorrect as salary is an attribute of an Actor, not the 'starred_in' relationship. Third, it introduces unnecessary and hallucinated entities like 'e_argentine_movie'. Finally, the logic for finding the 'max' is structurally invalid within the SemGIR grammar provided (the 'max_id' and 'expression' structure used in the candidate does not match the defined MAX/MIN/SUMMATION schema).",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several significant issues. First, it attempts to solve the entire complex query in a single hypothesis, whereas the logic of 'highest-paid Argentine actor' requires a subquery or a specific aggregation/limit to identify a single reference value. Second, the Candidate uses 'salary' as an attribute of a relationship ('r_star'), which is semantically incorrect as salary is an attribute of an Actor, not the 'starred_in' relationship. Third, it introduces unnecessary and hallucinated entities like 'e_argentine_movie'. Finally, the logic for finding the 'max' is structurally invalid within the SemGIR grammar provided (the 'max_id' and 'expression' structure used in the candidate does not match the defined MAX/MIN/SUMMATION schema)."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""arg_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""arg_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""constraint"": {
+          ""left"": {
+            ""attribute_name"": ""nationality"",
+            ""of"": ""arg_actor""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        },
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""arg_actor""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 1
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""m""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""m"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""main_actor_in"",
+            ""from"": ""a"",
+            ""to"": ""m""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""all_id"": ""a"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""a""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""arg_actor""
+                }
+              }
+            }
+          ]
+        },
+        ""distinct"": true
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_movie"", ""type"": ""Movie"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_star_arg"", ""role"": ""starred_in"", ""from"": ""e_argentine_actor"", ""to"": ""e_argentine_movie"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_star"",
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""r_star"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""r_star_arg"",
+                      ""expression"": { ""attribute_name"": ""salary"", ""of"": ""r_star_arg"" },
+                      ""condition"": {
+                        ""and_conditions"": [
+                          ""r_star_arg"",
+                          {
+                            ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+                            ""operator"": ""="",
+                            ""right"": ""Argentine""
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q10_Give_me_the_movies_in_which_all_the_main_thinking_false_20260601_092453.csv
+semgir,4,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b-a3b,False,0.1,158.201749,True,stop,3317,10.268445,442,146.93642,3.0081,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_movie"", ""type"": ""Movie"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_arg_star"", ""role"": ""starred_in"", ""from"": ""e_argentine_actor"", ""to"": ""e_argentine_movie"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_star"",
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""r_star"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_movie"",
+                      ""expression"": {
+                        ""attribute_name"": ""salary"",
+                        ""of"": {
+                          ""id"": ""r_arg_star_max"",
+                          ""role"": ""starred_in"",
+                          ""from"": ""e_argentine_actor"",
+                          ""to"": ""e_argentine_movie""
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+              ""operator"": ""="",
+              ""right"": ""Argentine""
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.2,"The Candidate JSON has several significant issues. First, it attempts to solve the entire query in a single hypothesis, whereas the logic of 'highest-paid' requires a subquery or a specific ordering/limit mechanism (as seen in the Ground Truth) to identify a single reference value. Second, the Candidate introduces hallucinated entities and relationships, such as 'e_argentine_movie' and 'r_arg_star_max', which are not present in the query or the Ground Truth. Third, the constraint logic is structurally flawed: it attempts to use a 'max_id' on an entity ('e_argentine_movie') and references a non-existent relationship ID ('r_arg_star_max') within an expression. Finally, the use of 'Person' instead of 'Actor' and the overall complexity of the invalidly constructed constraints make the IR semantically and structurally unreliable.",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several significant issues. First, it attempts to solve the entire query in a single hypothesis, whereas the logic of 'highest-paid' requires a subquery or a specific ordering/limit mechanism (as seen in the Ground Truth) to identify a single reference value. Second, the Candidate introduces hallucinated entities and relationships, such as 'e_argentine_movie' and 'r_arg_star_max', which are not present in the query or the Ground Truth. Third, the constraint logic is structurally flawed: it attempts to use a 'max_id' on an entity ('e_argentine_movie') and references a non-existent relationship ID ('r_arg_star_max') within an expression. Finally, the use of 'Person' instead of 'Actor' and the overall complexity of the invalidly constructed constraints make the IR semantically and structurally unreliable."",
+  ""score"": 0.2
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""arg_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""arg_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""constraint"": {
+          ""left"": {
+            ""attribute_name"": ""nationality"",
+            ""of"": ""arg_actor""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        },
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""arg_actor""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 1
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""m""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""m"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""main_actor_in"",
+            ""from"": ""a"",
+            ""to"": ""m""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""all_id"": ""a"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""a""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""arg_actor""
+                }
+              }
+            }
+          ]
+        },
+        ""distinct"": true
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine_movie"", ""type"": ""Movie"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_arg_star"", ""role"": ""starred_in"", ""from"": ""e_argentine_actor"", ""to"": ""e_argentine_movie"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_star"",
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""r_star"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_movie"",
+                      ""expression"": {
+                        ""attribute_name"": ""salary"",
+                        ""of"": {
+                          ""id"": ""r_arg_star_max"",
+                          ""role"": ""starred_in"",
+                          ""from"": ""e_argentine_actor"",
+                          ""to"": ""e_argentine_movie""
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e_argentine_actor"" },
+              ""operator"": ""="",
+              ""right"": ""Argentine""
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q10_Give_me_the_movies_in_which_all_the_main_thinking_false_20260601_092453.csv
+semgir,5,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b-a3b,False,0.1,218.64692,True,stop,3317,10.256238,620,207.201926,2.9923,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine"", ""type"": ""Person"" },
+          { ""id"": ""e_role"", ""type"": ""Role"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_main"", ""role"": ""main_actor"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_salary"", ""role"": ""earned_salary"", ""from"": ""e_role"", ""to"": ""e_movie"" },
+          { ""id"": ""r_nationality"", ""role"": ""nationality"", ""from"": ""e_argentine"", ""to"": ""e_country"" },
+          { ""id"": ""e_country"", ""type"": ""Location"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""name"", ""of"": ""e_country"" },
+              ""operator"": ""="",
+              ""right"": ""Argentina""
+            },
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_main"",
+                  {
+                    ""left"": { ""count_id"": ""e_argentine"", ""condition"": { ""and_conditions"": [ ""r_nationality"", { ""left"": { ""attribute_name"": ""name"", ""of"": ""e_argentine"" }, ""operator"": ""="", ""right"": ""Argentina"" } ] } },
+                    ""operator"": "">"",
+                    ""right"": 0
+                  },
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""e_role"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_salary"",
+                      ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_role_argentine"" },
+                      ""condition"": {
+                        ""and_conditions"": [
+                          ""r_main_argentine"",
+                          {
+                            ""left"": { ""attribute_name"": ""name"", ""of"": ""e_argentine"" },
+                            ""operator"": ""="",
+                            ""right"": ""Argentina""
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.2,"The Candidate JSON has several critical issues. First, it suffers from severe structural and logical errors: it attempts to perform a complex comparison within a single query block using non-existent IDs (e.g., 'e_argentine_salary', 'e_role_argentine', 'r_main_argentine') and undefined entities. Second, it introduces unnecessary and hallucinated entities and relationships (e.g., 'e_role', 'e_country', 'r_salary') that were not part of the logical requirement. Third, the logic for finding the 'highest-paid Argentine actor' is not correctly implemented via a chained query or a valid aggregation; instead, it uses a broken 'max_id' construct with invalid references. While it attempts to capture the 'all' quantifier, the implementation is semantically uninterpretable due to the broken ID references and over-complicated, incorrect schema mapping.",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several critical issues. First, it suffers from severe structural and logical errors: it attempts to perform a complex comparison within a single query block using non-existent IDs (e.g., 'e_argentine_salary', 'e_role_argentine', 'r_main_argentine') and undefined entities. Second, it introduces unnecessary and hallucinated entities and relationships (e.g., 'e_role', 'e_country', 'r_salary') that were not part of the logical requirement. Third, the logic for finding the 'highest-paid Argentine actor' is not correctly implemented via a chained query or a valid aggregation; instead, it uses a broken 'max_id' construct with invalid references. While it attempts to capture the 'all' quantifier, the implementation is semantically uninterpretable due to the broken ID references and over-complicated, incorrect schema mapping."",
+  ""score"": 0.2
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""arg_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""arg_actor"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""constraint"": {
+          ""left"": {
+            ""attribute_name"": ""nationality"",
+            ""of"": ""arg_actor""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        },
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""arg_actor""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 1
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""m""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""m"",
+            ""type"": ""Movie""
+          },
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""main_actor_in"",
+            ""from"": ""a"",
+            ""to"": ""m""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""all_id"": ""a"",
+              ""condition"": {
+                ""left"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""a""
+                },
+                ""operator"": "">"",
+                ""right"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""arg_actor""
+                }
+              }
+            }
+          ]
+        },
+        ""distinct"": true
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [""e_movie""],
+        ""entities"": [
+          { ""id"": ""e_movie"", ""type"": ""Movie"" },
+          { ""id"": ""e_actor"", ""type"": ""Person"" },
+          { ""id"": ""e_argentine"", ""type"": ""Person"" },
+          { ""id"": ""e_role"", ""type"": ""Role"" }
+        ],
+        ""relationships"": [
+          { ""id"": ""r_star"", ""role"": ""starred_in"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_main"", ""role"": ""main_actor"", ""from"": ""e_actor"", ""to"": ""e_movie"" },
+          { ""id"": ""r_salary"", ""role"": ""earned_salary"", ""from"": ""e_role"", ""to"": ""e_movie"" },
+          { ""id"": ""r_nationality"", ""role"": ""nationality"", ""from"": ""e_argentine"", ""to"": ""e_country"" },
+          { ""id"": ""e_country"", ""type"": ""Location"" }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            {
+              ""left"": { ""attribute_name"": ""name"", ""of"": ""e_country"" },
+              ""operator"": ""="",
+              ""right"": ""Argentina""
+            },
+            {
+              ""all_id"": ""e_actor"",
+              ""condition"": {
+                ""and_conditions"": [
+                  ""r_main"",
+                  {
+                    ""left"": { ""count_id"": ""e_argentine"", ""condition"": { ""and_conditions"": [ ""r_nationality"", { ""left"": { ""attribute_name"": ""name"", ""of"": ""e_argentine"" }, ""operator"": ""="", ""right"": ""Argentina"" } ] } },
+                    ""operator"": "">"",
+                    ""right"": 0
+                  },
+                  {
+                    ""left"": { ""attribute_name"": ""salary"", ""of"": ""e_role"" },
+                    ""operator"": "">"",
+                    ""right"": {
+                      ""max_id"": ""e_argentine_salary"",
+                      ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e_role_argentine"" },
+                      ""condition"": {
+                        ""and_conditions"": [
+                          ""r_main_argentine"",
+                          {
+                            ""left"": { ""attribute_name"": ""name"", ""of"": ""e_argentine"" },
+                            ""operator"": ""="",
+                            ""right"": ""Argentina""
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/qwen3.6_35b-a3b/executions_qwen3.6_35b-a3b_Q10_Give_me_the_movies_in_which_all_the_main_thinking_false_20260601_092453.csv

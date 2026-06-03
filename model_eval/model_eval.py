@@ -237,50 +237,65 @@ OLLAMA_OPTIONS = {
     "num_ctx": 8192,
 }
 
-SYSTEM_PROMPT_PATH = "prompts/SYSTEM_PROMPT_LISTS.prompt.md"
-SYSTEM_PROMPT = utils.load_prompt_file(SYSTEM_PROMPT_PATH)
+SYSTEM_PROMPTS_PATHS = [
+    "prompts/SYSTEM_PROMPT_LISTS_v1.prompt.md",
+    "prompts/SYSTEM_PROMPT_LISTS_v2.prompt.md",
+    "prompts/SYSTEM_PROMPT_LISTS_v3.prompt.md",
+]
 RUNS_PER_MODEL = 5
 OUTPUT_DIR = "outputs/summary"
 CONFIDENCE_LEVEL = None  # Usa None para no calcular intervalos de confianza
 
 ollama_client = Client(OLLAMA_SERVER)
 
-(
-    results_df,
-    model_comparison_df,
-    model_files,
-    query_files,
-    execution_files,
-    all_results_file,
-    model_comparison_file,
-) = utils.run_models_summary(
-    ollama_client=ollama_client,
-    models=models,
-    queries=queries,
-    system_prompt=SYSTEM_PROMPT,
-    base_options=OLLAMA_OPTIONS,
-    runs_per_model=RUNS_PER_MODEL,
-    output_dir=OUTPUT_DIR,
-    confidence_level=CONFIDENCE_LEVEL,
-)
+for prompt_path in SYSTEM_PROMPTS_PATHS:
+    print(f"\n==================================================")
+    print(f"Executing evaluation for prompt: {prompt_path}")
+    print(f"==================================================")
 
-print("Saved per-model files:")
-for file_path in model_files:
-    print(f"- {file_path}")
+    system_prompt = utils.load_prompt_file(prompt_path)
 
-print("Saved per-query files:")
-for file_path in query_files:
-    print(f"- {file_path}")
+    # Save outputs under a subdirectory named after the prompt file to prevent conflicts
+    prompt_name = os.path.basename(prompt_path).replace(".prompt.md", "")
+    prompt_output_dir = os.path.join(OUTPUT_DIR, prompt_name)
 
-print("Saved execution files (query + model + mode):")
-for file_path in execution_files:
-    print(f"- {file_path}")
+    (
+        results_df,
+        model_comparison_df,
+        model_files,
+        query_files,
+        execution_files,
+        all_results_file,
+        model_comparison_file,
+    ) = utils.run_models_summary(
+        ollama_client=ollama_client,
+        models=models,
+        queries=queries,
+        system_prompt=system_prompt,
+        base_options=OLLAMA_OPTIONS,
+        runs_per_model=RUNS_PER_MODEL,
+        output_dir=prompt_output_dir,
+        confidence_level=CONFIDENCE_LEVEL,
+    )
 
-print(f"Saved master file: {all_results_file}")
-print(f"Saved model comparison file: {model_comparison_file}")
+    print(f"\nFinished evaluation for prompt: {prompt_path}")
+    print("Saved per-model files:")
+    for file_path in model_files:
+        print(f"- {file_path}")
 
-print("\nModel comparison summary:")
-print(model_comparison_df.to_string())
+    print("Saved per-query files:")
+    for file_path in query_files:
+        print(f"- {file_path}")
 
-print("\nDetailed results:")
-print(results_df.to_string())
+    print("Saved execution files (query + model + mode):")
+    for file_path in execution_files:
+        print(f"- {file_path}")
+
+    print(f"Saved master file: {all_results_file}")
+    print(f"Saved model comparison file: {model_comparison_file}")
+
+    print("\nModel comparison summary:")
+    print(model_comparison_df.to_string())
+
+    print("\nDetailed results:")
+    print(results_df.to_string())

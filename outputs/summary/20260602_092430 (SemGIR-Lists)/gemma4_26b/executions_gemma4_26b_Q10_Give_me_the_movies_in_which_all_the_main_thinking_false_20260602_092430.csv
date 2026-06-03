@@ -1,0 +1,602 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,463.288397,True,stop,3704,1.118302,1624,459.700316,3.5327,"```json
+{
+  ""hypothesies_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentine_actor"",
+          ""type"": ""Person""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_is_argentine"",
+          ""role"": ""nationality"",
+          ""from"": ""e_argentine_actor"",
+          ""to"": ""e_country_arg""
+        },
+        {
+          ""id"": ""r_earns"",
+          ""role"": ""earns"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_salary""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_country_arg"",
+          ""type"": ""Location""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_argentine_actor""
+                  },
+                  ""filter"": {
+                    ""and_conditions"": [
+                      ""r_is_argentine"",
+                      {
+                        ""left"": {
+                          ""attribute_name"": ""name"",
+                          ""of"": ""e_country_arg""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentina""
+                      }
+                    ]
+                  }
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Wait, I see a small error in my manual construction of the JSON above (duplicate `entities` key and a typo in `hypothesies_set`). Let me provide the corrected, strictly valid version.
+
+```json
+{
+  ""hypothes_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentine_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentina"",
+          ""type"": ""Location""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_nationality"",
+          ""role"": ""has_nationality"",
+          ""from"": ""e_argentine_actor"",
+          ""to"": ""e_argentina""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_argentine_actor""
+                  },
+                  ""filter"": ""r_nationality""
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_argentina""
+            },
+            ""operator"": ""="",
+            ""right"": ""Argentina""
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Actually, looking at the prompt's requirement for a single valid JSON block:
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_arg_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentina"",
+          ""type"": ""Location""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_nat"",
+          ""role"": ""nationality"",
+          ""from"": ""e_arg_actor"",
+          ""to"": ""e_argentina""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_arg_actor""
+                  },
+                  ""filter"": ""r_nat""
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_argentina""
+            },
+            ""operator"": ""="",
+            ""right"": ""Argentina""
+          }
+        ]
+      }
+    }
+  ]
+}
+```"
+2,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,147.249331,True,stop,3704,0.28291,519,145.779831,3.5602,"```json
+{
+  ""hypothesies_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentine_actor"",
+          ""type"": ""Person""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor_in"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_is_argentine"",
+          ""role"": ""is_nationality"",
+          ""from"": ""e_argentine_actor"",
+          ""to"": ""e_country""
+        },
+        {
+          ""id"": ""e_country"",
+          ""type"": ""Location""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_argentine_actor""
+                  },
+                  ""filter"": {
+                    ""and_conditions"": [
+                      ""r_is_argentine"",
+                      {
+                        ""left"": {
+                          ""attribute_name"": ""name"",
+                          ""of"": ""e_country""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentina""
+                      }
+                    ]
+                  }
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          }
+        ]
+      }
+    }
+  ]
+}
+```"
+3,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,147.275087,True,stop,3704,0.281256,519,145.819372,3.5592,"```json
+{
+  ""hypothesies_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentine_actor"",
+          ""type"": ""Person""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor_in"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_is_argentine"",
+          ""role"": ""is_nationality"",
+          ""from"": ""e_argentine_actor"",
+          ""to"": ""e_country""
+        },
+        {
+          ""id"": ""e_country"",
+          ""type"": ""Location""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_argentine_actor""
+                  },
+                  ""filter"": {
+                    ""and_conditions"": [
+                      ""r_is_argentine"",
+                      {
+                        ""left"": {
+                          ""attribute_name"": ""name"",
+                          ""of"": ""e_country""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentina""
+                      }
+                    ]
+                  }
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          }
+        ]
+      }
+    }
+  ]
+}
+```"
+4,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,147.169063,True,stop,3704,0.282023,519,145.61195,3.5643,"```json
+{
+  ""hypothesies_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentine_actor"",
+          ""type"": ""Person""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor_in"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_is_argentine"",
+          ""role"": ""is_nationality"",
+          ""from"": ""e_argentine_actor"",
+          ""to"": ""e_country""
+        },
+        {
+          ""id"": ""e_country"",
+          ""type"": ""Location""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_argentine_actor""
+                  },
+                  ""filter"": {
+                    ""and_conditions"": [
+                      ""r_is_argentine"",
+                      {
+                        ""left"": {
+                          ""attribute_name"": ""name"",
+                          ""of"": ""e_country""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentina""
+                      }
+                    ]
+                  }
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          }
+        ]
+      }
+    }
+  ]
+}
+```"
+5,Q10,Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.05,147.269386,True,stop,3704,0.28417,519,145.768883,3.5604,"```json
+{
+  ""hypothesies_set"": [
+    {
+      ""target"": [
+        ""e_movie""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_movie"",
+          ""type"": ""Movie""
+        },
+        {
+          ""id"": ""e_actor"",
+          ""type"": ""Person""
+        },
+        {
+          ""id"": ""e_argentine_actor"",
+          ""type"": ""Person""
+        }
+      ],
+      ""relationships"": [
+        {
+          ""id"": ""r_acts"",
+          ""role"": ""actor_in"",
+          ""from"": ""e_actor"",
+          ""to"": ""e_movie""
+        },
+        {
+          ""id"": ""r_is_argentine"",
+          ""role"": ""is_nationality"",
+          ""from"": ""e_argentine_actor"",
+          ""to"": ""e_country""
+        },
+        {
+          ""id"": ""e_country"",
+          ""type"": ""Location""
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          ""r_acts"",
+          {
+            ""list"": {
+              ""list"": {
+                ""list_elements"": ""e_actor""
+              },
+              ""filter"": ""r_acts""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e_actor""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""list_elements"": ""e_argentine_actor""
+                  },
+                  ""filter"": {
+                    ""and_conditions"": [
+                      ""r_is_argentine"",
+                      {
+                        ""left"": {
+                          ""attribute_name"": ""name"",
+                          ""of"": ""e_country""
+                        },
+                        ""operator"": ""="",
+                        ""right"": ""Argentina""
+                      }
+                    ]
+                  }
+                },
+                ""aggregate_kind"": ""MAX""
+              }
+            },
+            ""quantifier_kind"": ""ALL""
+          }
+        ]
+      }
+    }
+  ]
+}
+```"

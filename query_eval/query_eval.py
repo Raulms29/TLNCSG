@@ -1,3 +1,11 @@
+import sys
+import os
+script_dir = os.path.abspath(os.path.dirname(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, ".."))
+sys.path = [p for p in sys.path if os.path.abspath(p) != script_dir]
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import pandas as pd
 from typing import cast
 
@@ -11,11 +19,11 @@ EVALUATOR_MODEL = "deepseek-r1:8b"
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
-    # Limita la respuesta generada. Sabiendo que el 95% de las respuestas válidas
-    # se resuelven en < 1200 tokens y la mediana en 200.
+    # Limits the generated response. Knowing that 95% of valid responses
+    # are resolved in < 1200 tokens and the median in 200.
     "num_predict": 2048,
-    # Define el tamaño de contexto total (entrada + salida esperada).
-    # He tenido prompts de hasta 4096 tokens.
+    # Defines the total context size (input + expected output).
+    # I have had prompts of up to 4096 tokens.
     "num_ctx": 12288,
 }
 EVALUATOR_THINKING = True

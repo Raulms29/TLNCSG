@@ -216,10 +216,108 @@ def evaluate_execution_file(
     return pd.DataFrame(evaluated_rows)
 
 
+def _build_ci_frame(
+    evaluated_df: pd.DataFrame,
+    group_cols: list[str],
+    confidence_level: float = 0.95,
+) -> pd.DataFrame:
+    """Build a DataFrame with 95% CI (Score) for each group."""
+    ci_rows: list[dict[str, Any]] = []
+    grouped = evaluated_df.groupby(group_cols, dropna=False)
+
+    for group_key, group_df in grouped:
+        if not isinstance(group_key, tuple):
+            group_key = (group_key,)
+
+        sample = np.array(group_df["Eval Score"], dtype=float)
+        mean_score = float(np.mean(sample)) if sample.size else float("nan")
+
+        if sample.size > 1:
+            (ci_low, ci_high), _, _ = utils.compute_confidence_interval_with_method(
+                scores=sample,
+                confidence_level=confidence_level,
+                alpha=0.05,
+            )
+        else:
+            ci_low, ci_high = (mean_score, mean_score)
+
+        row = {
+            col: value for col, value in zip(group_cols, group_key, strict=False)
+        }
+        row["95% CI (Score)"] = f"[{ci_low:.4f}, {ci_high:.4f}]"
+        ci_rows.append(row)
+
+    return pd.DataFrame(ci_rows)
+
+
+def _compute_weighted_overall(
+    frame: pd.DataFrame,
+    criterion_ids: list[str],
+    criterion_weights: dict[str, float],
+) -> pd.Series:
+    """Return a Series of weighted-average scores for each row of *frame*."""
+    def _row_weighted(row: pd.Series) -> float:
+        valid_criteria = [
+            cid for cid in criterion_ids if cid in row.index and pd.notna(row[cid])
+        ]
+        if not valid_criteria:
+            return float("nan")
+
+        weight_sum = sum(criterion_weights[cid] for cid in valid_criteria)
+        if weight_sum <= 0:
+            return float("nan")
+
+        return float(
+            sum(float(row[cid]) * criterion_weights[cid] for cid in valid_criteria)
+            / weight_sum
+        )
+
+    return frame.apply(_row_weighted, axis=1)
+
+
+def _ensure_ci_after_std(frame: pd.DataFrame) -> pd.DataFrame:
+    """Re-order columns so that '95% CI (Score)' immediately follows 'Std_Score'."""
+    ci_col = "95% CI (Score)"
+    std_col = "Std_Score"
+    if ci_col in frame.columns and std_col in frame.columns:
+        cols = [col for col in frame.columns if col != ci_col]
+        cols.insert(cols.index(std_col) + 1, ci_col)
+        return frame[cols]
+    return frame
+
+
+def _build_aspect_columns(
+    evaluated_df: pd.DataFrame,
+    base_group_cols: list[str],
+    criterion_ids: list[str],
+) -> pd.DataFrame:
+    """Pivot mean Eval Score per criterion into one column per criterion ID."""
+    aspect_df = (
+        evaluated_df.groupby(base_group_cols + ["Criterion ID"], dropna=False)
+        .agg(Aspect_Score=("Eval Score", "mean"))
+        .reset_index()
+    )
+
+    pivot_df = aspect_df.pivot_table(
+        index=base_group_cols,
+        columns="Criterion ID",
+        values="Aspect_Score",
+        aggfunc="first",
+    ).reset_index()
+
+    pivot_df.columns.name = None
+    for criterion_id in criterion_ids:
+        if criterion_id not in pivot_df.columns:
+            pivot_df[criterion_id] = np.nan
+
+    ordered_cols = base_group_cols + criterion_ids
+    return pivot_df[ordered_cols]
+
+
 def _aggregate_outputs(
     evaluated_df: pd.DataFrame,
     criteria_config: dict[str, dict[str, Any]],
-    confidence_level: float = 0.95,
+    confidence_level: float | None = 0.95,
 ) -> tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
 ]:
@@ -228,84 +326,6 @@ def _aggregate_outputs(
         criterion_id: float(criteria_config[criterion_id]["weight"])
         for criterion_id in criterion_ids
     }
-
-    def _build_ci_frame(group_cols: list[str]) -> pd.DataFrame:
-        ci_rows: list[dict[str, Any]] = []
-        grouped = evaluated_df.groupby(group_cols, dropna=False)
-
-        for group_key, group_df in grouped:
-            if not isinstance(group_key, tuple):
-                group_key = (group_key,)
-
-            sample = np.array(group_df["Eval Score"], dtype=float)
-            mean_score = float(np.mean(sample)) if sample.size else float("nan")
-
-            if sample.size > 1:
-                (ci_low, ci_high), _, _ = utils.compute_confidence_interval_with_method(
-                    scores=sample,
-                    confidence_level=confidence_level,
-                    alpha=0.05,
-                )
-            else:
-                ci_low, ci_high = (mean_score, mean_score)
-
-            row = {
-                col: value for col, value in zip(group_cols, group_key, strict=False)
-            }
-            row["95% CI (Score)"] = f"[{ci_low:.4f}, {ci_high:.4f}]"
-            ci_rows.append(row)
-
-        return pd.DataFrame(ci_rows)
-
-    def _compute_weighted_overall(frame: pd.DataFrame) -> pd.Series:
-        def _row_weighted(row: pd.Series) -> float:
-            valid_criteria = [
-                cid for cid in criterion_ids if cid in row.index and pd.notna(row[cid])
-            ]
-            if not valid_criteria:
-                return float("nan")
-
-            weight_sum = sum(criterion_weights[cid] for cid in valid_criteria)
-            if weight_sum <= 0:
-                return float("nan")
-
-            return float(
-                sum(float(row[cid]) * criterion_weights[cid] for cid in valid_criteria)
-                / weight_sum
-            )
-
-        return frame.apply(_row_weighted, axis=1)
-
-    def _ensure_ci_after_std(frame: pd.DataFrame) -> pd.DataFrame:
-        ci_col = "95% CI (Score)"
-        std_col = "Std_Score"
-        if ci_col in frame.columns and std_col in frame.columns:
-            cols = [col for col in frame.columns if col != ci_col]
-            cols.insert(cols.index(std_col) + 1, ci_col)
-            return frame[cols]
-        return frame
-
-    def _build_aspect_columns(base_group_cols: list[str]) -> pd.DataFrame:
-        aspect_df = (
-            evaluated_df.groupby(base_group_cols + ["Criterion ID"], dropna=False)
-            .agg(Aspect_Score=("Eval Score", "mean"))
-            .reset_index()
-        )
-
-        pivot_df = aspect_df.pivot_table(
-            index=base_group_cols,
-            columns="Criterion ID",
-            values="Aspect_Score",
-            aggfunc="first",
-        ).reset_index()
-
-        pivot_df.columns.name = None
-        for criterion_id in criterion_ids:
-            if criterion_id not in pivot_df.columns:
-                pivot_df[criterion_id] = np.nan
-
-        ordered_cols = base_group_cols + criterion_ids
-        return pivot_df[ordered_cols]
 
     by_model_mode_query_criterion = (
         evaluated_df.groupby(
@@ -323,14 +343,17 @@ def _aggregate_outputs(
         .reset_index()
     )
 
-    ci_model_mode_query_criterion = _build_ci_frame(
-        ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"]
-    )
-    by_model_mode_query_criterion = by_model_mode_query_criterion.merge(
-        ci_model_mode_query_criterion,
-        on=["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"],
-        how="left",
-    )
+    if confidence_level is not None:
+        ci_model_mode_query_criterion = _build_ci_frame(
+            evaluated_df,
+            ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"],
+            confidence_level,
+        )
+        by_model_mode_query_criterion = by_model_mode_query_criterion.merge(
+            ci_model_mode_query_criterion,
+            on=["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"],
+            how="left",
+        )
 
     by_model_mode_criterion = (
         evaluated_df.groupby(
@@ -347,14 +370,15 @@ def _aggregate_outputs(
         .reset_index()
     )
 
-    ci_model_mode_criterion = _build_ci_frame(
-        ["Model", "Thinking", "Criterion ID", "Criterion"]
-    )
-    by_model_mode_criterion = by_model_mode_criterion.merge(
-        ci_model_mode_criterion,
-        on=["Model", "Thinking", "Criterion ID", "Criterion"],
-        how="left",
-    )
+    if confidence_level is not None:
+        ci_model_mode_criterion = _build_ci_frame(
+            evaluated_df, ["Model", "Thinking", "Criterion ID", "Criterion"], confidence_level
+        )
+        by_model_mode_criterion = by_model_mode_criterion.merge(
+            ci_model_mode_criterion,
+            on=["Model", "Thinking", "Criterion ID", "Criterion"],
+            how="left",
+        )
 
     by_query_criterion = (
         evaluated_df.groupby(
@@ -371,14 +395,15 @@ def _aggregate_outputs(
         .reset_index()
     )
 
-    ci_query_criterion = _build_ci_frame(
-        ["Query ID", "Query", "Criterion ID", "Criterion"]
-    )
-    by_query_criterion = by_query_criterion.merge(
-        ci_query_criterion,
-        on=["Query ID", "Query", "Criterion ID", "Criterion"],
-        how="left",
-    )
+    if confidence_level is not None:
+        ci_query_criterion = _build_ci_frame(
+            evaluated_df, ["Query ID", "Query", "Criterion ID", "Criterion"], confidence_level
+        )
+        by_query_criterion = by_query_criterion.merge(
+            ci_query_criterion,
+            on=["Query ID", "Query", "Criterion ID", "Criterion"],
+            how="left",
+        )
 
     by_model_mode_query = (
         evaluated_df.groupby(["Model", "Thinking", "Query ID", "Query"], dropna=False)
@@ -392,14 +417,17 @@ def _aggregate_outputs(
         )
         .reset_index()
     )
-    ci_model_mode_query = _build_ci_frame(["Model", "Thinking", "Query ID", "Query"])
-    by_model_mode_query = by_model_mode_query.merge(
-        ci_model_mode_query,
-        on=["Model", "Thinking", "Query ID", "Query"],
-        how="left",
-    )
+    if confidence_level is not None:
+        ci_model_mode_query = _build_ci_frame(
+            evaluated_df, ["Model", "Thinking", "Query ID", "Query"], confidence_level
+        )
+        by_model_mode_query = by_model_mode_query.merge(
+            ci_model_mode_query,
+            on=["Model", "Thinking", "Query ID", "Query"],
+            how="left",
+        )
     model_mode_query_aspects = _build_aspect_columns(
-        ["Model", "Thinking", "Query ID", "Query"]
+        evaluated_df, ["Model", "Thinking", "Query ID", "Query"], criterion_ids
     )
     by_model_mode_query = by_model_mode_query.merge(
         model_mode_query_aspects,
@@ -407,7 +435,7 @@ def _aggregate_outputs(
         how="left",
     )
     by_model_mode_query["Weighted_Overall"] = _compute_weighted_overall(
-        by_model_mode_query
+        by_model_mode_query, criterion_ids, criterion_weights
     )
 
     by_model_mode = (
@@ -423,19 +451,24 @@ def _aggregate_outputs(
         .reset_index()
     )
 
-    ci_model_mode = _build_ci_frame(["Model", "Thinking"])
-    by_model_mode = by_model_mode.merge(
-        ci_model_mode,
-        on=["Model", "Thinking"],
-        how="left",
+    if confidence_level is not None:
+        ci_model_mode = _build_ci_frame(evaluated_df, ["Model", "Thinking"], confidence_level)
+        by_model_mode = by_model_mode.merge(
+            ci_model_mode,
+            on=["Model", "Thinking"],
+            how="left",
+        )
+    model_mode_aspects = _build_aspect_columns(
+        evaluated_df, ["Model", "Thinking"], criterion_ids
     )
-    model_mode_aspects = _build_aspect_columns(["Model", "Thinking"])
     by_model_mode = by_model_mode.merge(
         model_mode_aspects,
         on=["Model", "Thinking"],
         how="left",
     )
-    by_model_mode["Weighted_Overall"] = _compute_weighted_overall(by_model_mode)
+    by_model_mode["Weighted_Overall"] = _compute_weighted_overall(
+        by_model_mode, criterion_ids, criterion_weights
+    )
 
     by_query = (
         evaluated_df.groupby(["Query ID", "Query"], dropna=False)
@@ -450,19 +483,24 @@ def _aggregate_outputs(
         .reset_index()
     )
 
-    ci_query = _build_ci_frame(["Query ID", "Query"])
-    by_query = by_query.merge(
-        ci_query,
-        on=["Query ID", "Query"],
-        how="left",
+    if confidence_level is not None:
+        ci_query = _build_ci_frame(evaluated_df, ["Query ID", "Query"], confidence_level)
+        by_query = by_query.merge(
+            ci_query,
+            on=["Query ID", "Query"],
+            how="left",
+        )
+    query_aspects = _build_aspect_columns(
+        evaluated_df, ["Query ID", "Query"], criterion_ids
     )
-    query_aspects = _build_aspect_columns(["Query ID", "Query"])
     by_query = by_query.merge(
         query_aspects,
         on=["Query ID", "Query"],
         how="left",
     )
-    by_query["Weighted_Overall"] = _compute_weighted_overall(by_query)
+    by_query["Weighted_Overall"] = _compute_weighted_overall(
+        by_query, criterion_ids, criterion_weights
+    )
 
     by_model_mode_query_criterion = _ensure_ci_after_std(by_model_mode_query_criterion)
     by_model_mode_criterion = _ensure_ci_after_std(by_model_mode_criterion)
@@ -504,6 +542,7 @@ def evaluate_summary_folder(
     test_query_ids: str | list[str] | tuple[str, ...] | set[str] | None = None,
     test_query_id: str | None = None,
     test_model: str | None = None,
+    confidence_level: float | None = 0.95,
 ) -> dict[str, str | list[str] | pd.DataFrame]:
     summary_path = Path(summary_root)
     execution_files = _find_execution_files(summary_path)
@@ -571,7 +610,7 @@ def evaluate_summary_folder(
 
         all_frames.append(evaluated_df)
 
-        # Actualizar archivos acumulativos parciales para evitar pérdidas en caso de error
+        # Update partial cumulative files to avoid losses in case of error
         partial_df = pd.concat(all_frames, ignore_index=True)
         partial_df.to_csv(
             output_dir / f"evaluation_all_runs_partial_{execution_id}.csv",
@@ -579,7 +618,7 @@ def evaluate_summary_folder(
             encoding="utf-8",
         )
 
-        p_aggs = _aggregate_outputs(partial_df, criteria_config=normalized_criteria)
+        p_aggs = _aggregate_outputs(partial_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
         p_aggs[0].to_csv(
             output_dir
             / f"evaluation_model_mode_query_criterion_partial_{execution_id}.csv",
@@ -626,7 +665,7 @@ def evaluate_summary_folder(
         by_model_mode_query,
         by_model_mode,
         by_query,
-    ) = _aggregate_outputs(all_evaluated_df, criteria_config=normalized_criteria)
+    ) = _aggregate_outputs(all_evaluated_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
 
     all_file = output_dir / f"evaluation_all_runs_{execution_id}.csv"
     model_mode_query_criterion_file = (

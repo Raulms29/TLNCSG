@@ -1,0 +1,1578 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,gemma4:26b,False,0.05,136.969254,True,stop,3448,0.97771,492,134.823859,3.6492,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_dir_pay"",
+            ""role"": ""has_pay"",
+            ""from"": ""e_director"",
+            ""to"": ""e_director""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": "">="",
+                      ""right"": 0
+                    }
+                  },
+                  ""operator"": "">="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          {
+            ""attribute_name"": ""name"",
+            ""of"": ""e_actor""
+          }
+        ]
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.2,"The Candidate JSON fails significantly in both logic and structure compared to the Ground Truth. 
+1. Structural Failure: The query requires a multi-step process (calculating the sum of the top 5 directors first), but the Candidate attempts to do everything in a single query block. This makes it impossible to correctly implement the 'top 5' and 'combined' (summation) logic within a single scope without a preceding hypothesis.
+2. Semantic Errors: The 'top 5' logic is incorrectly implemented using a highly convoluted and invalid 'count_id' inside a 'condition' within a 'summation', which does not represent the 'top 5' requirement. 
+3. Relationship Errors: The relationship 'r_dir_pay' is self-referential ('from': 'e_director', 'to': 'e_director'), which is nonsensical. 
+4. Missing Logic: The Candidate does not capture the 'top 5' ordering or the specific 'Director' entity type, instead treating everything as 'Person'.",,"```json
+{
+  ""rationale"": ""The Candidate JSON fails significantly in both logic and structure compared to the Ground Truth. \n1. Structural Failure: The query requires a multi-step process (calculating the sum of the top 5 directors first), but the Candidate attempts to do everything in a single query block. This makes it impossible to correctly implement the 'top 5' and 'combined' (summation) logic within a single scope without a preceding hypothesis.\n2. Semantic Errors: The 'top 5' logic is incorrectly implemented using a highly convoluted and invalid 'count_id' inside a 'condition' within a 'summation', which does not represent the 'top 5' requirement. \n3. Relationship Errors: The relationship 'r_dir_pay' is self-referential ('from': 'e_director', 'to': 'e_director'), which is nonsensical. \n4. Missing Logic: The Candidate does not capture the 'top 5' ordering or the specific 'Director' entity type, instead treating everything as 'Person'."",
+  ""score"": 0.2
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_dir_pay"",
+            ""role"": ""has_pay"",
+            ""from"": ""e_director"",
+            ""to"": ""e_director""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": "">="",
+                      ""right"": 0
+                    }
+                  },
+                  ""operator"": "">="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        },
+        ""projection"": [
+          {
+            ""attribute_name"": ""name"",
+            ""of"": ""e_actor""
+          }
+        ]
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/gemma4_26b/executions_gemma4_26b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,2,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,gemma4:26b,False,0.05,872.45259,True,length,3448,0.275528,3072,867.974011,3.5393,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_director_pay"",
+            ""role"": ""has_pay"",
+            ""from"": ""e_director"",
+            ""to"": ""e_director""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""desc"",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Wait, looking at the grammar for `SUMMATION` and `COUNT` in the provided instructions, I need to refine the `right` side of the comparison for the ""top 5 highest-paid directors combined"". The grammar allows `SUMMATION` with a `condition`. I will use a more precise structure based on the provided grammar.
+
+```json
+{
+  ""hypothesies_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_is_father_of"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_is_father_of"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""desc"",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+
+Actually, the grammar for `COUNT` doesn't support `desc` or `limit` directly in the `condition` block as a standard operator, but the prompt implies a threshold. Let's stick to the most logical interpretation of the provided grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_father_of"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_father_of"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": "">="",
+                      ""right"": 0
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Wait, the ""top 5"" part is a specific constraint. Since the grammar doesn't explicitly provide a `LIMIT` for `SUMMATION`, I will represent the logic as closely as possible to the user's intent using the available `SUMMATION` and `COUNT` primitives.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_father_of"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_father_of"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": "">"",
+                      ""right"": 0
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Actually, I'll provide the most accurate semantic mapping possible.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_father_of"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_father_of"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": "">"",
+                      ""right"": 0
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Final attempt at a clean, valid JSON following the rules.
+
+```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_father_of"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_father_of"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": "">"",
+                      ""right"": 0
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```
+Wait, I cannot represent ""top 5"" perfectly with the provided grammar's `SUMMATION` and `COUNT` without a `LIMIT` or `ORDER_BY` inside the `SUMMATION` condition. I will use the `SUMMATION` on `e_director` and assume the `condition` handles the filtering logic.
+
+```json
+{
+  ""hypothesies_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_father_of"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_father_of"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  """,G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON has several significant issues. First, it fails to use a chained query (hypotheses_set with multiple queries) to handle the 'top 5' logic, which is the standard way to implement limits and ordering in this IR. Instead, it attempts to embed a highly non-standard and grammatically incorrect 'condition' inside a 'summation' (using 'count_id' with a 'desc' operator, which is not part of the SemGIR grammar). Second, the relationship 'r_director_pay' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically nonsensical. Third, it fails to identify the 'Director' entity type, treating everything as 'Person'. While it captures the high-level intent of comparing money, the structural and grammatical implementation is invalid.",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several significant issues. First, it fails to use a chained query (hypotheses_set with multiple queries) to handle the 'top 5' logic, which is the standard way to implement limits and ordering in this IR. Instead, it attempts to embed a highly non-standard and grammatically incorrect 'condition' inside a 'summation' (using 'count_id' with a 'desc' operator, which is not part of the SemGIR grammar). Second, the relationship 'r_director_pay' is self-referential ('from': 'e_director', 'to': 'e_director'), which is logically nonsensical. Third, it fails to identify the 'Director' entity type, treating everything as 'Person'. While it captures the high-level intent of comparing money, the structural and grammatical implementation is invalid."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_director_pay"",
+            ""role"": ""has_pay"",
+            ""from"": ""e_director"",
+            ""to"": ""e_director""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_director"",
+                ""expression"": {
+                  ""attribute_name"": ""money"",
+                  ""of"": ""e_director""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""money"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""desc"",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""exists""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/gemma4_26b/executions_gemma4_26b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,3,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,gemma4:26b,False,0.05,137.61345,True,stop,3448,0.287315,481,136.085254,3.5345,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_pay"",
+            ""type"": ""Payment""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_paid"",
+            ""role"": ""paid_amount"",
+            ""from"": ""e_director"",
+            ""to"": ""e_pay""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""r_paid"",
+                ""expression"": {
+                  ""attribute_name"": ""amount"",
+                  ""of"": ""e_pay""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""rank"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""<="",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""<="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON fails significantly in both structural logic and semantic faithfulness. First, it attempts to solve a complex multi-step query (involving a top-5 aggregation and a summation) within a single query block, whereas the Ground Truth correctly uses a chained hypothesis (q1_step1 -> q1_step2) to handle the 'top 5' logic. Second, the Candidate introduces unnecessary and ungrounded entities like 'e_pay' (type 'Payment') and 'r_paid', which were not in the original query. Third, the logic for the summation is semantically incorrect: it uses a 'count_id' inside a 'condition' of a 'summation' to attempt to filter the top 5, which is not a valid or functional way to implement a 'top N' filter in SemGIR. The Candidate's approach to the 'top 5' is structurally invalid and does not capture the 'sum of the top 5' requirement.",,"```json
+{
+  ""rationale"": ""The Candidate JSON fails significantly in both structural logic and semantic faithfulness. First, it attempts to solve a complex multi-step query (involving a top-5 aggregation and a summation) within a single query block, whereas the Ground Truth correctly uses a chained hypothesis (q1_step1 -> q1_step2) to handle the 'top 5' logic. Second, the Candidate introduces unnecessary and ungrounded entities like 'e_pay' (type 'Payment') and 'r_paid', which were not in the original query. Third, the logic for the summation is semantically incorrect: it uses a 'count_id' inside a 'condition' of a 'summation' to attempt to filter the top 5, which is not a valid or functional way to implement a 'top N' filter in SemGIR. The Candidate's approach to the 'top 5' is structurally invalid and does not capture the 'sum of the top 5' requirement."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_pay"",
+            ""type"": ""Payment""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_paid"",
+            ""role"": ""paid_amount"",
+            ""from"": ""e_director"",
+            ""to"": ""e_pay""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""r_paid"",
+                ""expression"": {
+                  ""attribute_name"": ""amount"",
+                  ""of"": ""e_pay""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""rank"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""<="",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""<="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/gemma4_26b/executions_gemma4_26b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,4,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,gemma4:26b,False,0.05,144.496723,True,stop,3448,0.284741,505,142.953915,3.5326,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_pay"",
+            ""type"": ""Payment""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_paid"",
+            ""role"": ""paid_amount"",
+            ""from"": ""e_director"",
+            ""to"": ""e_pay""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_pay"",
+                ""expression"": {
+                  ""attribute_name"": ""amount"",
+                  ""of"": ""e_pay""
+                },
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_paid"",
+                    {
+                      ""left"": {
+                        ""count_id"": ""e_director"",
+                        ""condition"": {
+                          ""left"": {
+                            ""attribute_name"": ""rank"",
+                            ""of"": ""e_director""
+                          },
+                          ""operator"": ""<="",
+                          ""right"": 5
+                        }
+                      },
+                      ""operator"": ""<="",
+                      ""right"": 5
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.2,"The Candidate JSON fails significantly in both semantic faithfulness and structural logic. First, it attempts to solve a complex multi-step query (involving a top-5 aggregation and a summation) within a single query block, whereas the Ground Truth correctly uses a chained hypothesis (q1_step1 -> q1_step2) to handle the 'top 5' logic. Second, the Candidate introduces unnecessary and hallucinated entities/relationships, such as a 'Payment' entity and a 'paid_amount' relationship, which are not present in the query or the Ground Truth. Third, the logic for the summation is broken; it uses a 'count_id' inside a 'condition' for a 'summation_id' in a way that does not logically represent 'the sum of the salaries of the top 5 directors'. The use of 'rank' as an attribute is also an assumption not supported by the query. The structure is overly complex and semantically incorrect.",,"```json
+{
+  ""rationale"": ""The Candidate JSON fails significantly in both semantic faithfulness and structural logic. First, it attempts to solve a complex multi-step query (involving a top-5 aggregation and a summation) within a single query block, whereas the Ground Truth correctly uses a chained hypothesis (q1_step1 -> q1_step2) to handle the 'top 5' logic. Second, the Candidate introduces unnecessary and hallucinated entities/relationships, such as a 'Payment' entity and a 'paid_amount' relationship, which are not present in the query or the Ground Truth. Third, the logic for the summation is broken; it uses a 'count_id' inside a 'condition' for a 'summation_id' in a way that does not logically represent 'the sum of the salaries of the top 5 directors'. The use of 'rank' as an attribute is also an assumption not supported by the query. The structure is overly complex and semantically incorrect."",
+  ""score"": 0.2
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_pay"",
+            ""type"": ""Payment""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_paid"",
+            ""role"": ""paid_amount"",
+            ""from"": ""e_director"",
+            ""to"": ""e_pay""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""e_pay"",
+                ""expression"": {
+                  ""attribute_name"": ""amount"",
+                  ""of"": ""e_pay""
+                },
+                ""condition"": {
+                  ""and_conditions"": [
+                    ""r_paid"",
+                    {
+                      ""left"": {
+                        ""count_id"": ""e_director"",
+                        ""condition"": {
+                          ""left"": {
+                            ""attribute_name"": ""rank"",
+                            ""of"": ""e_director""
+                          },
+                          ""operator"": ""<="",
+                          ""right"": 5
+                        }
+                      },
+                      ""operator"": ""<="",
+                      ""right"": 5
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/gemma4_26b/executions_gemma4_26b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
+semgir,5,Q09,Give me the actors whose father has more money than the top 5 highest-paid directors combined.,gemma4:26b,False,0.05,137.786646,True,stop,3448,0.284702,481,136.260617,3.53,"```json
+{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_pay"",
+            ""type"": ""Payment""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_paid"",
+            ""role"": ""paid_amount"",
+            ""from"": ""e_director"",
+            ""to"": ""e_pay""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""r_paid"",
+                ""expression"": {
+                  ""attribute_name"": ""amount"",
+                  ""of"": ""e_pay""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""rank"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""<="",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""<="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}
+```",G0_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,"The Candidate JSON fails significantly in both structural logic and semantic faithfulness. First, it attempts to solve a complex multi-step query (involving a top-5 aggregation and a summation) within a single query block, whereas the Ground Truth correctly uses a chained hypothesis (q1_step1 -> q1_step2) to handle the 'top 5' logic. Second, the Candidate introduces fabricated entities and relationships (e.g., 'e_pay' of type 'Payment' and 'r_paid') that are not present in the natural language or the Ground Truth. Third, the logic for the summation is incorrect; it uses a highly convoluted and invalid 'condition' inside a 'summation_id' block that references a 'count_id' on a rank attribute, which does not correctly represent the 'sum of the top 5' logic. The Candidate's approach to the 'top 5' constraint is semantically incoherent compared to the Ground Truth's use of 'limit' and 'order_by' in a preceding query.",,"```json
+{
+  ""rationale"": ""The Candidate JSON fails significantly in both structural logic and semantic faithfulness. First, it attempts to solve a complex multi-step query (involving a top-5 aggregation and a summation) within a single query block, whereas the Ground Truth correctly uses a chained hypothesis (q1_step1 -> q1_step2) to handle the 'top 5' logic. Second, the Candidate introduces fabricated entities and relationships (e.g., 'e_pay' of type 'Payment' and 'r_paid') that are not present in the natural language or the Ground Truth. Third, the logic for the summation is incorrect; it uses a highly convoluted and invalid 'condition' inside a 'summation_id' block that references a 'count_id' on a rank attribute, which does not correctly represent the 'sum of the top 5' logic. The Candidate's approach to the 'top 5' constraint is semantically incoherent compared to the Ground Truth's use of 'limit' and 'order_by' in a preceding query."",
+  ""score"": 0.3
+}
+```","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1_step1"",
+        ""target"": [
+          ""d""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""d"",
+            ""type"": ""Director""
+          }
+        ],
+        ""order_by"": [
+          {
+            ""expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""d""
+            },
+            ""direction"": ""DESC""
+          }
+        ],
+        ""limit"": 5
+      },
+      {
+        ""id"": ""q1_step2"",
+        ""input"": ""q1_step1"",
+        ""target"": [
+          ""a""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""a"",
+            ""type"": ""Actor""
+          },
+          {
+            ""id"": ""f"",
+            ""type"": ""Person""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r1"",
+            ""role"": ""father_of"",
+            ""from"": ""f"",
+            ""to"": ""a""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r1"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""f""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""d"",
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""d""
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}","{
+  ""hypotheses_set"": [
+    [
+      {
+        ""id"": ""q1"",
+        ""target"": [
+          ""e_actor""
+        ],
+        ""entities"": [
+          {
+            ""id"": ""e_actor"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_father"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_director"",
+            ""type"": ""Person""
+          },
+          {
+            ""id"": ""e_pay"",
+            ""type"": ""Payment""
+          }
+        ],
+        ""relationships"": [
+          {
+            ""id"": ""r_parent"",
+            ""role"": ""father_of"",
+            ""from"": ""e_father"",
+            ""to"": ""e_actor""
+          },
+          {
+            ""id"": ""r_paid"",
+            ""role"": ""paid_amount"",
+            ""from"": ""e_director"",
+            ""to"": ""e_pay""
+          }
+        ],
+        ""constraint"": {
+          ""and_conditions"": [
+            ""r_parent"",
+            {
+              ""left"": {
+                ""attribute_name"": ""money"",
+                ""of"": ""e_father""
+              },
+              ""operator"": "">"",
+              ""right"": {
+                ""summation_id"": ""r_paid"",
+                ""expression"": {
+                  ""attribute_name"": ""amount"",
+                  ""of"": ""e_pay""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""count_id"": ""e_director"",
+                    ""condition"": {
+                      ""left"": {
+                        ""attribute_name"": ""rank"",
+                        ""of"": ""e_director""
+                      },
+                      ""operator"": ""<="",
+                      ""right"": 5
+                    }
+                  },
+                  ""operator"": ""<="",
+                  ""right"": 5
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  ]
+}",outputs/summary/20260601_092453 (SemGIR)/gemma4_26b/executions_gemma4_26b_Q09_Give_me_the_actors_whose_father_has_more_thinking_false_20260601_092453.csv
