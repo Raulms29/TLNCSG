@@ -46,43 +46,23 @@ The IR must be:
 ## GRAMMAR
 
 HYPOTHESES_SET := [QUERY, ...]
-  // Conjunto cerrado de posibles interpretaciones de la entrada en lenguaje natural
 
 QUERY := {
-  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...], // Elementos que definen la salida de la consulta
-  entities: [ENTITY, ...], // Entidades (nodos) involucradas
-  relationships?: [RELATIONSHIP, ...], // Relaciones (aristas) involucradas
-  paths?: [PATH, ...], // Caminos entre entidades
-  constraint?: CONDITION, // Filtro lógico
-  distinct?: BOOLEAN, // Elimina duplicados si es true
-  order_by?: [ORDER_CRITERION, ...], // Criterios de ordenación
-  limit?: NUMBER, // Límite de resultados
-  skip?: NUMBER // Número de resultados a omitir
+  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...],
+  entities: [ENTITY, ...],
+  relationships?: [RELATIONSHIP, ...],
+  paths?: [PATH, ...],
+  constraint?: CONDITION,
+  distinct?: BOOLEAN,
+  order_by?: [ORDER_CRITERION, ...],
+  limit?: NUMBER,
+  skip?: NUMBER
 }
 
-ENTITY := {
-  id: ENTITY_ID, // Nuevo identificador único
-  type: TYPE // Tipo semántico dependiente del dominio
-}
-
-RELATIONSHIP := {
-  id: RELATIONSHIP_ID, // Nuevo identificador único
-  role: ROLE, // Tipo de relación
-  from: ENTITY_ID, // ID existente de entidad origen
-  to: ENTITY_ID // ID existente de entidad destino
-}
-
-ATTRIBUTE := {
-  attribute_name: NAME,
-  of: ENTITY_ID | RELATIONSHIP_ID // Entidad o relación existente
-}
-
-PATH := {
-  id: PATH_ID, // Nuevo identificador único
-  start?: ENTITY_ID, // Entidad inicial
-  end?: ENTITY_ID, // Entidad final
-  roles: [ROLE, ...]
-}
+ENTITY := { id: ENTITY_ID, type: TYPE }
+RELATIONSHIP := { id: RELATIONSHIP_ID, role: ROLE, from: ENTITY_ID, to: ENTITY_ID }
+ATTRIBUTE := { attribute_name: NAME, of: ENTITY_ID | RELATIONSHIP_ID }
+PATH := { id: PATH_ID, start?: ENTITY_ID, end?: ENTITY_ID, roles: [ROLE, ...] }
 
 LIST := {
   list: CREATE_LIST | NODES | RELATIONS,
@@ -94,52 +74,24 @@ LIST := {
   skip?: NUMBER
 }
 
-CREATE_LIST := {
-  list_elements: ENTITY_ID | RELATIONSHIP_ID // Elemento a recopilar
-}
+CREATE_LIST := { list_elements: ENTITY_ID | RELATIONSHIP_ID }
+NODES := { nodes_of: PATH_ID, node_id?: ENTITY_ID }
+RELATIONS := { rels_of: PATH_ID, rel_id?: RELATIONSHIP_ID }
 
-NODES := {
-  nodes_of: PATH_ID,
-  node_id?: ENTITY_ID // Nuevo identificador para los nodos extraídos
-}
-
-RELATIONS := {
-  rels_of: PATH_ID,
-  rel_id?: RELATIONSHIP_ID // Nuevo identificador para las relaciones extraídas
-}
-
-SCALAR_AGGREGATE := {
-  list: LIST,
-  aggregate_kind: AGGREGATE_KIND
-}
-
+SCALAR_AGGREGATE := { list: LIST, aggregate_kind: AGGREGATE_KIND }
 AGGREGATE_KIND := "COUNT" | "SUM" | "MIN" | "MAX" | "AVG"
 
-QUANTIFIER_PREDICATE := {
-  list: LIST,
-  condition: CONDITION,
-  quantifier_kind: QUANTIFIER_KIND
-}
-
+QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
 
-ORDER_CRITERION := {
-  expression: EXPRESSION,
-  direction?: "ASC" | "DESC"
-}
+ORDER_CRITERION := { expression: EXPRESSION, direction?: "ASC" | "DESC" }
 
 CONDITION := AND | OR | NOT | COMPARISON | QUANTIFIER_PREDICATE | RELATIONSHIP_ID
-
 AND := { and_conditions: [CONDITION, ...] }
 OR := { or_conditions: [CONDITION, ...] }
 NOT := { not_condition: CONDITION }
 
-COMPARISON := {
-  left: EXPRESSION,
-  operator: COMPARISON_OPERATOR | STRING_COMPARISON_OP,
-  right: EXPRESSION
-}
-
+COMPARISON := { left: EXPRESSION, operator: COMPARISON_OPERATOR | STRING_COMPARISON_OP, right: EXPRESSION }
 COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">="
 STRING_COMPARISON_OP := "CONTAINS" | "MATCHES_REGEX"
 
@@ -148,7 +100,7 @@ EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | SCALAR_AGGREGA
 TYPE := STRING
 ROLE := STRING
 NAME := STRING
-DATE_TIME := STRING // Representación textual uniforme
+DATE_TIME := STRING
 NUMBER := FLOAT | INTEGER
 BOOLEAN := true | false
 
