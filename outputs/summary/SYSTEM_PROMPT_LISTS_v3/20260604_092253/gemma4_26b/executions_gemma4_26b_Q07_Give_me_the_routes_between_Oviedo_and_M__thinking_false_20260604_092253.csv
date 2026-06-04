@@ -1,0 +1,559 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q07,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,gemma4:26b,False,0.05,626.704909,True,stop,3650,1.095862,2214,622.230041,3.5582,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""attribute_name"": ""distance"",
+          ""of"": ""r_route""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+        ,
+        {
+          ""id"": ""e_stop"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_route""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```
+
+Wait, looking at the grammar for `ESCALAR_AGGREGATE` and `SUM`, I need to ensure the `list` and `map_expression` are correct. Let me refine the structure to match the provided grammar exactly.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""p_route""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""rels_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_segment""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```
+
+Actually, the grammar for `ESCALAR_AGGREGATE` uses `map_expression: EXPRESSION`. An `ATTRIBUTE` is an `EXPRESSION`.
+
+Final attempt at the correct structure:
+
+```json
+{
+  ""hyp_set"": [
+    {
+      ""target"": [
+        ""p_route""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""rel_id"": ""r_segment"",
+              ""rels_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_segment""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```
+
+Wait, I must follow the `hypotheses_set` key name and the exact grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""p_route""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""rel_id"": ""r_segment"",
+              ""rels_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_segment""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```
+
+One correction: `RELATIONS` uses `rels_of`. `ESCALAR_AGGREGATE` uses `list`.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""p_route""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""rels_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_segment""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```
+Wait, `r_segment` is not defined in `entities` or `relationships`. I'll use a generic ID.
+
+```json
+{
+  ""hypothes_set"": [
+    {
+      ""target"": [
+        ""p_route""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""rels_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_segment""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```
+Final check on `RELATIONS` grammar: `RELATIONS := { rels_of: PATH_ID, rel_id: RELATIONSHIP_ID }`.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""p_route""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""rels_of"": ""p_route"",
+              ""rel_id"": ""r_segment""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""r_segment""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```"
+2,Q07,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,gemma4:26b,False,0.05,84.431248,True,stop,3650,0.285138,295,83.165789,3.5471,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""attribute_name"": ""distance"",
+          ""of"": ""p_route""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+        ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""p_route""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```"
+3,Q07,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,gemma4:26b,False,0.05,84.338011,True,stop,3650,0.284143,295,83.105776,3.5497,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""attribute_name"": ""distance"",
+          ""of"": ""p_route""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+        ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""p_route""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```"
+4,Q07,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,gemma4:26b,False,0.05,84.386948,True,stop,3650,0.283698,295,83.147669,3.5479,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""attribute_name"": ""distance"",
+          ""of"": ""p_route""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+        ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""p_route""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```"
+5,Q07,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,gemma4:26b,False,0.05,84.33897,True,stop,3650,0.283465,295,83.126168,3.5488,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""attribute_name"": ""distance"",
+          ""of"": ""p_route""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_oviedo"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_malaga"",
+          ""type"": ""Location""
+        }
+        ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_oviedo"",
+          ""end"": ""e_malaga"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""left"": {
+          ""esclalar_aggregate"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""map_expression"": {
+              ""attribute_name"": ""distance"",
+              ""of"": ""p_route""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        },
+        ""operator"": ""<"",
+        ""right"": 1000
+      }
+    }
+  ]
+}
+```"

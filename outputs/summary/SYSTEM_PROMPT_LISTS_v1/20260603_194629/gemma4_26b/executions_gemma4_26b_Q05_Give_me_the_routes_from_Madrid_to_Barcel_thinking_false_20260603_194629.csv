@@ -1,0 +1,607 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,697.877289,True,stop,3656,1.037895,2499,693.214379,3.6049,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""left"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          }
+        }
+      }
+    },
+    {
+      ""hypotheses_set"": [
+        {
+          ""target"": [
+            ""e_node""
+          ],
+          ""entities"": [
+            {
+              ""id"": ""e_node"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_madrid"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_barcelona"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_huesca"",
+              ""type"": ""Location""
+            }
+          ],
+          ""paths"": [
+            {
+              ""id"": ""p_route"",
+              ""start"": ""e_madrid"",
+              ""end"": ""e_barcelona"",
+              ""roles"": [
+                ""route_segment""
+              ]
+            }
+          ],
+          ""constraint"": {
+            ""and_conditions"": [
+              {
+                ""not_condition"": {
+                  ""list"": {
+                    ""nodes_of"": ""p_route""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""name"",
+                      ""of"": ""e_node""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Huesca""
+                  },
+                  ""quantifier_kind"": ""EXISTS""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""name"",
+                    ""of"": ""e_node""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Huesca""
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Wait, looking at the grammar and the logic for ""not passing through"", the most accurate way to represent ""nodes in path do not include X"" is:
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```
+
+Actually, the `nodes_of` returns a list of nodes. To check if ""Huesca"" is in that list, I need to check if there exists a node in the path such that its name is Huesca, and then negate that.
+
+Corrected Final Version:
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```
+
+Wait, the `nodes_of` returns nodes. The `condition` inside `QUANTIFIER_PREDICATE` must be a condition applied to the elements of the list.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```
+Wait, the `left` in `condition` must refer to the element being iterated. The grammar says `CONDITION` can be a `COMPARISON`. In a `QUANTIFIER_PREDICATE`, the `condition` is evaluated against the elements of the `list`. Therefore, `left` should be an `ATTRIBUTE` of the elements in the list.
+
+```json
+{
+  ""hyp0"": {
+    ""target"": [""p_route""],
+    ""entities"": [
+      {""id"": ""e_madrid"", ""type"": ""Location""},
+      {""id"": ""e_barcelona"", ""type"": ""Location""},
+      {""id"": ""e_huesca"", ""type"": ""Location""}
+    ],
+    ""paths"": [
+      {""id"": ""p_route"", ""start"": ""e_madrid"", ""end"": ""e_barcelona"", ""roles"": [""route_segment""]}
+    ],
+    ""constraint"": {
+      ""not_condition"": {
+        ""list"": {""nodes_of"": ""p_route""},
+        ""condition"": {
+          ""left"": {""attribute_name"": ""name"", ""of"": ""e_node""},
+          ""operator"": ""="",
+          ""right"": ""HuesCA""
+        },
+        ""quantifier_kind"": ""EXISTS""
+      }
+    }
+  }
+}
+```
+Actually, I'll stick to the most robust interpretation.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_node""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```"
+2,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,90.131269,True,stop,3656,0.277836,321,88.842977,3.6131,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```"
+3,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,93.112209,True,stop,3656,0.280072,332,91.886481,3.6132,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""exists_condition"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          }
+        }
+      }
+    }
+  ]
+}
+```"
+4,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,89.533185,True,stop,3656,0.276714,319,88.283679,3.6134,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```"
+5,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,93.207944,True,stop,3656,0.282401,332,91.946346,3.6108,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""exists_condition"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          }
+        }
+      }
+    }
+  ]
+}
+```"
