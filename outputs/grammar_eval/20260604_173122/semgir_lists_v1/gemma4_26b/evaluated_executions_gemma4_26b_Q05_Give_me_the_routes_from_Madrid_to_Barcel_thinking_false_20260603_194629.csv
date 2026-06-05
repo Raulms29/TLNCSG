@@ -1,0 +1,1291 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir_lists_v1,1,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,697.877289,True,stop,3656,1.037895,2499,693.214379,3.6049,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""left"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          }
+        }
+      }
+    },
+    {
+      ""hypotheses_set"": [
+        {
+          ""target"": [
+            ""e_node""
+          ],
+          ""entities"": [
+            {
+              ""id"": ""e_node"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_madrid"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_barcelona"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_huesca"",
+              ""type"": ""Location""
+            }
+          ],
+          ""paths"": [
+            {
+              ""id"": ""p_route"",
+              ""start"": ""e_madrid"",
+              ""end"": ""e_barcelona"",
+              ""roles"": [
+                ""route_segment""
+              ]
+            }
+          ],
+          ""constraint"": {
+            ""and_conditions"": [
+              {
+                ""not_condition"": {
+                  ""list"": {
+                    ""nodes_of"": ""p_route""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""name"",
+                      ""of"": ""e_node""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Huesca""
+                  },
+                  ""quantifier_kind"": ""EXISTS""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""name"",
+                    ""of"": ""e_node""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Huesca""
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Wait, looking at the grammar and the logic for ""not passing through"", the most accurate way to represent ""nodes in path do not include X"" is:
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```
+
+Actually, the `nodes_of` returns a list of nodes. To check if ""Huesca"" is in that list, I need to check if there exists a node in the path such that its name is Huesca, and then negate that.
+
+Corrected Final Version:
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```
+
+Wait, the `nodes_of` returns nodes. The `condition` inside `QUANTIFIER_PREDICATE` must be a condition applied to the elements of the list.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```
+Wait, the `left` in `condition` must refer to the element being iterated. The grammar says `CONDITION` can be a `COMPARISON`. In a `QUANTIFIER_PREDICATE`, the `condition` is evaluated against the elements of the `list`. Therefore, `left` should be an `ATTRIBUTE` of the elements in the list.
+
+```json
+{
+  ""hyp0"": {
+    ""target"": [""p_route""],
+    ""entities"": [
+      {""id"": ""e_madrid"", ""type"": ""Location""},
+      {""id"": ""e_barcelona"", ""type"": ""Location""},
+      {""id"": ""e_huesca"", ""type"": ""Location""}
+    ],
+    ""paths"": [
+      {""id"": ""p_route"", ""start"": ""e_madrid"", ""end"": ""e_barcelona"", ""roles"": [""route_segment""]}
+    ],
+    ""constraint"": {
+      ""not_condition"": {
+        ""list"": {""nodes_of"": ""p_route""},
+        ""condition"": {
+          ""left"": {""attribute_name"": ""name"", ""of"": ""e_node""},
+          ""operator"": ""="",
+          ""right"": ""HuesCA""
+        },
+        ""quantifier_kind"": ""EXISTS""
+      }
+    }
+  }
+}
+```
+Actually, I'll stick to the most robust interpretation.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_node""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```",G0_SEMGIR_LISTS_v1,Overall Translation Quality (SemGIR-Lists v1),1.0,0.2,"The Candidate JSON has several severe structural and semantic errors. First, it violates the fundamental grammar rule that 'hypotheses_set' must be a flat array of QUERY objects; instead, it contains a nested 'hypotheses_set' inside the main array. Second, the logic for the 'not pass through Huesca' constraint is broken: it attempts to use a 'not_condition' on an 'EXISTS' quantifier, but the internal condition compares the name of 'e_huesca' to 'Huesca' rather than checking if any node in the path matches Huesca. Third, the second query in the array is semantically incoherent, attempting to target an entity 'e_node' with a constraint that is logically circular and disconnected from the path traversal. While it correctly identifies the need for a PATH and the entities involved, the structural nesting and the failure of the negation logic make it invalid.",,"```json
+{
+  ""rationale"": ""The Candidate JSON has several severe structural and semantic errors. First, it violates the fundamental grammar rule that 'hypotheses_set' must be a flat array of QUERY objects; instead, it contains a nested 'hypotheses_set' inside the main array. Second, the logic for the 'not pass through Huesca' constraint is broken: it attempts to use a 'not_condition' on an 'EXISTS' quantifier, but the internal condition compares the name of 'e_huesca' to 'Huesca' rather than checking if any node in the path matches Huesca. Third, the second query in the array is semantically incoherent, attempting to target an entity 'e_node' with a constraint that is logically circular and disconnected from the path traversal. While it correctly identifies the need for a PATH and the entities involved, the structural nesting and the failure of the negation logic make it invalid."",
+  ""score"": 0.2
+}
+```","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""path1""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""c1"",
+          ""type"": ""City""
+        },
+        {
+          ""id"": ""c2"",
+          ""type"": ""City""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""path1"",
+          ""start"": ""c1"",
+          ""end"": ""c2"",
+          ""roles"": [
+            ""connected_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c1""
+            },
+            ""operator"": ""="",
+            ""right"": ""Madrid""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c2""
+            },
+            ""operator"": ""="",
+            ""right"": ""Barcelona""
+          },
+          {
+            ""list"": {
+              ""list"": {
+                ""nodes_of"": ""path1"",
+                ""node_id"": ""n_inter""
+              }
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""n_inter""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""NONE""
+          }
+        ]
+      }
+    }
+  ]
+}","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""left"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          }
+        }
+      }
+    },
+    {
+      ""hypotheses_set"": [
+        {
+          ""target"": [
+            ""e_node""
+          ],
+          ""entities"": [
+            {
+              ""id"": ""e_node"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_madrid"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_barcelona"",
+              ""type"": ""Location""
+            },
+            {
+              ""id"": ""e_huesca"",
+              ""type"": ""Location""
+            }
+          ],
+          ""paths"": [
+            {
+              ""id"": ""p_route"",
+              ""start"": ""e_madrid"",
+              ""end"": ""e_barcelona"",
+              ""roles"": [
+                ""route_segment""
+              ]
+            }
+          ],
+          ""constraint"": {
+            ""and_conditions"": [
+              {
+                ""not_condition"": {
+                  ""list"": {
+                    ""nodes_of"": ""p_route""
+                  },
+                  ""condition"": {
+                    ""left"": {
+                      ""attribute_name"": ""name"",
+                      ""of"": ""e_node""
+                    },
+                    ""operator"": ""="",
+                    ""right"": ""Huesca""
+                  },
+                  ""quantifier_kind"": ""EXISTS""
+                },
+                ""condition"": {
+                  ""left"": {
+                    ""attribute_name"": ""name"",
+                    ""of"": ""e_node""
+                  },
+                  ""operator"": ""="",
+                  ""right"": ""Huesca""
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}",outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260603_194629/gemma4_26b/executions_gemma4_26b_Q05_Give_me_the_routes_from_Madrid_to_Barcel_thinking_false_20260603_194629.csv
+semgir_lists_v1,2,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,90.131269,True,stop,3656,0.277836,321,88.842977,3.6131,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```",G0_SEMGIR_LISTS_v1,Overall Translation Quality (SemGIR-Lists v1),1.0,0.7,"The Candidate captures the core logic of the query, including the start and end points (Madrid and Barcelona) and the exclusion of Huesca. However, there is a significant structural error in the constraint: it uses a 'not_condition' wrapping a 'list' with a 'quantifier_kind', but the 'list' object in the grammar does not support 'quantifier_kind' directly; quantification must be handled via a 'QUANTIFIER_PREDICATE' construct. Additionally, the Candidate's constraint logic for Huesca is slightly disconnected from the path nodes, as it checks if the name of 'e_huesca' equals 'Huesca' (which is a tautology) rather than checking if any node in the path has the name 'Huesca'. That said, the semantic intent is largely present.",,"```json
+{
+  ""rationale"": ""The Candidate captures the core logic of the query, including the start and end points (Madrid and Barcelona) and the exclusion of Huesca. However, there is a significant structural error in the constraint: it uses a 'not_condition' wrapping a 'list' with a 'quantifier_kind', but the 'list' object in the grammar does not support 'quantifier_kind' directly; quantification must be handled via a 'QUANTIFIER_PREDICATE' construct. Additionally, the Candidate's constraint logic for Huesca is slightly disconnected from the path nodes, as it checks if the name of 'e_huesca' equals 'Huesca' (which is a tautology) rather than checking if any node in the path has the name 'Huesca'. That said, the semantic intent is largely present."",
+  ""score"": 0.7
+}
+```","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""path1""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""c1"",
+          ""type"": ""City""
+        },
+        {
+          ""id"": ""c2"",
+          ""type"": ""City""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""path1"",
+          ""start"": ""c1"",
+          ""end"": ""c2"",
+          ""roles"": [
+            ""connected_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c1""
+            },
+            ""operator"": ""="",
+            ""right"": ""Madrid""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c2""
+            },
+            ""operator"": ""="",
+            ""right"": ""Barcelona""
+          },
+          {
+            ""list"": {
+              ""list"": {
+                ""nodes_of"": ""path1"",
+                ""node_id"": ""n_inter""
+              }
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""n_inter""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""NONE""
+          }
+        ]
+      }
+    }
+  ]
+}","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}",outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260603_194629/gemma4_26b/executions_gemma4_26b_Q05_Give_me_the_routes_from_Madrid_to_Barcel_thinking_false_20260603_194629.csv
+semgir_lists_v1,3,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,93.112209,True,stop,3656,0.280072,332,91.886481,3.6132,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""exists_condition"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          }
+        }
+      }
+    }
+  ]
+}
+```",G0_SEMGIR_LISTS_v1,Overall Translation Quality (SemGIR-Lists v1),1.0,0.5,"The Candidate captures the core logic of the query, including the start/end points and the negative constraint (not passing through Huesca). However, it has a significant semantic error in the constraint logic: it checks if the name of the entity 'e_huesca' equals 'Huesca' (which is always true) rather than checking if any node in the path has the name 'Huesca'. Additionally, the 'exists_condition' used in the Candidate is not a valid part of the provided SemGIR-Lists grammar; the grammar requires 'QUANTIFIER_PREDICATE' with 'quantifier_kind'. While the use of 'NOT' and 'EXISTS' is semantically similar to the Ground Truth's 'NONE' approach, the implementation of the attribute check is disconnected from the path nodes.",,"```json
+{
+  ""rationale"": ""The Candidate captures the core logic of the query, including the start/end points and the negative constraint (not passing through Huesca). However, it has a significant semantic error in the constraint logic: it checks if the name of the entity 'e_huesca' equals 'Huesca' (which is always true) rather than checking if any node in the path has the name 'Huesca'. Additionally, the 'exists_condition' used in the Candidate is not a valid part of the provided SemGIR-Lists grammar; the grammar requires 'QUANTIFIER_PREDICATE' with 'quantifier_kind'. While the use of 'NOT' and 'EXISTS' is semantically similar to the Ground Truth's 'NONE' approach, the implementation of the attribute check is disconnected from the path nodes."",
+  ""score"": 0.5
+}
+```","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""path1""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""c1"",
+          ""type"": ""City""
+        },
+        {
+          ""id"": ""c2"",
+          ""type"": ""City""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""path1"",
+          ""start"": ""c1"",
+          ""end"": ""c2"",
+          ""roles"": [
+            ""connected_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c1""
+            },
+            ""operator"": ""="",
+            ""right"": ""Madrid""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c2""
+            },
+            ""operator"": ""="",
+            ""right"": ""Barcelona""
+          },
+          {
+            ""list"": {
+              ""list"": {
+                ""nodes_of"": ""path1"",
+                ""node_id"": ""n_inter""
+              }
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""n_inter""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""NONE""
+          }
+        ]
+      }
+    }
+  ]
+}","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""exists_condition"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          }
+        }
+      }
+    }
+  ]
+}",outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260603_194629/gemma4_26b/executions_gemma4_26b_Q05_Give_me_the_routes_from_Madrid_to_Barcel_thinking_false_20260603_194629.csv
+semgir_lists_v1,4,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,89.533185,True,stop,3656,0.276714,319,88.283679,3.6134,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}
+```",G0_SEMGIR_LISTS_v1,Overall Translation Quality (SemGIR-Lists v1),1.0,0.5,"The Candidate captures the core logic of the query, including the start/end points and the exclusion of Huesca. However, it has a significant structural error in the constraint: it uses a 'not_condition' wrapping a 'list' with a 'quantifier_kind', but the 'list' object in the grammar does not support 'quantifier_kind' directly; quantification must be handled via a 'QUANTIFIER_PREDICATE' object. Additionally, the constraint logic for 'Huesca' is slightly disconnected from the path nodes because it checks if the name of 'e_huesca' equals 'Huesca' (which is always true) rather than checking if any node in the path has the name 'Huesca'. It also fails to explicitly constrain the start and end nodes to 'Madrid' and 'Barcelona' via attributes, relying instead on the entity IDs which are not bound to those names in the 'entities' block.",,"```json
+{
+  ""rationale"": ""The Candidate captures the core logic of the query, including the start/end points and the exclusion of Huesca. However, it has a significant structural error in the constraint: it uses a 'not_condition' wrapping a 'list' with a 'quantifier_kind', but the 'list' object in the grammar does not support 'quantifier_kind' directly; quantification must be handled via a 'QUANTIFIER_PREDICATE' object. Additionally, the constraint logic for 'Huesca' is slightly disconnected from the path nodes because it checks if the name of 'e_huesca' equals 'Huesca' (which is always true) rather than checking if any node in the path has the name 'Huesca'. It also fails to explicitly constrain the start and end nodes to 'Madrid' and 'Barcelona' via attributes, relying instead on the entity IDs which are not bound to those names in the 'entities' block."",
+  ""score"": 0.5
+}
+```","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""path1""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""c1"",
+          ""type"": ""City""
+        },
+        {
+          ""id"": ""c2"",
+          ""type"": ""City""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""path1"",
+          ""start"": ""c1"",
+          ""end"": ""c2"",
+          ""roles"": [
+            ""connected_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c1""
+            },
+            ""operator"": ""="",
+            ""right"": ""Madrid""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c2""
+            },
+            ""operator"": ""="",
+            ""right"": ""Barcelona""
+          },
+          {
+            ""list"": {
+              ""list"": {
+                ""nodes_of"": ""path1"",
+                ""node_id"": ""n_inter""
+              }
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""n_inter""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""NONE""
+          }
+        ]
+      }
+    }
+  ]
+}","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": ""p_route""
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""="",
+            ""right"": ""Huesca""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      }
+    }
+  ]
+}",outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260603_194629/gemma4_26b/executions_gemma4_26b_Q05_Give_me_the_routes_from_Madrid_to_Barcel_thinking_false_20260603_194629.csv
+semgir_lists_v1,5,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.05,93.207944,True,stop,3656,0.282401,332,91.946346,3.6108,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""exists_condition"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          }
+        }
+      }
+    }
+  ]
+}
+```",G0_SEMGIR_LISTS_v1,Overall Translation Quality (SemGIR-Lists v1),1.0,0.5,"The Candidate captures the core logic of the query, including the start/end points and the negative constraint (not passing through Huesca). However, it has a significant semantic error in the constraint logic: it checks if the name of 'e_huesca' is 'Huesca' (which is a tautology) rather than checking if any node in the path has the name 'Huesca'. Additionally, it fails to explicitly constrain the start and end nodes to 'Madrid' and 'Barcelona' via attribute comparisons, relying instead on the entity IDs which are not linked to those specific names in the constraint block. While it uses a valid 'NOT EXISTS' structure, the internal condition is logically disconnected from the path nodes.",,"```json
+{
+  ""rationale"": ""The Candidate captures the core logic of the query, including the start/end points and the negative constraint (not passing through Huesca). However, it has a significant semantic error in the constraint logic: it checks if the name of 'e_huesca' is 'Huesca' (which is a tautology) rather than checking if any node in the path has the name 'Huesca'. Additionally, it fails to explicitly constrain the start and end nodes to 'Madrid' and 'Barcelona' via attribute comparisons, relying instead on the entity IDs which are not linked to those specific names in the constraint block. While it uses a valid 'NOT EXISTS' structure, the internal condition is logically disconnected from the path nodes."",
+  ""score"": 0.5
+}
+```","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        ""path1""
+      ],
+      ""entities"": [
+        {
+          ""id"": ""c1"",
+          ""type"": ""City""
+        },
+        {
+          ""id"": ""c2"",
+          ""type"": ""City""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""path1"",
+          ""start"": ""c1"",
+          ""end"": ""c2"",
+          ""roles"": [
+            ""connected_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""and_conditions"": [
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c1""
+            },
+            ""operator"": ""="",
+            ""right"": ""Madrid""
+          },
+          {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""c2""
+            },
+            ""operator"": ""="",
+            ""right"": ""Barcelona""
+          },
+          {
+            ""list"": {
+              ""list"": {
+                ""nodes_of"": ""path1"",
+                ""node_id"": ""n_inter""
+              }
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""n_inter""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""NONE""
+          }
+        ]
+      }
+    }
+  ]
+}","{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""connects_to""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""exists_condition"": {
+            ""list"": {
+              ""nodes_of"": ""p_route""
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""="",
+              ""right"": ""Huesca""
+            },
+            ""quantifier_kind"": ""EXISTS""
+          }
+        }
+      }
+    }
+  ]
+}",outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260603_194629/gemma4_26b/executions_gemma4_26b_Q05_Give_me_the_routes_from_Madrid_to_Barcel_thinking_false_20260603_194629.csv
