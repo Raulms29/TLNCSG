@@ -56,7 +56,7 @@ GRAMMARS_CONFIG = {
     # ------------------------------------------------------------------
     "semgir_lists_v1": {
         # Folder produced by model_eval for v1 prompt (replace placeholder with actual timestamp folder)
-        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260603_194629",
+        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260605_134853",
         # Ground-truth JSON for this grammar
         "ground_truths_path": "ground_truths/sem_gir_comparison/ground_truths_semgir_lists_v1.json",
         "criteria_config": {
@@ -73,7 +73,7 @@ GRAMMARS_CONFIG = {
     # ------------------------------------------------------------------
     "semgir_lists_v2": {
         # Folder produced by model_eval for v2 prompt (replace placeholder with actual timestamp folder)
-        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v2/20260604_024914",
+        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v2/20260605_203824",
         # Ground-truth JSON for this grammar
         "ground_truths_path": "ground_truths/sem_gir_comparison/ground_truths_semgir_lists_v2.json",
         "criteria_config": {
@@ -90,7 +90,7 @@ GRAMMARS_CONFIG = {
     # ------------------------------------------------------------------
     "semgir_lists_v3": {
         # Folder produced by model_eval for v3 prompt (replace placeholder with actual timestamp folder)
-        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v3/20260604_092253",
+        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v3/20260606_030045",
         # Ground-truth JSON for this grammar
         "ground_truths_path": "ground_truths/sem_gir_comparison/ground_truths_semgir_lists_v3.json",
         "criteria_config": {

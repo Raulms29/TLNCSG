@@ -1,0 +1,632 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.025,73.642954,True,stop,3646,1.000774,257,71.832403,3.5778,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""nodes_of"": ""p_route"",
+          ""node_id"": ""e_huesca""
+        }
+      }
+    }
+  ]
+}
+```"
+2,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.025,871.050675,True,length,3646,0.284527,3072,866.413718,3.5457,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""nodes_of"": {
+            ""path_id"": ""p_route""
+          },
+          ""attribute_name"": ""name"",
+          ""operator"": ""="",
+          ""right"": ""Huesca""
+        }
+      }
+    }
+  ]
+}
+```
+
+Wait, looking at the grammar, the `NOT` operator applies to a `CONDITION`. The `nodes_of` is part of a `LIST`. Let me refine the constraint to be strictly compliant with the provided grammar.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""left"": {
+            ""list"": {
+              ""nodes_of"": {
+                ""path_id"": ""p_route""
+              }
+            },
+            ""condition"": {
+              ""left"": {
+                ""attribute_name"": ""name"",
+                ""of"": ""e_huesca""
+              },
+              ""operator"": ""=""
+            }
+          },
+          ""right"": ""exists""
+        }
+      }
+    }
+  ]
+}
+```
+
+Actually, the most accurate way to represent ""does not pass through"" using the provided grammar (which lacks a direct ""node in path"" operator but has `QUANTIFIER_PREDICATE`) is:
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": {
+              ""path_id"": ""p_route""
+            }
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""=""
+          }
+        }
+      }
+    }
+  ]
+}
+```
+*Self-correction*: The grammar for `NOT` is `NOT := { not_condition: CONDITION }`. A `CONDITION` can be a `QUANTIFIER_PREDICATE`.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""list"": {
+            ""nodes_of"": {
+              ""path_id"": ""p_route""
+            }
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""name"",
+              ""of"": ""e_huesca""
+            },
+            ""operator"": ""=""
+          }
+        }
+      }
+    }
+  ]
+}
+```
+Wait, the `NOT` grammar is `not_condition: CONDITION`. A `CONDITION` can be a `QUANTIFIER_PREDICATE`. Let's use `NONE`.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""list"": {
+          ""nodes_of"": {
+            ""path_id"": ""p_route""
+          }
+        },
+        ""condition"": {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e_huesca""
+          },
+          ""operator"": ""=""
+        },
+        ""quantifier_kind"": ""NONE""
+      }
+    }
+  ]
+}
+```
+Wait, the `QUANTIFIER_PREDICATE` is a `CONDITION`. So `constraint` can be a `QUANTIFIER_PREDICATE`.
+
+Final attempt at structure:
+```json
+{
+  ""hypuit_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""list"": {
+          ""nodes_of"": {
+            ""path_id"": ""p_route""
+          }
+        },
+        ""condition"": {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e_huesca""
+          },
+          ""operator"": ""=""
+        },
+        ""quantifier_kind"": ""NONE""
+      }
+    }
+  ]
+}
+```
+Wait, the `QUANTIFIER_PREDICATE` is a `CONDITION`. The `constraint` property in `QUERY` is a `CONDITION`. So I can put the `QUANTIFIER_PREDICATE` directly in `constraint`.
+
+```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""list"": {
+          ""nodes_of"": {
+            ""path_id"": ""p_route""
+          }
+        },
+        ""condition"": {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e_huesca""
+          },
+          ""operator"": ""=""
+        },
+        ""quantifier_kind"": ""NONE""
+      }
+    }
+  ]
+}
+```
+Wait, the `QUANTIFIER_PREDICATE` definition in the grammar is:
+`QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }`
+And `CONSTRAINT := CONDITION`.
+So `constraint: { list: ..., condition: ..., quantifier_kind: ... }` is valid.
+
+One detail: `e_huesca` is an entity, but the user says ""Huesca"" (a name). I should use an attribute check.
+
+```json
+{
+  ""hypothesibility_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""list"": {
+          ""nodes_of"": {
+            ""path_id"": ""p_route""
+          }
+        },
+        ""condition"": {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e_huesca""
+          },
+          ""operator"": ""="",
+          ""right"": ""Huesca""
+        },
+        ""quantifier_kind"": ""NONE""
+          }
+    }
+  ]
+}
+```
+Wait, the `condition` inside `QUANTIFIER_PREDICATE` is a `CONDITION`. A `CONDITION` can be a `COMPARISON`. A `COMPARISON` has `left`, `operator`, `right`.
+The `attribute_name` is part of `EXPRESSION`.
+The `e_huesca` is an entity. I need to check if any node in the path has `name = 'Huesca'`.
+
+Final check on `QUANTIFIER_PREDICATE`:
+`list`: `nodes_of: p_route`
+`condition`: `left: {attribute_name: 'name', of: 'e_huesca'} ...` No, that's not right. The condition must be checkable against the elements in the `list`. The elements in the list are nodes of the path. So the condition must be `left: {attribute_name: 'name', of: 'node_in_list'}, operator: '=', right: 'Huesca'`. But the grammar doesn't allow `of: 'node_in_list'`. It allows `of: ENTITY_"
+3,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.025,73.531432,True,stop,3646,0.285899,257,72.373348,3.551,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""nodes_of"": ""p_route"",
+          ""node_id"": ""e_huesca""
+        }
+      }
+    }
+  ]
+}
+```"
+4,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.025,73.442333,True,stop,3646,0.28483,257,72.358735,3.5517,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""nodes_of"": ""p_route"",
+          ""node_id"": ""e_huesca""
+        }
+      }
+    }
+  ]
+}
+```"
+5,Q05,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,gemma4:26b,False,0.025,73.558869,True,stop,3646,0.284818,257,72.499336,3.5449,"```json
+{
+  ""hypotheses_set"": [
+    {
+      ""target"": [
+        {
+          ""id"": ""p_route"",
+          ""type"": ""PATH_ID""
+        }
+      ],
+      ""entities"": [
+        {
+          ""id"": ""e_madrid"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_barcelona"",
+          ""type"": ""Location""
+        },
+        {
+          ""id"": ""e_huesca"",
+          ""type"": ""Location""
+        }
+      ],
+      ""paths"": [
+        {
+          ""id"": ""p_route"",
+          ""start"": ""e_madrid"",
+          ""end"": ""e_barcelona"",
+          ""roles"": [
+            ""route_segment""
+          ]
+        }
+      ],
+      ""constraint"": {
+        ""not_condition"": {
+          ""nodes_of"": ""p_route"",
+          ""node_id"": ""e_huesca""
+        }
+      }
+    }
+  ]
+}
+```"
