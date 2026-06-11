@@ -24,10 +24,28 @@ class EvaluatorAgent:
         """
         Extracts and parses JSON from raw LLM output, selecting the last JSON block.
         """
+        json_str = utils._extract_json_text(raw_text)
         try:
-            json_str = utils._extract_json_text(raw_text)
             return json.loads(json_str, strict=False)
         except Exception as e:
+            # Fallback regex extraction for poorly escaped JSON
+            import re
+            score = 0.0
+            rationale = ""
+            score_match = re.search(r'"score"\s*:\s*([0-9.]+)', json_str)
+            rat_match1 = re.search(r'"rationale"\s*:\s*"(.*?)"\s*,\s*"score"', json_str, re.DOTALL | re.IGNORECASE)
+            rat_match2 = re.search(r'"score".*?,\s*"rationale"\s*:\s*"(.*?)"\s*}', json_str, re.DOTALL | re.IGNORECASE)
+
+            if score_match:
+                score = float(score_match.group(1))
+                if rat_match1:
+                    rationale = rat_match1.group(1)
+                elif rat_match2:
+                    rationale = rat_match2.group(1)
+                else:
+                    rationale = f"Unescaped JSON. Raw: {json_str}"
+                return {"score": score, "rationale": rationale.strip()}
+            
             raise ValueError(f"Could not parse response as valid JSON object: {raw_text}. Error: {str(e)}")
 
     def evaluate(self, query_text: str, ground_truth_json: str, candidate_raw: str, max_retries: int = 3) -> Tuple[float, str]:

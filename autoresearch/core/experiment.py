@@ -14,7 +14,8 @@ class Experiment:
         prompt_path: str,
         failures: Optional[List[Dict[str, Any]]] = None,
         rationale: Optional[str] = None,
-        timestamp: Optional[str] = None
+        timestamp: Optional[str] = None,
+        results_file: Optional[str] = None
     ):
         self.iteration = iteration
         self.score = score
@@ -24,6 +25,7 @@ class Experiment:
         self.failures = failures or []
         self.rationale = rationale
         self.timestamp = timestamp or datetime.now().isoformat()
+        self.results_file = results_file
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -33,6 +35,7 @@ class Experiment:
             "delta": self.delta,
             "status": self.status,
             "prompt_path": self.prompt_path,
+            "results_file": self.results_file,
             "failures": self.failures,
             "rationale": self.rationale
         }
@@ -47,7 +50,8 @@ class Experiment:
             prompt_path=data.get("prompt_path", ""),
             failures=data.get("failures", []),
             rationale=data.get("rationale"),
-            timestamp=data.get("timestamp")
+            timestamp=data.get("timestamp"),
+            results_file=data.get("results_file")
         )
 
     def __repr__(self) -> str:
