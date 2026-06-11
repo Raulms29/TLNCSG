@@ -3,6 +3,9 @@ import os
 import json
 import signal
 import time
+import argparse
+import shutil
+from datetime import datetime
 
 # Add project root to path to resolve absolute imports correctly
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -54,7 +57,50 @@ def main():
         print(f"Error: Configuration file not found at {config_path}")
         sys.exit(1)
 
+    parser = argparse.ArgumentParser(description="Autoresearch evaluation loop.")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Start from scratch by archiving the current experiments log and prompts into an archive folder.",
+    )
+    args = parser.parse_args()
+
     config = load_config(config_path)
+
+    prompts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", config["paths"]["prompts_dir"]))
+    log_path = os.path.join(os.path.dirname(__file__), "experiments.json")
+
+    # Handle the --reset flag by archiving previous files
+    if args.reset:
+        run_timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, "r", encoding="utf-8") as f:
+                    logs = json.load(f)
+                    if logs and isinstance(logs, list) and "timestamp" in logs[0]:
+                        first_ts = logs[0]["timestamp"]
+                        # Convert ISO format to compact string
+                        dt = datetime.fromisoformat(first_ts)
+                        run_timestamp_str = dt.strftime("%Y%m%d_%H%M%S")
+            except Exception:
+                pass # fallback to current time
+
+        archive_dir = os.path.join(os.path.dirname(__file__), "archive", f"run_{run_timestamp_str}")
+        files_to_move = []
+        if os.path.exists(log_path):
+            files_to_move.append(log_path)
+        if os.path.exists(prompts_dir):
+            for filename in os.listdir(prompts_dir):
+                files_to_move.append(os.path.join(prompts_dir, filename))
+        
+        if files_to_move:
+            os.makedirs(archive_dir, exist_ok=True)
+            for file_path in files_to_move:
+                if os.path.isfile(file_path):
+                    shutil.move(file_path, archive_dir)
+            print(f"Archived previous run files to: {archive_dir}")
+        else:
+            print("No previous run files found to archive. Starting fresh.")
 
     # 1. Initialize Storage layers
     prompt_store = PromptStore(
@@ -62,7 +108,6 @@ def main():
         prompts_dir=config["paths"]["prompts_dir"],
     )
 
-    log_path = os.path.join(os.path.dirname(__file__), "experiments.json")
     logger = ExperimentLogger(log_path)
 
     # 2. Initialize Ollama wrapper clients
@@ -197,16 +242,15 @@ def main():
         # 1. Invoke Optimizer to propose refinements
         print("Calling Optimizer Agent to refine instructions...")
         try:
-            new_instructions = optimizer.optimize_instructions(
+            new_instructions, rationale = optimizer.optimize_instructions(
                 current_instructions=champion_instructions, failures=active_failures
             )
         except Exception as e:
             print(
                 f"Optimization Error: Failed to generate optimized instructions: {str(e)}"
             )
-            print("Skipping iteration due to LLM error.")
-            time.sleep(5)
-            continue
+            print("Fatal LLM error encountered. Exiting optimization loop to prevent infinite retry.")
+            break
 
         # 2. Assemble candidate prompt
         candidate_prompt = assembler.assemble_prompt(prefix, new_instructions, suffix)
@@ -248,6 +292,7 @@ def main():
             status=status,
             prompt_path=str(version_path),
             failures=candidate_failures,
+            rationale=rationale,
         )
         logger.log_experiment(exp_record)
         print(f"Iteration #{iteration} logged successfully to experiments.json.")

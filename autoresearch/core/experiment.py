@@ -13,6 +13,7 @@ class Experiment:
         status: str,
         prompt_path: str,
         failures: Optional[List[Dict[str, Any]]] = None,
+        rationale: Optional[str] = None,
         timestamp: Optional[str] = None
     ):
         self.iteration = iteration
@@ -21,6 +22,7 @@ class Experiment:
         self.status = status
         self.prompt_path = prompt_path
         self.failures = failures or []
+        self.rationale = rationale
         self.timestamp = timestamp or datetime.now().isoformat()
 
     def to_dict(self) -> Dict[str, Any]:
@@ -31,7 +33,8 @@ class Experiment:
             "delta": self.delta,
             "status": self.status,
             "prompt_path": self.prompt_path,
-            "failures": self.failures
+            "failures": self.failures,
+            "rationale": self.rationale
         }
 
     @classmethod
@@ -43,6 +46,7 @@ class Experiment:
             status=data.get("status", "UNKNOWN"),
             prompt_path=data.get("prompt_path", ""),
             failures=data.get("failures", []),
+            rationale=data.get("rationale"),
             timestamp=data.get("timestamp")
         )
 

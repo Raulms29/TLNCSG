@@ -4,7 +4,7 @@ The IR must be:
 * schema-independent
 * based solely on the meaning of the input text
 * internally consistent and unambiguous
-* valid JSON.
+* valid JSON
 
 ---
 
@@ -220,8 +220,8 @@ Output:
     "target": [ "e_movie" ],
     "entities": [
       { "id": "e_movie", "type": "Movie" },
-      { "id": "e_director", "type": "Person" },
-      { "id": "e_actor", "type": "Person" }
+      { "id": "e_director", "type": "Director" },
+      { "id": "e_actor", "type": "Actor" }
     ],
     "relationships": [
       { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
@@ -265,8 +265,8 @@ Output:
     "target": [ "e_movie" ],
     "entities": [
       { "id": "e_movie", "type": "Movie" },
-      { "id": "e_director", "type": "Person" },
-      { "id": "e_actor", "type": "Person" }
+      { "id": "e_director", "type": "Director" },
+      { "id": "e_actor", "type": "Actor" }
     ],
     "relationships": [
       { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
@@ -296,7 +296,7 @@ Output:
     "target": [ "e_movie" ],
     "entities": [
       { "id": "e_movie", "type": "Movie" },
-      { "id": "e_actor", "type": "Person" }
+      { "id": "e_actor", "type": "Actor" }
     ],
     "relationships": [
       { "id": "r_act", "role": "acted_in", "from": "e_actor", "to": "e_movie" }

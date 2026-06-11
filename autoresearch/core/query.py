@@ -62,6 +62,16 @@ class Query:
                     if "complex_constraints" not in found_features:
                         found_features.append("complex_constraints")
 
+                # Check for negation
+                if "not_condition" in data:
+                    if "negation" not in found_features:
+                        found_features.append("negation")
+
+                # Check for string matching operators
+                if data.get("operator") in ["CONTAINS", "MATCHES_REGEX"]:
+                    if "string_matching" not in found_features:
+                        found_features.append("string_matching")
+
                 # Recursive check
                 for v in data.values():
                     check_keys(v, found_features)
@@ -70,6 +80,11 @@ class Query:
                     check_keys(item, found_features)
 
         found_features: List[str] = []
+
+        # Check for multi-hypothesis (ambiguous queries with multiple interpretations)
+        if isinstance(sol_obj, list) and len(sol_obj) > 1:
+            found_features.append("multi_hypothesis")
+
         check_keys(sol_obj, found_features)
 
         # Default tags if nothing specific was found

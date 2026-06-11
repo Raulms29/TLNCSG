@@ -1,6 +1,6 @@
 import time
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from ollama import Client
 
 
@@ -81,40 +81,49 @@ class OptimizerAgent:
             f"{history_log}\n\n"
             f"### CURRENT RUN FAILING LOGS:\n"
             f"{failures_log}\n\n"
-            f"Based on the failing rationales, identify the logical ambiguity in the instructions and propose a surgical correction. "
-            "Write the updated, complete ## INSTRUCTIONS block:"
+            f"Based on the failing rationales, identify the logical ambiguity in the instructions and propose a surgical correction."
         )
         return user_content
 
-    def _clean_optimizer_output(self, raw_text: str) -> str:
-        """Cleans LLM response, stripping Markdown wrappers."""
+    def _clean_optimizer_output(self, raw_text: str) -> Tuple[str, str]:
+        """Cleans LLM response, extracting rationale and instructions."""
         cleaned = raw_text.strip()
+        
+        rationale = ""
+        rat_match = re.search(r"<rationale>\s*([\s\S]*?)\s*</rationale>", cleaned, re.IGNORECASE)
+        if rat_match:
+            rationale = rat_match.group(1).strip()
 
-        # Strip markdown code blocks if the model wrapped the instructions
-        if cleaned.startswith("```"):
-            match = re.search(
-                r"```(?:markdown)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE
-            )
-            if match:
-                cleaned = match.group(1).strip()
+        # Extract content inside <instructions> tags
+        match = re.search(r"<instructions>\s*([\s\S]*?)\s*</instructions>", cleaned, re.IGNORECASE)
+        if match:
+            cleaned = match.group(1).strip()
+        else:
+            # Fallback in case model didn't use tags but used markdown code blocks
+            if cleaned.startswith("```"):
+                match = re.search(
+                    r"```(?:markdown)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE
+                )
+                if match:
+                    cleaned = match.group(1).strip()
 
         # Remove a duplicate ## INSTRUCTIONS heading if the model printed it
         cleaned = re.sub(
             r"^##\s*INSTRUCTIONS\s*", "", cleaned, flags=re.IGNORECASE
         ).strip()
 
-        return cleaned
+        return cleaned, rationale
 
     def optimize_instructions(
         self,
         current_instructions: str,
         failures: List[Dict[str, Any]],
         max_retries: int = 3,
-    ) -> str:
+    ) -> Tuple[str, str]:
         """
         Generates optimized instructions using Ollama.
         Returns:
-            new_instructions: The refined Markdown instructions block.
+            Tuple[str, str]: (new_instructions, rationale)
         """
         system_prompt = self.system_prompt
         user_prompt = self._build_user_prompt(current_instructions, failures)
@@ -146,4 +155,4 @@ class OptimizerAgent:
                 time.sleep(delay)
                 delay *= 2.0
 
-        return current_instructions
+        return current_instructions, ""

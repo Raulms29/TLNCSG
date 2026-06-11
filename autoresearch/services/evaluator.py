@@ -26,7 +26,7 @@ class EvaluatorAgent:
         """
         try:
             json_str = utils._extract_json_text(raw_text)
-            return json.loads(json_str)
+            return json.loads(json_str, strict=False)
         except Exception as e:
             raise ValueError(f"Could not parse response as valid JSON object: {raw_text}. Error: {str(e)}")
 
