@@ -186,26 +186,20 @@ Output:
 ```json
 [
   {
-    "target": [ "e_movie" ],
+    "target": [ "e1" ],
     "entities": [
-      { "id": "e_movie", "type": "Movie" },
-      { "id": "e_actor", "type": "Actor" },
-      { "id": "e_award", "type": "Award" }
+      { "id": "e1", "type": "Movie" },
+      { "id": "e2", "type": "Actor" },
+      { "id": "e3", "type": "Award" }
     ],
     "relationships": [
-      { "id": "r_act", "role": "acted_in", "from": "e_actor", "to": "e_movie" },
-      { "id": "r_won", "role": "won", "from": "e_actor", "to": "e_award" }
+      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" },
+      { "id": "r2", "role": "won", "from": "e2", "to": "e3" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_act",
-        "r_won",
-        {
-          "left": { "attribute_name": "name", "of": "e_award" },
-          "operator": "=",
-          "right": "Oscar"
-        }
-      ]
+      "left": { "attribute_name": "name", "of": "e3" },
+      "operator": "=",
+      "right": "Oscar"
     }
   }
 ]
@@ -217,37 +211,27 @@ Output:
 ```json
 [
   {
-    "target": [ "e_movie" ],
+    "target": [ "e1" ],
     "entities": [
-      { "id": "e_movie", "type": "Movie" },
-      { "id": "e_director", "type": "Director" },
-      { "id": "e_actor", "type": "Actor" }
+      { "id": "e1", "type": "Movie" },
+      { "id": "e4", "type": "Director" },
+      { "id": "e2", "type": "Actor" }
     ],
     "relationships": [
-      { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
-      { "id": "r_act", "role": "acted_in", "from": "e_actor", "to": "e_movie" }
+      { "id": "r3", "role": "director", "from": "e4", "to": "e1" },
+      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" }
     ],
     "constraint": {
       "or_conditions": [
         {
-          "and_conditions": [
-            "r_dir",
-            {
-              "left": { "attribute_name": "name", "of": "e_director" },
-              "operator": "=",
-              "right": "Eastwood"
-            }
-          ]
+          "left": { "attribute_name": "name", "of": "e4" },
+          "operator": "=",
+          "right": "Eastwood"
         },
         {
-          "and_conditions": [
-            "r_act",
-            {
-              "left": { "attribute_name": "name", "of": "e_actor" },
-              "operator": "=",
-              "right": "Meryl Streep"
-            }
-          ]
+          "left": { "attribute_name": "name", "of": "e2" },
+          "operator": "=",
+          "right": "Meryl Streep"
         }
       ]
     },
@@ -262,26 +246,20 @@ Output:
 ```json
 [
   {
-    "target": [ "e_movie" ],
+    "target": [ "e1" ],
     "entities": [
-      { "id": "e_movie", "type": "Movie" },
-      { "id": "e_director", "type": "Director" },
-      { "id": "e_actor", "type": "Actor" }
+      { "id": "e1", "type": "Movie" },
+      { "id": "e4", "type": "Director" },
+      { "id": "e2", "type": "Actor" }
     ],
     "relationships": [
-      { "id": "r_dir", "role": "director", "from": "e_director", "to": "e_movie" },
-      { "id": "r_act", "role": "acted_in", "from": "e_actor", "to": "e_movie" }
+      { "id": "r3", "role": "director", "from": "e4", "to": "e1" },
+      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_dir",
-        "r_act",
-        {
-          "left": { "attribute_name": "last_name", "of": "e_director" },
-          "operator": "=",
-          "right": { "attribute_name": "last_name", "of": "e_actor" }
-        }
-      ]
+      "left": { "attribute_name": "last_name", "of": "e4" },
+      "operator": "=",
+      "right": { "attribute_name": "last_name", "of": "e2" }
     }
   }
 ]
@@ -293,30 +271,24 @@ Output:
 ```json
 [
   {
-    "target": [ "e_movie" ],
+    "target": [ "e1" ],
     "entities": [
-      { "id": "e_movie", "type": "Movie" },
-      { "id": "e_actor", "type": "Actor" }
+      { "id": "e1", "type": "Movie" },
+      { "id": "e2", "type": "Actor" }
     ],
     "relationships": [
-      { "id": "r_act", "role": "acted_in", "from": "e_actor", "to": "e_movie" }
+      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_act",
-        {
-          "list": {
-            "list": { "list_elements": "e_actor" },
-            "filter": "r_act"
-          },
-          "condition": {
-            "left": { "attribute_name": "nationality", "of": "e_actor" },
-            "operator": "=",
-            "right": "Spain"
-          },
-          "quantifier_kind": "ALL"
-        }
-      ]
+      "list": {
+        "list": { "list_elements": "e2" }
+      },
+      "condition": {
+        "left": { "attribute_name": "nationality", "of": "e2" },
+        "operator": "=",
+        "right": "Spain"
+      },
+      "quantifier_kind": "ALL"
     }
   }
 ]
@@ -329,27 +301,27 @@ Output:
 [
   {
     "target": [
-      "p_path",
+      "p1",
       {
-        "list": { "nodes_of": "p_path", "node_id": "n_path" }
+        "list": { "nodes_of": "p1", "node_id": "e3" }
       }
     ],
     "entities": [
-      { "id": "e_topic", "type": "Topic" },
-      { "id": "e_article", "type": "Article" }
+      { "id": "e1", "type": "Topic" },
+      { "id": "e2", "type": "Article" }
     ],
     "paths": [
-      { "id": "p_path", "start": "e_topic", "end": "e_article", "roles": ["any"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["any"] }
     ],
     "constraint": {
       "and_conditions": [
         {
-          "left": { "attribute_name": "description", "of": "e_topic" },
+          "left": { "attribute_name": "description", "of": "e1" },
           "operator": "MATCHES_REGEX",
           "right": "^image.*reconstruction$"
         },
         {
-          "left": { "attribute_name": "title", "of": "e_article" },
+          "left": { "attribute_name": "title", "of": "e2" },
           "operator": "CONTAINS",
           "right": "Neural Network Optimization"
         }
@@ -366,18 +338,18 @@ Output:
 ```json
 [
   {
-    "target": [ "e_movie" ],
+    "target": [ "e1" ],
     "entities": [
-      { "id": "e_movie", "type": "Movie" }
+      { "id": "e1", "type": "Movie" }
     ],
     "constraint": {
-      "left": { "attribute_name": "release_date", "of": "e_movie" },
+      "left": { "attribute_name": "release_date", "of": "e1" },
       "operator": ">",
       "right": "2020-01-01"
     },
     "order_by": [
       {
-        "expression": { "attribute_name": "revenue", "of": "e_movie" },
+        "expression": { "attribute_name": "revenue", "of": "e1" },
         "direction": "DESC"
       }
     ],
@@ -396,28 +368,28 @@ Output:
     "target": [
       {
         "list": {
-          "list": { "rels_of": "p_walk", "rel_id": "r_segment" }
+          "list": { "rels_of": "p1", "rel_id": "r1" }
         },
-        "map_expression": { "attribute_name": "distance", "of": "r_segment" },
+        "map_expression": { "attribute_name": "distance", "of": "r1" },
         "aggregate_kind": "SUM"
       }
     ],
     "entities": [
-      { "id": "e_start", "type": "Location" },
-      { "id": "e_end", "type": "Location" }
+      { "id": "e1", "type": "Location" },
+      { "id": "e2", "type": "Location" }
     ],
     "paths": [
-      { "id": "p_walk", "start": "e_start", "end": "e_end", "roles": ["walks"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["walks"] }
     ],
     "constraint": {
       "and_conditions": [
         {
-          "left": { "attribute_name": "name", "of": "e_start" },
+          "left": { "attribute_name": "name", "of": "e1" },
           "operator": "=",
           "right": "Zoo School"
         },
         {
-          "left": { "attribute_name": "name", "of": "e_end" },
+          "left": { "attribute_name": "name", "of": "e2" },
           "operator": "=",
           "right": "Dancing Crane Cafe"
         }

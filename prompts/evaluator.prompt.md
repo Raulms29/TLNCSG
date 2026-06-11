@@ -194,33 +194,23 @@ Evaluate the Candidate holistically across these dimensions:
 [GROUND TRUTH JSON]
 [
   {
-    "target": [{ "attribute_name": "name", "of": "e_author" }],
+    "target": [{ "attribute_name": "name", "of": "e1" }],
     "entities": [
-      { "id": "e_author", "type": "Author" },
-      { "id": "e_book", "type": "Book" }
+      { "id": "e1", "type": "Author" },
+      { "id": "e2", "type": "Book" }
     ],
     "relationships": [
-      { "id": "r_wrote", "role": "author_of", "from": "e_author", "to": "e_book" }
+      { "id": "r1", "role": "author_of", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_wrote",
-        {
-          "left": {
-            "count": {
-              "list": { "list_elements": "e_book" },
-              "filter": {
-                "and_conditions": [
-                  "r_wrote",
-                  { "left": { "attribute_name": "publish_year", "of": "e_book" }, "operator": ">", "right": 2010 }
-                ]
-              }
-            }
-          },
-          "operator": ">=",
-          "right": 5
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" },
+          "filter": { "left": { "attribute_name": "publish_year", "of": "e2" }, "operator": ">", "right": 2010 }
         }
-      ]
+      },
+      "operator": ">=",
+      "right": 5
     }
   }
 ]
@@ -228,33 +218,23 @@ Evaluate the Candidate holistically across these dimensions:
 [CANDIDATE JSON]
 [
   {
-    "target": [{ "attribute_name": "name", "of": "e_author" }],
+    "target": [{ "attribute_name": "name", "of": "e1" }],
     "entities": [
-      { "id": "e_author", "type": "Author" },
-      { "id": "e_book", "type": "Book" }
+      { "id": "e1", "type": "Author" },
+      { "id": "e2", "type": "Book" }
     ],
     "relationships": [
-      { "id": "r_wrote", "role": "author_of", "from": "e_author", "to": "e_book" }
+      { "id": "r1", "role": "author_of", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_wrote",
-        {
-          "left": {
-            "count": {
-              "list": { "list_elements": "e_book" },
-              "filter": {
-                "and_conditions": [
-                  "r_wrote",
-                  { "left": { "attribute_name": "publish_year", "of": "e_book" }, "operator": ">", "right": 2010 }
-                ]
-              }
-            }
-          },
-          "operator": ">=",
-          "right": 5
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" },
+          "filter": { "left": { "attribute_name": "publish_year", "of": "e2" }, "operator": ">", "right": 2010 }
         }
-      ]
+      },
+      "operator": ">=",
+      "right": 5
     }
   }
 ]
@@ -273,16 +253,16 @@ Evaluate the Candidate holistically across these dimensions:
 [GROUND TRUTH JSON]
 [
   {
-    "target": ["e_group"],
+    "target": ["e1"],
     "entities": [
-      { "id": "e_group", "type": "Group" },
-      { "id": "e_queen", "type": "Group" }
+      { "id": "e1", "type": "Group" },
+      { "id": "e2", "type": "Group" }
     ],
     "paths": [
-      { "id": "p1", "start": "e_group", "end": "e_queen", "roles": ["influenced"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["influenced"] }
     ],
     "constraint": {
-      "left": { "attribute_name": "name", "of": "e_queen" },
+      "left": { "attribute_name": "name", "of": "e2" },
       "operator": "=",
       "right": "Queen"
     },
@@ -295,19 +275,16 @@ Evaluate the Candidate holistically across these dimensions:
   [
     {
       "id": "q1",
-      "target": ["e_group"],
+      "target": ["e1"],
       "entities": [
-        { "id": "e_queen", "type": "Band" },
-        { "id": "e_group", "type": "Band" }
+        { "id": "e2", "type": "Band" },
+        { "id": "e1", "type": "Band" }
       ],
       "relationships": [
-        { "id": "r1", "role": "influenced", "from": "e_group", "to": "e_queen" }
+        { "id": "r1", "role": "influenced", "from": "e1", "to": "e2" }
       ],
       "constraint": {
-        "and_conditions": [
-          "r1",
-          { "left": { "attribute_name": "name", "of": "e_queen" }, "operator": "=", "right": "Queen" }
-        ]
+        "left": { "attribute_name": "name", "of": "e2" }, "operator": "=", "right": "Queen"
       }
     }
   ]
@@ -327,42 +304,39 @@ Evaluate the Candidate holistically across these dimensions:
 [GROUND TRUTH JSON]
 [
   {
-    "target": ["e_relative"],
+    "target": ["e4"],
     "entities": [
-      { "id": "e_alfonso", "type": "Person" },
-      { "id": "e_inter1", "type": "Person" },
-      { "id": "e_inter2", "type": "Person" },
-      { "id": "e_relative", "type": "Person" }
+      { "id": "e1", "type": "Person" },
+      { "id": "e2", "type": "Person" },
+      { "id": "e3", "type": "Person" },
+      { "id": "e4", "type": "Person" }
     ],
     "relationships": [
-      { "id": "r1", "role": "relative_of", "from": "e_alfonso", "to": "e_inter1" },
-      { "id": "r2", "role": "relative_of", "from": "e_inter1", "to": "e_inter2" },
-      { "id": "r3", "role": "relative_of", "from": "e_inter2", "to": "e_relative" }
+      { "id": "r1", "role": "relative_of", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "relative_of", "from": "e2", "to": "e3" },
+      { "id": "r3", "role": "relative_of", "from": "e3", "to": "e4" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r1", "r2", "r3",
-        { "left": { "attribute_name": "name", "of": "e_alfonso" }, "operator": "=", "right": "Alfonso X" }
-      ]
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
     },
     "distinct": true
   },
   {
-    "target": ["e_relative"],
+    "target": ["e4"],
     "entities": [
-      { "id": "e_alfonso", "type": "Person" },
-      { "id": "e_relative", "type": "Person" }
+      { "id": "e1", "type": "Person" },
+      { "id": "e4", "type": "Person" }
     ],
     "paths": [
-      { "id": "p1", "start": "e_alfonso", "end": "e_relative", "roles": ["relative_of"] }
+      { "id": "p1", "start": "e1", "end": "e4", "roles": ["relative_of"] }
     ],
     "constraint": {
       "and_conditions": [
-        { "left": { "attribute_name": "name", "of": "e_alfonso" }, "operator": "=", "right": "Alfonso X" },
+        { "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X" },
         {
           "left": {
             "count": {
-              "list": { "rels_of": "p1", "rel_id": "r_step" }
+              "list": { "rels_of": "p1", "rel_id": "r4" }
             }
           },
           "operator": "=",
@@ -377,19 +351,16 @@ Evaluate the Candidate holistically across these dimensions:
 [CANDIDATE JSON]
 [
   {
-    "target": ["e_relative"],
+    "target": ["e4"],
     "entities": [
-      { "id": "e_alfonso", "type": "Person" },
-      { "id": "e_relative", "type": "Person" }
+      { "id": "e1", "type": "Person" },
+      { "id": "e4", "type": "Person" }
     ],
     "relationships": [
-      { "id": "r1", "role": "relative_of", "from": "e_alfonso", "to": "e_relative" }
+      { "id": "r1", "role": "relative_of", "from": "e1", "to": "e4" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r1",
-        { "left": { "attribute_name": "name", "of": "e_alfonso" }, "operator": "=", "right": "Alfonso X" }
-      ]
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
     }
   }
 ]
@@ -408,22 +379,18 @@ Evaluate the Candidate holistically across these dimensions:
 [GROUND TRUTH JSON]
 [
   {
-    "target": ["e_employee"],
+    "target": ["e1"],
     "entities": [
-      { "id": "e_employee", "type": "Employee" },
-      { "id": "e_company", "type": "Company" },
-      { "id": "e_city", "type": "City" }
+      { "id": "e1", "type": "Employee" },
+      { "id": "e2", "type": "Company" },
+      { "id": "e3", "type": "City" }
     ],
     "relationships": [
-      { "id": "r_works_at", "role": "works_at", "from": "e_employee", "to": "e_company" },
-      { "id": "r_located_in", "role": "located_in", "from": "e_company", "to": "e_city" }
+      { "id": "r1", "role": "works_at", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "located_in", "from": "e2", "to": "e3" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_works_at",
-        "r_located_in",
-        { "left": { "attribute_name": "name", "of": "e_city" }, "operator": "=", "right": "Madrid" }
-      ]
+      "left": { "attribute_name": "name", "of": "e3" }, "operator": "=", "right": "Madrid"
     }
   }
 ]
@@ -431,19 +398,16 @@ Evaluate the Candidate holistically across these dimensions:
 [CANDIDATE JSON]
 [
   {
-    "target": ["e_employee"],
+    "target": ["e1"],
     "entities": [
-      { "id": "e_employee", "type": "Employee" },
-      { "id": "e_company", "type": "Company" }
+      { "id": "e1", "type": "Employee" },
+      { "id": "e2", "type": "Company" }
     ],
     "relationships": [
-      { "id": "r_works_at", "role": "works_at", "from": "e_employee", "to": "e_company" }
+      { "id": "r1", "role": "works_at", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_works_at",
-        { "left": { "attribute_name": "location", "of": "e_company" }, "operator": "CONTAINS", "right": "Madrid" }
-      ]
+      "left": { "attribute_name": "location", "of": "e2" }, "operator": "CONTAINS", "right": "Madrid"
     }
   }
 ]
@@ -462,28 +426,22 @@ Evaluate the Candidate holistically across these dimensions:
 [GROUND TRUTH JSON]
 [
   {
-    "target": [{ "attribute_name": "name", "of": "e_actor" }],
+    "target": [{ "attribute_name": "name", "of": "e1" }],
     "entities": [
-      { "id": "e_actor", "type": "Actor" },
-      { "id": "e_film", "type": "Film" }
+      { "id": "e1", "type": "Actor" },
+      { "id": "e2", "type": "Film" }
     ],
     "relationships": [
-      { "id": "r_appeared", "role": "appeared_in", "from": "e_actor", "to": "e_film" }
+      { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_appeared",
-        {
-          "left": {
-            "count": {
-              "list": { "list_elements": "e_film" },
-              "filter": "r_appeared"
-            }
-          },
-          "operator": ">",
-          "right": 10
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" }
         }
-      ]
+      },
+      "operator": ">",
+      "right": 10
     },
     "distinct": true
   }
@@ -492,35 +450,29 @@ Evaluate the Candidate holistically across these dimensions:
 [CANDIDATE JSON]
 [
   {
-    "target": [{ "attribute_name": "name", "of": "e_actor" }],
+    "target": [{ "attribute_name": "name", "of": "e1" }],
     "entities": [
-      { "id": "e_actor", "type": "Actor" },
-      { "id": "e_film", "type": "Film" }
+      { "id": "e1", "type": "Actor" },
+      { "id": "e2", "type": "Film" }
     ],
     "relationships": [
-      { "id": "r_appeared", "role": "appeared_in", "from": "e_actor", "to": "e_film" }
+      { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "and_conditions": [
-        "r_appeared",
-        {
-          "left": {
-            "count": {
-              "list": { "list_elements": "e_film" },
-              "filter": "r_appeared"
-            }
-          },
-          "operator": ">",
-          "right": 10
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" }
         }
-      ]
+      },
+      "operator": ">",
+      "right": 10
     }
   }
 ]
 
 [EXPECTED OUTPUT]
 {
-  "rationale": "The Candidate is semantically correct: proper relationship and COUNT aggregation with filter, correct target and entity types, grammar-compliant bare array. The only gap is the missing `distinct: true`, present in the Ground Truth to prevent duplicate actor names in the results. This is a minor behavioral difference that does not affect the fundamental correctness of the query.",
+  "rationale": "The Candidate is semantically correct: proper relationship and COUNT aggregation, correct target and entity types, grammar-compliant bare array. The only gap is the missing `distinct: true`, present in the Ground Truth to prevent duplicate actor names in the results. This is a minor behavioral difference that does not affect the fundamental correctness of the query.",
   "score": 0.9
 }
 
