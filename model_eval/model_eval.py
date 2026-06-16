@@ -184,48 +184,56 @@ models = {
 #     },
 # ]
 
-queries = [
-    {
-        "id": "Q01",
-        "text": "Give me the communication routes between the server with ID 'SR45' and any server at the University of Oviedo.",
-    },
-    {
-        "id": "Q02",
-        "text": "Give me each Queen of England along with the list of their residences.",
-    },
-    {
-        "id": "Q03",
-        "text": "Give me the third-degree relatives of Alfonso X.",
-    },
-    {
-        "id": "Q04",
-        "text": "Give me all the groups that directly or indirectly influenced Queen.",
-    },
-    {
-        "id": "Q05",
-        "text": "Give me the routes from Madrid to Barcelona that do not pass through Huesca.",
-    },
-    {
-        "id": "Q06",
-        "text": "Give me the list of salaries of Málaga players who are under 20 years old.",
-    },
-    {
-        "id": "Q07",
-        "text": "Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.",
-    },
-    {
-        "id": "Q08",
-        "text": "Give me the universities that rank between 10th and 20th in terms of highest funding.",
-    },
-    {
-        "id": "Q09",
-        "text": "Give me the actors whose father has more money than the top 5 highest-paid directors combined.",
-    },
-    {
-        "id": "Q10",
-        "text": "Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.",
-    },
-]
+# queries = [
+#     {
+#         "id": "Q01",
+#         "text": "Give me the communication routes between the server with ID 'SR45' and any server at the University of Oviedo.",
+#     },
+#     {
+#         "id": "Q02",
+#         "text": "Give me each Queen of England along with the list of their residences.",
+#     },
+#     {
+#         "id": "Q03",
+#         "text": "Give me the third-degree relatives of Alfonso X.",
+#     },
+#     {
+#         "id": "Q04",
+#         "text": "Give me all the groups that directly or indirectly influenced Queen.",
+#     },
+#     {
+#         "id": "Q05",
+#         "text": "Give me the routes from Madrid to Barcelona that do not pass through Huesca.",
+#     },
+#     {
+#         "id": "Q06",
+#         "text": "Give me the list of salaries of Málaga players who are under 20 years old.",
+#     },
+#     {
+#         "id": "Q07",
+#         "text": "Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.",
+#     },
+#     {
+#         "id": "Q08",
+#         "text": "Give me the universities that rank between 10th and 20th in terms of highest funding.",
+#     },
+#     {
+#         "id": "Q09",
+#         "text": "Give me the actors whose father has more money than the top 5 highest-paid directors combined.",
+#     },
+#     {
+#         "id": "Q10",
+#         "text": "Give me the movies in which all the main actors earn more money than the highest-paid Argentine actor.",
+#     },
+# ]
+
+import json
+
+gt_path = os.path.join(os.path.dirname(__file__), "..", "ground_truths", "ground_truth_sem_gir.json")
+with open(gt_path, "r", encoding="utf-8") as f:
+    queries_data = json.load(f)
+queries = [{"id": q_id, "text": q_info["query"]} for q_id, q_info in queries_data.items()]
+
 
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {

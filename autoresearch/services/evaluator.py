@@ -9,12 +9,13 @@ class EvaluatorAgent:
     Acts as the LLM-as-a-Judge to evaluate translation outputs against the ground truths
     using a strict grading rubric and returns scores and rationales.
     """
-    def __init__(self, ollama_url: str, model_name: str, temperature: float, num_ctx: int, num_predict: int, prompt_path: str):
+    def __init__(self, ollama_url: str, model_name: str, temperature: float, num_ctx: int, num_predict: int, prompt_path: str, thinking: bool = False):
         self.client = Client(ollama_url)
         self.model_name = model_name
         self.temperature = temperature
         self.num_ctx = num_ctx
         self.num_predict = num_predict
+        self.thinking = thinking
         
         # Load evaluator prompt directly from disk
         with open(prompt_path, "r", encoding="utf-8") as f:
@@ -75,7 +76,8 @@ class EvaluatorAgent:
                         {"role": "system", "content": self.system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    options=options
+                    options=options,
+                    think=self.thinking
                 )
                 content = response.get("message", {}).get("content", "").strip()
                 parsed = self._clean_and_parse_json(content)

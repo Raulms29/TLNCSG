@@ -138,7 +138,8 @@ class ValidationRunner:
                 failures.append({
                     "id": query.id,
                     "features": getattr(query, "features", {}),
-                    "rationale": query_rationale
+                    "rationale": query_rationale,
+                    "score": query_score
                 })
 
         import time

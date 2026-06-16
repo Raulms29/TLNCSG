@@ -19,6 +19,7 @@ class OptimizerAgent:
         num_predict: int,
         memory_size: int,
         prompt_path: str,
+        thinking: bool = False,
     ):
         self.client = Client(ollama_url)
         self.model_name = model_name
@@ -26,6 +27,7 @@ class OptimizerAgent:
         self.num_ctx = num_ctx
         self.num_predict = num_predict
         self.memory_size = memory_size
+        self.thinking = thinking
         self.failure_history: List[Dict[str, Any]] = (
             []
         )  # sliding window of rejected attempts
@@ -60,6 +62,7 @@ class OptimizerAgent:
             fail_blocks.append(
                 f"- Query ID: {fail.get('id')}\n"
                 f"  Tested Grammatical Features: [{tags_str}]\n"
+                f"  Evaluator Score: {fail.get('score', 0.0)}\n"
                 f"  Evaluator Rationale: {fail.get('rationale')}"
             )
         failures_log = "\n\n".join(fail_blocks)
@@ -95,9 +98,12 @@ class OptimizerAgent:
             rationale = rat_match.group(1).strip()
 
         # Extract content inside <instructions> tags
-        match = re.search(r"<instructions>\s*([\s\S]*?)\s*</instructions>", cleaned, re.IGNORECASE)
-        if match:
-            cleaned = match.group(1).strip()
+        if "<instructions>" in cleaned.lower():
+            match = re.search(r"<instructions>\s*([\s\S]*?)</instructions>", cleaned, re.IGNORECASE)
+            if match:
+                cleaned = match.group(1).strip()
+            else:
+                raise ValueError("Optimizer output contains <instructions> but is missing </instructions>. Generation likely cut off.")
         else:
             # Fallback in case model didn't use tags but used markdown code blocks
             if cleaned.startswith("```"):
@@ -106,6 +112,8 @@ class OptimizerAgent:
                 )
                 if match:
                     cleaned = match.group(1).strip()
+                elif "```" in cleaned[3:]:
+                    raise ValueError("Markdown block not properly closed in optimizer output.")
 
         # Remove a duplicate ## INSTRUCTIONS heading if the model printed it
         cleaned = re.sub(
@@ -144,6 +152,7 @@ class OptimizerAgent:
                         {"role": "user", "content": user_prompt},
                     ],
                     options=options,
+                    think=self.thinking,
                 )
                 content = response.get("message", {}).get("content", "").strip()
                 return self._clean_optimizer_output(content)

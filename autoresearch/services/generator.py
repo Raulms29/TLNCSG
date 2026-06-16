@@ -14,12 +14,14 @@ class GeneratorClient:
         temperature: float,
         num_ctx: int,
         num_predict: int,
+        thinking: bool = False,
     ):
         self.client = Client(ollama_url)
         self.model_name = model_name
         self.temperature = temperature
         self.num_ctx = num_ctx
         self.num_predict = num_predict
+        self.thinking = thinking
 
     def generate_translation(
         self, system_prompt: str, query_text: str, max_retries: int = 3
@@ -43,7 +45,7 @@ class GeneratorClient:
         for attempt in range(1, max_retries + 1):
             try:
                 response = self.client.chat(
-                    model=self.model_name, messages=messages, options=options
+                    model=self.model_name, messages=messages, options=options, think=self.thinking
                 )
                 return response.get("message", {}).get("content", "").strip()
             except Exception as e:

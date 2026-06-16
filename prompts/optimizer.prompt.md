@@ -11,6 +11,7 @@ You receive:
 3. A **failures log** — a list of queries that the generator couldn't parse correctly, each described by:
    - A `Query ID`.
    - `Tested Grammatical Features` — the SemGIR constructs exercised by that query.
+   - `Evaluator Score` — a value between 0 and 1 indicating how poorly the generator performed on this query (0 is worst, 1 is perfect).
    - `Evaluator Rationale` — a structural description of what the generator did wrong.
 
 ---
@@ -19,7 +20,7 @@ You receive:
 
 Analyze the failures and produce an updated `## INSTRUCTIONS` block that prevents the same errors from recurring.
 
-**Prioritization:** When multiple failures are present, first address those that share a common grammatical root cause, as a single well-placed instruction can resolve several failures at once. Use structural severity as a tiebreaker, ordered from most to least critical:
+**Prioritization:** When multiple failures are present, first address those that share a common grammatical root cause, as a single well-placed instruction can resolve several failures at once. Use structural severity and the `Evaluator Score` as a tiebreaker, ordered from most to least critical:
 
 1. **Topology errors** (e.g. encoding relationships or graph connections as attribute comparisons instead of proper entities and relationships)
 2. **Semantic gaps** (e.g. missing constraints, wrong quantifier logic, incorrect aggregation type, missing targets)

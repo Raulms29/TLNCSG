@@ -119,6 +119,7 @@ def main():
         temperature=config["generator"]["temperature"],
         num_ctx=config["generator"]["num_ctx"],
         num_predict=config["generator"]["num_predict"],
+        thinking=config["generator"].get("thinking", False),
     )
 
     evaluator = EvaluatorAgent(
@@ -127,6 +128,7 @@ def main():
         temperature=config["evaluator"]["temperature"],
         num_ctx=config["evaluator"]["num_ctx"],
         num_predict=config["evaluator"]["num_predict"],
+        thinking=config["evaluator"].get("thinking", False),
         prompt_path=config["paths"]["evaluator_prompt"],
     )
 
@@ -136,6 +138,7 @@ def main():
         temperature=config["optimizer"]["temperature"],
         num_ctx=config["optimizer"]["num_ctx"],
         num_predict=config["optimizer"]["num_predict"],
+        thinking=config["optimizer"].get("thinking", False),
         memory_size=config["optimizer"]["failure_memory_size"],
         prompt_path=config["paths"]["optimizer_prompt"],
     )

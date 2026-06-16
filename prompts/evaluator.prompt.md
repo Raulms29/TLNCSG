@@ -473,7 +473,7 @@ Evaluate the Candidate holistically across these dimensions:
 [EXPECTED OUTPUT]
 {
   "rationale": "The Candidate is semantically correct: proper relationship and COUNT aggregation, correct target and entity types, grammar-compliant bare array. The only gap is the missing `distinct: true`, present in the Ground Truth to prevent duplicate actor names in the results. This is a minor behavioral difference that does not affect the fundamental correctness of the query.",
-  "score": 0.9
+  "score": 0.95
 }
 
 ---
@@ -483,6 +483,6 @@ Evaluate the Candidate holistically across these dimensions:
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:
 
 {
-  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth (MUST be a single-line string without literal newlines. DO NOT use double quotes inside this string, use single quotes instead.)",
+  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth. It must explain in a few words the problems identified and what should have been done structurally instead of what it was, with few detail about the specific query entities or data.",
   "score": [Float between 0.0 and 1.0]
 }
