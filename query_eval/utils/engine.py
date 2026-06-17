@@ -119,6 +119,8 @@ def evaluate_execution_file(
     evaluator_thinking: bool = False,
     test_query_ids: str | list[str] | tuple[str, ...] | set[str] | None = None,
     test_model: str | None = None,
+    use_representation_weights: bool = True,
+    expect_json_response: bool = True,
 ) -> pd.DataFrame:
     input_path = Path(execution_csv)
     df = pd.read_csv(input_path)
@@ -180,21 +182,36 @@ def evaluate_execution_file(
             query_text = str(row.get("Query", "")).strip()
 
             candidate_raw = str(row.get("Response", ""))
-            candidate_json = clean_json_response(candidate_raw)
+            if expect_json_response:
+                candidate_json = clean_json_response(candidate_raw)
+            else:
+                candidate_json = candidate_raw.strip()
 
             ground_truth_obj = ground_truths.get(query_id)
             ground_truth_json = ground_truth_to_json_text(ground_truth_obj)
 
-            score, rationale, error, eval_raw = _evaluate_candidate(
-                ollama_client=ollama_client,
-                evaluator_model=evaluator_model,
-                evaluator_system_prompt=str(criterion_cfg["system_prompt"]),
-                query_text=query_text,
-                ground_truth_json=ground_truth_json,
-                candidate_json=candidate_json,
-                evaluator_options=evaluator_options,
-                evaluator_thinking=evaluator_thinking,
-            )
+            if use_representation_weights:
+                representation_weight = float(ground_truth_obj.get("representation_weight", 1.0)) if ground_truth_obj else 1.0
+            else:
+                representation_weight = 1.0
+
+            if representation_weight == 0:
+                score = 0.0
+                rationale = "Skipped evaluation: representation weight is 0."
+                error = None
+                eval_raw = ""
+            else:
+                score, rationale, error, eval_raw = _evaluate_candidate(
+                    ollama_client=ollama_client,
+                    evaluator_model=evaluator_model,
+                    evaluator_system_prompt=str(criterion_cfg["system_prompt"]),
+                    query_text=query_text,
+                    ground_truth_json=ground_truth_json,
+                    candidate_json=candidate_json,
+                    evaluator_options=evaluator_options,
+                    evaluator_thinking=evaluator_thinking,
+                )
+                score = score * representation_weight
 
             row_data = cast(dict[str, Any], row.to_dict())
             row_data.update(
@@ -317,217 +334,124 @@ def _build_aspect_columns(
 def _aggregate_outputs(
     evaluated_df: pd.DataFrame,
     criteria_config: dict[str, dict[str, Any]],
+    group_has_grammar: bool = False,
     confidence_level: float | None = 0.95,
-) -> tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
-]:
+) -> dict[str, pd.DataFrame]:
+    """
+    Build all aggregation tables.
+
+    When ``group_has_grammar=True`` the ``Grammar`` column is prepended to
+    every grouping key, enabling cross-grammar comparison in a single table.
+    """
     criterion_ids = list(criteria_config.keys())
     criterion_weights = {
-        criterion_id: float(criteria_config[criterion_id]["weight"])
-        for criterion_id in criterion_ids
+        cid: float(criteria_config[cid]["weight"]) for cid in criterion_ids
     }
 
-    by_model_mode_query_criterion = (
-        evaluated_df.groupby(
-            ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"],
-            dropna=False,
-        )
-        .agg(
-            Runs=("Eval Score", "count"),
-            Mean_Score=("Eval Score", "mean"),
-            Std_Score=("Eval Score", "std"),
-            Min_Score=("Eval Score", "min"),
-            Max_Score=("Eval Score", "max"),
-            Avg_Inference_Time_s=("Inference Time (s)", "mean"),
-        )
-        .reset_index()
-    )
+    g = ["Grammar"] if group_has_grammar else []
 
-    if confidence_level is not None:
-        ci_model_mode_query_criterion = _build_ci_frame(
-            evaluated_df,
-            ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"],
-            confidence_level,
-        )
-        by_model_mode_query_criterion = by_model_mode_query_criterion.merge(
-            ci_model_mode_query_criterion,
-            on=["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"],
-            how="left",
+    def _agg(group_cols: list[str], agg_spec: dict) -> pd.DataFrame:
+        return (
+            evaluated_df.groupby(group_cols, dropna=False)
+            .agg(**agg_spec)
+            .reset_index()
         )
 
-    by_model_mode_criterion = (
-        evaluated_df.groupby(
-            ["Model", "Thinking", "Criterion ID", "Criterion"], dropna=False
-        )
-        .agg(
-            Total_Runs=("Eval Score", "count"),
-            Overall_Score=("Eval Score", "mean"),
-            Std_Score=("Eval Score", "std"),
-            Min_Score=("Eval Score", "min"),
-            Max_Score=("Eval Score", "max"),
-            Queries_Evaluated=("Query ID", "nunique"),
-        )
-        .reset_index()
+    def _merge_ci(frame: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
+        if confidence_level is None:
+            return frame
+        ci = _build_ci_frame(evaluated_df, group_cols, confidence_level)
+        return frame.merge(ci, on=group_cols, how="left")
+
+    common_agg = dict(
+        Runs=("Eval Score", "count"),
+        Mean_Score=("Eval Score", "mean"),
+        Std_Score=("Eval Score", "std"),
+        Min_Score=("Eval Score", "min"),
+        Max_Score=("Eval Score", "max"),
+    )
+    summary_agg = dict(
+        Total_Runs=("Eval Score", "count"),
+        Overall_Score=("Eval Score", "mean"),
+        Std_Score=("Eval Score", "std"),
+        Min_Score=("Eval Score", "min"),
+        Max_Score=("Eval Score", "max"),
     )
 
-    if confidence_level is not None:
-        ci_model_mode_criterion = _build_ci_frame(
-            evaluated_df, ["Model", "Thinking", "Criterion ID", "Criterion"], confidence_level
-        )
-        by_model_mode_criterion = by_model_mode_criterion.merge(
-            ci_model_mode_criterion,
-            on=["Model", "Thinking", "Criterion ID", "Criterion"],
-            how="left",
-        )
-
-    by_query_criterion = (
-        evaluated_df.groupby(
-            ["Query ID", "Query", "Criterion ID", "Criterion"], dropna=False
-        )
-        .agg(
-            Total_Runs=("Eval Score", "count"),
-            Overall_Score=("Eval Score", "mean"),
-            Std_Score=("Eval Score", "std"),
-            Min_Score=("Eval Score", "min"),
-            Max_Score=("Eval Score", "max"),
-            Models_Evaluated=("Model", "nunique"),
-        )
-        .reset_index()
+    # model × mode × query × criterion
+    mmqc = g + ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"]
+    by_mmqc = _merge_ci(
+        _agg(mmqc, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}),
+        mmqc,
     )
 
-    if confidence_level is not None:
-        ci_query_criterion = _build_ci_frame(
-            evaluated_df, ["Query ID", "Query", "Criterion ID", "Criterion"], confidence_level
-        )
-        by_query_criterion = by_query_criterion.merge(
-            ci_query_criterion,
-            on=["Query ID", "Query", "Criterion ID", "Criterion"],
-            how="left",
-        )
-
-    by_model_mode_query = (
-        evaluated_df.groupby(["Model", "Thinking", "Query ID", "Query"], dropna=False)
-        .agg(
-            Runs=("Eval Score", "count"),
-            Mean_Score=("Eval Score", "mean"),
-            Std_Score=("Eval Score", "std"),
-            Min_Score=("Eval Score", "min"),
-            Max_Score=("Eval Score", "max"),
-            Avg_Inference_Time_s=("Inference Time (s)", "mean"),
-        )
-        .reset_index()
-    )
-    if confidence_level is not None:
-        ci_model_mode_query = _build_ci_frame(
-            evaluated_df, ["Model", "Thinking", "Query ID", "Query"], confidence_level
-        )
-        by_model_mode_query = by_model_mode_query.merge(
-            ci_model_mode_query,
-            on=["Model", "Thinking", "Query ID", "Query"],
-            how="left",
-        )
-    model_mode_query_aspects = _build_aspect_columns(
-        evaluated_df, ["Model", "Thinking", "Query ID", "Query"], criterion_ids
-    )
-    by_model_mode_query = by_model_mode_query.merge(
-        model_mode_query_aspects,
-        on=["Model", "Thinking", "Query ID", "Query"],
-        how="left",
-    )
-    by_model_mode_query["Weighted_Overall"] = _compute_weighted_overall(
-        by_model_mode_query, criterion_ids, criterion_weights
+    # model × mode × criterion
+    mmc = g + ["Model", "Thinking", "Criterion ID", "Criterion"]
+    by_mmc = _merge_ci(
+        _agg(mmc, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique")}),
+        mmc,
     )
 
-    by_model_mode = (
-        evaluated_df.groupby(["Model", "Thinking"], dropna=False)
-        .agg(
-            Total_Runs=("Eval Score", "count"),
-            Overall_Score=("Eval Score", "mean"),
-            Std_Score=("Eval Score", "std"),
-            Min_Score=("Eval Score", "min"),
-            Max_Score=("Eval Score", "max"),
-            Queries_Evaluated=("Query ID", "nunique"),
-        )
-        .reset_index()
+    # query × criterion
+    qc = g + ["Query ID", "Query", "Criterion ID", "Criterion"]
+    by_qc = _merge_ci(
+        _agg(qc, {**summary_agg, "Models_Evaluated": ("Model", "nunique")}),
+        qc,
     )
 
-    if confidence_level is not None:
-        ci_model_mode = _build_ci_frame(evaluated_df, ["Model", "Thinking"], confidence_level)
-        by_model_mode = by_model_mode.merge(
-            ci_model_mode,
-            on=["Model", "Thinking"],
-            how="left",
-        )
-    model_mode_aspects = _build_aspect_columns(
-        evaluated_df, ["Model", "Thinking"], criterion_ids
+    # model × mode × query
+    mmq = g + ["Model", "Thinking", "Query ID", "Query"]
+    by_mmq = _merge_ci(
+        _agg(mmq, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}),
+        mmq,
     )
-    by_model_mode = by_model_mode.merge(
-        model_mode_aspects,
-        on=["Model", "Thinking"],
-        how="left",
+    by_mmq = by_mmq.merge(
+        _build_aspect_columns(evaluated_df, mmq, criterion_ids), on=mmq, how="left"
     )
-    by_model_mode["Weighted_Overall"] = _compute_weighted_overall(
-        by_model_mode, criterion_ids, criterion_weights
+    by_mmq["Weighted_Overall"] = _compute_weighted_overall(
+        by_mmq, criterion_ids, criterion_weights
     )
 
-    by_query = (
-        evaluated_df.groupby(["Query ID", "Query"], dropna=False)
-        .agg(
-            Total_Runs=("Eval Score", "count"),
-            Overall_Score=("Eval Score", "mean"),
-            Std_Score=("Eval Score", "std"),
-            Min_Score=("Eval Score", "min"),
-            Max_Score=("Eval Score", "max"),
-            Models_Evaluated=("Model", "nunique"),
-        )
-        .reset_index()
+    # model × mode
+    mm = g + ["Model", "Thinking"]
+    by_mm = _merge_ci(
+        _agg(mm, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique")}),
+        mm,
+    )
+    by_mm = by_mm.merge(
+        _build_aspect_columns(evaluated_df, mm, criterion_ids), on=mm, how="left"
+    )
+    by_mm["Weighted_Overall"] = _compute_weighted_overall(
+        by_mm, criterion_ids, criterion_weights
     )
 
-    if confidence_level is not None:
-        ci_query = _build_ci_frame(evaluated_df, ["Query ID", "Query"], confidence_level)
-        by_query = by_query.merge(
-            ci_query,
-            on=["Query ID", "Query"],
-            how="left",
-        )
-    query_aspects = _build_aspect_columns(
-        evaluated_df, ["Query ID", "Query"], criterion_ids
+    # query only
+    q = g + ["Query ID", "Query"]
+    by_q = _merge_ci(
+        _agg(q, {**summary_agg, "Models_Evaluated": ("Model", "nunique")}),
+        q,
     )
-    by_query = by_query.merge(
-        query_aspects,
-        on=["Query ID", "Query"],
-        how="left",
+    by_q = by_q.merge(
+        _build_aspect_columns(evaluated_df, q, criterion_ids), on=q, how="left"
     )
-    by_query["Weighted_Overall"] = _compute_weighted_overall(
-        by_query, criterion_ids, criterion_weights
+    by_q["Weighted_Overall"] = _compute_weighted_overall(
+        by_q, criterion_ids, criterion_weights
     )
 
-    by_model_mode_query_criterion = _ensure_ci_after_std(by_model_mode_query_criterion)
-    by_model_mode_criterion = _ensure_ci_after_std(by_model_mode_criterion)
-    by_query_criterion = _ensure_ci_after_std(by_query_criterion)
-    by_model_mode_query = _ensure_ci_after_std(by_model_mode_query)
-    by_model_mode = _ensure_ci_after_std(by_model_mode)
-    by_query = _ensure_ci_after_std(by_query)
+    # round and fix CI column ordering
+    result = {
+        "by_model_mode_query_criterion": _ensure_ci_after_std(by_mmqc),
+        "by_model_mode_criterion": _ensure_ci_after_std(by_mmc),
+        "by_query_criterion": _ensure_ci_after_std(by_qc),
+        "by_model_mode_query": _ensure_ci_after_std(by_mmq),
+        "by_model_mode": _ensure_ci_after_std(by_mm),
+        "by_query": _ensure_ci_after_std(by_q),
+    }
+    for frame in result.values():
+        num_cols = frame.select_dtypes(include=["number"]).columns
+        frame[num_cols] = frame[num_cols].round(4)
 
-    for frame in (
-        by_model_mode_query_criterion,
-        by_model_mode_criterion,
-        by_query_criterion,
-        by_model_mode_query,
-        by_model_mode,
-        by_query,
-    ):
-        numeric_cols = frame.select_dtypes(include=["number"]).columns
-        frame[numeric_cols] = frame[numeric_cols].round(4)
-
-    return (
-        by_model_mode_query_criterion,
-        by_model_mode_criterion,
-        by_query_criterion,
-        by_model_mode_query,
-        by_model_mode,
-        by_query,
-    )
+    return result
 
 
 def evaluate_summary_folder(
@@ -619,35 +543,35 @@ def evaluate_summary_folder(
         )
 
         p_aggs = _aggregate_outputs(partial_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
-        p_aggs[0].to_csv(
+        p_aggs["by_model_mode_query_criterion"].to_csv(
             output_dir
             / f"evaluation_model_mode_query_criterion_partial_{execution_id}.csv",
             index=False,
             encoding="utf-8",
         )
-        p_aggs[1].to_csv(
+        p_aggs["by_model_mode_criterion"].to_csv(
             output_dir
             / f"evaluation_model_mode_criterion_overall_partial_{execution_id}.csv",
             index=False,
             encoding="utf-8",
         )
-        p_aggs[2].to_csv(
+        p_aggs["by_query_criterion"].to_csv(
             output_dir
             / f"evaluation_query_criterion_overall_partial_{execution_id}.csv",
             index=False,
             encoding="utf-8",
         )
-        p_aggs[3].to_csv(
+        p_aggs["by_model_mode_query"].to_csv(
             output_dir / f"evaluation_model_mode_query_partial_{execution_id}.csv",
             index=False,
             encoding="utf-8",
         )
-        p_aggs[4].to_csv(
+        p_aggs["by_model_mode"].to_csv(
             output_dir / f"evaluation_model_mode_overall_partial_{execution_id}.csv",
             index=False,
             encoding="utf-8",
         )
-        p_aggs[5].to_csv(
+        p_aggs["by_query"].to_csv(
             output_dir / f"evaluation_query_overall_partial_{execution_id}.csv",
             index=False,
             encoding="utf-8",
@@ -658,14 +582,13 @@ def evaluate_summary_folder(
         raise ValueError("No rows matched the selected test filters")
 
     all_evaluated_df = pd.concat(all_frames, ignore_index=True)
-    (
-        by_model_mode_query_criterion,
-        by_model_mode_criterion,
-        by_query_criterion,
-        by_model_mode_query,
-        by_model_mode,
-        by_query,
-    ) = _aggregate_outputs(all_evaluated_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
+    aggs = _aggregate_outputs(all_evaluated_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
+    by_model_mode_query_criterion = aggs["by_model_mode_query_criterion"]
+    by_model_mode_criterion = aggs["by_model_mode_criterion"]
+    by_query_criterion = aggs["by_query_criterion"]
+    by_model_mode_query = aggs["by_model_mode_query"]
+    by_model_mode = aggs["by_model_mode"]
+    by_query = aggs["by_query"]
 
     all_file = output_dir / f"evaluation_all_runs_{execution_id}.csv"
     model_mode_query_criterion_file = (

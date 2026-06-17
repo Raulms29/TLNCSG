@@ -497,6 +497,7 @@ def compute_model_mode_metrics(
     thinking: bool,
     query_id: str | None = None,
     confidence_level: float | None = 0.95,
+    expect_json_response: bool = True,
 ) -> tuple[dict, list[dict]]:
     """Compute summary metrics for one model and one run mode."""
     inference_times: list[float] = []
@@ -521,7 +522,11 @@ def compute_model_mode_metrics(
                 thinking=thinking,
             )
 
-            is_valid_json = is_valid_json_response(response)
+            if expect_json_response:
+                is_valid_json = is_valid_json_response(response)
+            else:
+                is_valid_json = bool(response and response.strip())
+
             inference_times.append(inference_seconds)
             if is_valid_json:
                 valid_json_count += 1
@@ -807,6 +812,8 @@ def run_models_summary(
     runs_per_model: int,
     output_dir: str,
     confidence_level: float | None = 0.95,
+    use_representation_weights: bool = True,
+    expect_json_response: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str], list[str], list[str], str, str]:
     """
     Run model summary benchmark and persist outputs.
@@ -881,22 +888,70 @@ def run_models_summary(
             query_text = query_def["text"]
             print(f"  - Query {query_idx}/{len(query_defs)} ({query_id})")
 
+            if use_representation_weights:
+                representation_weight = float(query_def.get("representation_weight", 1.0))
+            else:
+                representation_weight = 1.0
+
             for thinking_mode in modes:
                 print(f"    - Thinking={thinking_mode}")
-                row, execution_records = compute_model_mode_metrics(
-                    ollama_client=ollama_client,
-                    model_name=model_name,
-                    model_config=model_config,
-                    queries=[query_text],
-                    system_prompt=system_prompt,
-                    base_options=base_options,
-                    runs_per_model=runs_per_model,
-                    thinking=thinking_mode,
-                    query_id=query_id,
-                    confidence_level=confidence_level,
-                )
+                if representation_weight == 0:
+                    # Dummy metrics row
+                    row = {
+                        "Query ID": query_id,
+                        "Name": model_config.get("display_name", model_name),
+                        "Parameters": model_config.get("parameters", "N/A"),
+                        "Thinking": bool(thinking_mode),
+                        "Temperature": float(model_config.get("temperature", 0.0)),
+                        "Valid JSON Rate": 0.0,
+                        "Avg IT (s)": 0.0,
+                        "Std Dev IT (s)": 0.0,
+                        "P50 IT (s)": 0.0,
+                        "P90 IT (s)": 0.0,
+                        "P95 IT (s)": 0.0,
+                        "Generation Throughput (tokens/s)": 0.0,
+                        "Query Text": query_text,
+                    }
+                    if confidence_level is not None:
+                        row["95% CI (IT)"] = "[0.0000, 0.0000]"
 
-                row["Query Text"] = query_text
+                    # Dummy execution records
+                    execution_records = [
+                        {
+                            "Run": run_idx,
+                            "Query ID": query_id,
+                            "Query": query_text,
+                            "Model": model_name,
+                            "Thinking": bool(thinking_mode),
+                            "Temperature": float(model_config.get("temperature", 0.0)),
+                            "Inference Time (s)": 0.0,
+                            "Valid JSON": False,
+                            "Done Reason": "skipped_weight_zero",
+                            "Prompt Eval Count": 0,
+                            "Prompt Eval Duration (s)": 0.0,
+                            "Eval Count": 0,
+                            "Eval Duration (s)": 0.0,
+                            "Generation Throughput (tokens/s)": 0.0,
+                            "Response": "",
+                        }
+                        for run_idx in range(1, runs_per_model + 1)
+                    ]
+                else:
+                    row, execution_records = compute_model_mode_metrics(
+                        ollama_client=ollama_client,
+                        model_name=model_name,
+                        model_config=model_config,
+                        queries=[query_text],
+                        system_prompt=system_prompt,
+                        base_options=base_options,
+                        runs_per_model=runs_per_model,
+                        thinking=thinking_mode,
+                        query_id=query_id,
+                        confidence_level=confidence_level,
+                        expect_json_response=expect_json_response,
+                    )
+                    row["Query Text"] = query_text
+
                 model_rows.append(row)
                 summary_rows.append(row)
                 summary_rows_by_query[query_id].append(row)

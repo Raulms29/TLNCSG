@@ -229,11 +229,53 @@ models = {
 
 import json
 
-gt_path = os.path.join(os.path.dirname(__file__), "..", "ground_truths", "ground_truth_sem_gir.json")
-with open(gt_path, "r", encoding="utf-8") as f:
-    queries_data = json.load(f)
-queries = [{"id": q_id, "text": q_info["query"]} for q_id, q_info in queries_data.items()]
-
+SYSTEM_PROMPTS_CONFIG = {
+    "prompts/SYSTEM_PROMPT.prompt.md": {
+        "ground_truth": "ground_truths/ground_truth_sem_gir.json",
+        "use_representation_weights": True,
+        "expect_json_response": True,
+    },
+    "prompts/SYSTEM_PROMPT_LISTS.prompt.md": {
+        "ground_truth": "ground_truths/ground_truth_sem_gir.json",
+        "use_representation_weights": True,
+        "expect_json_response": True,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_LAMBDA_DCS.prompt.md": {
+        "ground_truth": "ground_truths/class_a/ground_truth_lambda_dcs.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LAMBDA.prompt.md": {
+        "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LOGICAL_FORM.prompt.md": {
+        "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_logical_form.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_NSQA.prompt.md": {
+        "ground_truth": "ground_truths/class_c/ground_truth_nsqa.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_SQUALL.prompt.md": {
+        "ground_truth": "ground_truths/class_d/ground_truth_squall.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_GRAPHQ.prompt.md": {
+        "ground_truth": "ground_truths/class_e/ground_truth_graphq.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    "prompts/grammars/SYSTEM_PROMPT_GRAPHQ_TREE.prompt.md": {
+        "ground_truth": "ground_truths/class_e/ground_truth_graphq_tree.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+}
 
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {
@@ -242,26 +284,40 @@ OLLAMA_OPTIONS = {
     "num_predict": 3072,
     # Define el tamaño de contexto total (entrada + salida esperada).
     # He tenido prompts de hasta 4000 tokens.
-    "num_ctx": 8192,
+    "num_ctx": 12288,
 }
 
-SYSTEM_PROMPTS_PATHS = [
-    "prompts/SYSTEM_PROMPT_LISTS_v1.prompt.md",
-    "prompts/SYSTEM_PROMPT_LISTS_v2.prompt.md",
-    "prompts/SYSTEM_PROMPT_LISTS_v3.prompt.md",
-]
 RUNS_PER_MODEL = 5
 OUTPUT_DIR = "outputs/summary"
 CONFIDENCE_LEVEL = None  # Usa None para no calcular intervalos de confianza
 
 ollama_client = Client(OLLAMA_SERVER)
 
-for prompt_path in SYSTEM_PROMPTS_PATHS:
+for prompt_path, config in SYSTEM_PROMPTS_CONFIG.items():
     print(f"\n==================================================")
     print(f"Executing evaluation for prompt: {prompt_path}")
     print(f"==================================================")
 
-    system_prompt = utils.load_prompt_file(prompt_path)
+    # 1. Load config values for this specific prompt
+    gt_path = config["ground_truth"]
+    use_weights = config.get("use_representation_weights", True)
+    expect_json = config.get("expect_json_response", True)
+
+    # 2. Dynamically load queries and weights from the associated ground truth file
+    gt_full_path = os.path.join(os.path.dirname(__file__), "..", gt_path)
+    with open(gt_full_path, "r", encoding="utf-8") as f:
+        queries_data = json.load(f)
+    queries = [
+        {
+            "id": q_id,
+            "text": q_info["query"],
+            "representation_weight": float(q_info.get("representation_weight", 1.0)),
+        }
+        for q_id, q_info in queries_data.items()
+    ]
+
+    prompt_full_path = os.path.join(os.path.dirname(__file__), "..", prompt_path)
+    system_prompt = utils.load_prompt_file(prompt_full_path)
 
     # Save outputs under a subdirectory named after the prompt file to prevent conflicts
     prompt_name = os.path.basename(prompt_path).replace(".prompt.md", "")
@@ -284,6 +340,8 @@ for prompt_path in SYSTEM_PROMPTS_PATHS:
         runs_per_model=RUNS_PER_MODEL,
         output_dir=prompt_output_dir,
         confidence_level=CONFIDENCE_LEVEL,
+        use_representation_weights=use_weights,
+        expect_json_response=expect_json,
     )
 
     print(f"\nFinished evaluation for prompt: {prompt_path}")

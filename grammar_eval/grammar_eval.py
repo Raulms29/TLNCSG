@@ -1,5 +1,6 @@
 import sys
 import os
+
 script_dir = os.path.abspath(os.path.dirname(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, ".."))
 sys.path = [p for p in sys.path if os.path.abspath(p) != script_dir]
@@ -19,7 +20,7 @@ EVALUATOR_MODEL = "gemma4:26b"
 OLLAMA_SERVER = "http://156.35.95.33:11434"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
-    "num_predict": 2048,
+    "num_predict": 3072,
     "num_ctx": 12288,
 }
 EVALUATOR_THINKING = False

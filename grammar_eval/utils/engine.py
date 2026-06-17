@@ -10,6 +10,7 @@ from ollama import Client
 
 from query_eval.utils.config import normalize_criteria_config
 from query_eval.utils.engine import (
+    _aggregate_outputs,
     _build_aspect_columns,
     _build_ci_frame,
     _compute_weighted_overall,
@@ -33,132 +34,7 @@ __all__ = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Grammar-aware aggregation
-# Extends query_eval's aggregation with an optional "Grammar" grouping prefix.
-# ---------------------------------------------------------------------------
-
-def _aggregate_outputs(
-    evaluated_df: pd.DataFrame,
-    criteria_config: dict[str, dict[str, Any]],
-    group_has_grammar: bool = False,
-    confidence_level: float | None = 0.95,
-) -> dict[str, pd.DataFrame]:
-    """
-    Build all aggregation tables.
-
-    When ``group_has_grammar=True`` the ``Grammar`` column is prepended to
-    every grouping key, enabling cross-grammar comparison in a single table.
-    """
-    criterion_ids = list(criteria_config.keys())
-    criterion_weights = {
-        cid: float(criteria_config[cid]["weight"]) for cid in criterion_ids
-    }
-
-    g = ["Grammar"] if group_has_grammar else []
-
-    def _agg(group_cols: list[str], agg_spec: dict) -> pd.DataFrame:
-        return (
-            evaluated_df.groupby(group_cols, dropna=False)
-            .agg(**agg_spec)
-            .reset_index()
-        )
-
-    def _merge_ci(frame: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
-        if confidence_level is None:
-            return frame
-        ci = _build_ci_frame(evaluated_df, group_cols, confidence_level)
-        return frame.merge(ci, on=group_cols, how="left")
-
-    common_agg = dict(
-        Runs=("Eval Score", "count"),
-        Mean_Score=("Eval Score", "mean"),
-        Std_Score=("Eval Score", "std"),
-        Min_Score=("Eval Score", "min"),
-        Max_Score=("Eval Score", "max"),
-    )
-    summary_agg = dict(
-        Total_Runs=("Eval Score", "count"),
-        Overall_Score=("Eval Score", "mean"),
-        Std_Score=("Eval Score", "std"),
-        Min_Score=("Eval Score", "min"),
-        Max_Score=("Eval Score", "max"),
-    )
-
-    # model × mode × query × criterion
-    mmqc = g + ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"]
-    by_mmqc = _merge_ci(
-        _agg(mmqc, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}),
-        mmqc,
-    )
-
-    # model × mode × criterion
-    mmc = g + ["Model", "Thinking", "Criterion ID", "Criterion"]
-    by_mmc = _merge_ci(
-        _agg(mmc, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique")}),
-        mmc,
-    )
-
-    # query × criterion
-    qc = g + ["Query ID", "Query", "Criterion ID", "Criterion"]
-    by_qc = _merge_ci(
-        _agg(qc, {**summary_agg, "Models_Evaluated": ("Model", "nunique")}),
-        qc,
-    )
-
-    # model × mode × query
-    mmq = g + ["Model", "Thinking", "Query ID", "Query"]
-    by_mmq = _merge_ci(
-        _agg(mmq, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}),
-        mmq,
-    )
-    by_mmq = by_mmq.merge(
-        _build_aspect_columns(evaluated_df, mmq, criterion_ids), on=mmq, how="left"
-    )
-    by_mmq["Weighted_Overall"] = _compute_weighted_overall(
-        by_mmq, criterion_ids, criterion_weights
-    )
-
-    # model × mode
-    mm = g + ["Model", "Thinking"]
-    by_mm = _merge_ci(
-        _agg(mm, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique")}),
-        mm,
-    )
-    by_mm = by_mm.merge(
-        _build_aspect_columns(evaluated_df, mm, criterion_ids), on=mm, how="left"
-    )
-    by_mm["Weighted_Overall"] = _compute_weighted_overall(
-        by_mm, criterion_ids, criterion_weights
-    )
-
-    # query only
-    q = g + ["Query ID", "Query"]
-    by_q = _merge_ci(
-        _agg(q, {**summary_agg, "Models_Evaluated": ("Model", "nunique")}),
-        q,
-    )
-    by_q = by_q.merge(
-        _build_aspect_columns(evaluated_df, q, criterion_ids), on=q, how="left"
-    )
-    by_q["Weighted_Overall"] = _compute_weighted_overall(
-        by_q, criterion_ids, criterion_weights
-    )
-
-    # round and fix CI column ordering
-    result = {
-        "by_model_mode_query_criterion": _ensure_ci_after_std(by_mmqc),
-        "by_model_mode_criterion": _ensure_ci_after_std(by_mmc),
-        "by_query_criterion": _ensure_ci_after_std(by_qc),
-        "by_model_mode_query": _ensure_ci_after_std(by_mmq),
-        "by_model_mode": _ensure_ci_after_std(by_mm),
-        "by_query": _ensure_ci_after_std(by_q),
-    }
-    for frame in result.values():
-        num_cols = frame.select_dtypes(include=["number"]).columns
-        frame[num_cols] = frame[num_cols].round(4)
-
-    return result
+# _aggregate_outputs is now imported from query_eval.utils.engine
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +51,8 @@ def evaluate_grammars(
     confidence_level: float | None = 0.95,
     test_query_ids: str | list[str] | tuple[str, ...] | set[str] | None = None,
     test_model: str | None = None,
+    use_representation_weights: bool = True,
+    expect_json_response: bool = True,
 ) -> dict[str, Any]:
     """
     Evaluate and compare multiple grammar variants.
@@ -252,6 +130,9 @@ def evaluate_grammars(
         ground_truths_path = grammar_cfg.get("ground_truths_path")
         raw_criteria = grammar_cfg.get("criteria_config")
 
+        g_use_weights = grammar_cfg.get("use_representation_weights", use_representation_weights)
+        g_expect_json = grammar_cfg.get("expect_json_response", expect_json_response)
+
         normalized_criteria = normalize_criteria_config(raw_criteria)
         ground_truths = load_ground_truths(ground_truths_path)
 
@@ -307,6 +188,8 @@ def evaluate_grammars(
                 evaluator_thinking=evaluator_thinking,
                 test_query_ids=selected_query_ids,
                 test_model=test_model,
+                use_representation_weights=g_use_weights,
+                expect_json_response=g_expect_json,
             )
 
             if evaluated_df.empty:
