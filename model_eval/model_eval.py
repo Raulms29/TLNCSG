@@ -4,6 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import utils
 from ollama import Client
+from config import OLLAMA_SERVER
 
 models = {
     # "deepseek-r1:8b": {
@@ -230,54 +231,44 @@ models = {
 import json
 
 SYSTEM_PROMPTS_CONFIG = {
-    "prompts/SYSTEM_PROMPT.prompt.md": {
+    # SemGIR — main grammar
+    "prompts/generator.prompt.md": {
         "ground_truth": "ground_truths/ground_truth_sem_gir.json",
         "use_representation_weights": True,
         "expect_json_response": True,
     },
-    "prompts/SYSTEM_PROMPT_LISTS.prompt.md": {
-        "ground_truth": "ground_truths/ground_truth_sem_gir.json",
-        "use_representation_weights": True,
-        "expect_json_response": True,
-    },
-    "prompts/grammars/SYSTEM_PROMPT_LAMBDA_DCS.prompt.md": {
-        "ground_truth": "ground_truths/class_a/ground_truth_lambda_dcs.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
-    "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LAMBDA.prompt.md": {
-        "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
-    "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LOGICAL_FORM.prompt.md": {
-        "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_logical_form.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
-    "prompts/grammars/SYSTEM_PROMPT_NSQA.prompt.md": {
-        "ground_truth": "ground_truths/class_c/ground_truth_nsqa.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
-    "prompts/grammars/SYSTEM_PROMPT_SQUALL.prompt.md": {
-        "ground_truth": "ground_truths/class_d/ground_truth_squall.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
-    "prompts/grammars/SYSTEM_PROMPT_GRAPHQ.prompt.md": {
-        "ground_truth": "ground_truths/class_e/ground_truth_graphq.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
+    # GraphQ Tree
     "prompts/grammars/SYSTEM_PROMPT_GRAPHQ_TREE.prompt.md": {
         "ground_truth": "ground_truths/class_e/ground_truth_graphq_tree.json",
         "use_representation_weights": True,
         "expect_json_response": False,
     },
+    # Lambda DCS
+    "prompts/grammars/SYSTEM_PROMPT_LAMBDA_DCS.prompt.md": {
+        "ground_truth": "ground_truths/class_a/ground_truth_lambda_dcs.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    # NSQA
+    "prompts/grammars/SYSTEM_PROMPT_NSQA.prompt.md": {
+        "ground_truth": "ground_truths/class_c/ground_truth_nsqa.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    # PCCG CGG Lambda
+    "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LAMBDA.prompt.md": {
+        "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
+    # Squall
+    "prompts/grammars/SYSTEM_PROMPT_SQUALL.prompt.md": {
+        "ground_truth": "ground_truths/class_d/ground_truth_squall.json",
+        "use_representation_weights": True,
+        "expect_json_response": False,
+    },
 }
 
-OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {
     # Limita la respuesta generada. Para modelos con "Thinking" (CoT),
     # el límite debe ser alto para acomodar el bloque de razonamiento.

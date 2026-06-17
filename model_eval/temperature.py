@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import utils
 
 from ollama import Client
+from config import OLLAMA_SERVER
 
 models = [
     # "deepseek-r1:8b",
@@ -28,7 +29,6 @@ queries = [
     "Give me the films in which all the actors are US citizens",
 ]
 
-OLLAMA_SERVER = "http://156.35.95.33:11434"
 OLLAMA_OPTIONS = {}
 
 SYSTEM_PROMPT = utils.SYSTEM_PROMPT

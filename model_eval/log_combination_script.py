@@ -8,8 +8,8 @@ ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 out_dir = f'outputs/summary/{ts}'
 os.makedirs(out_dir, exist_ok=True)
 
-dir1 = 'outputs/summary/20260429_143826'
-dir2 = 'outputs/summary/20260501_113658'
+dir1 = 'outputs/summary/archive_04-2026_to_06-2026/20260429_143826'
+dir2 = 'outputs/summary/archive_04-2026_to_06-2026/20260501_113658'
 
 print(f'Combining {dir1} and {dir2} into {out_dir}')
 

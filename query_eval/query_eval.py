@@ -10,13 +10,12 @@ import pandas as pd
 from typing import cast
 
 from query_eval.query_utils import evaluate_summary_folder
+from config import OLLAMA_SERVER
 
-# Path with model execution files (executions_*.csv)
-SUMMARY_RUN_DIR = "outputs/summary/20260506_091738 E2 (keep)"
+SUMMARY_RUN_DIR = "outputs/summary/archive_04-2026_to_06-2026/20260506_091738 E2 (keep)"
 
 # Evaluator model and runtime configuration
 EVALUATOR_MODEL = "deepseek-r1:8b"
-OLLAMA_SERVER = "http://156.35.95.33:11434"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
     # Limits the generated response. Knowing that 95% of valid responses

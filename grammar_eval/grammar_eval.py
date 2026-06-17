@@ -11,13 +11,13 @@ import pandas as pd
 from typing import cast
 
 from grammar_eval.grammar_utils import evaluate_grammars
+from config import OLLAMA_SERVER
 
 # ---------------------------------------------------------------------------
 # Evaluator configuration (shared across all grammars)
 # ---------------------------------------------------------------------------
 
 EVALUATOR_MODEL = "gemma4:26b"
-OLLAMA_SERVER = "http://156.35.95.33:11434"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
     "num_predict": 3072,
@@ -53,53 +53,92 @@ ALL_QUERY_IDS = [f"Q{i:02d}" for i in range(1, 11)]  # Q01 … Q10
 
 GRAMMARS_CONFIG = {
     # ------------------------------------------------------------------
-    # SemGIR-Lists v1 — Grammar 1 (SYSTEM_PROMPT_LISTS_v1)
+    # SemGIR
     # ------------------------------------------------------------------
-    "semgir_lists_v1": {
-        # Folder produced by model_eval for v1 prompt (replace placeholder with actual timestamp folder)
-        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v1/20260605_134853",
-        # Ground-truth JSON for this grammar
-        "ground_truths_path": "ground_truths/sem_gir_comparison/ground_truths_semgir_lists_v1.json",
+    "semgir": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/ground_truth_sem_gir.json",
         "criteria_config": {
-            "G0_SEMGIR_LISTS_v1": {
-                "name": "Overall Translation Quality (SemGIR-Lists v1)",
+            "EVAL_PROMPT_SEMGIR": {
+                "name": "Overall Translation Quality (SemGIR)",
                 "weight": 1.0,
                 "query_ids": ALL_QUERY_IDS,
-                "prompt_file": f"{PROMPTS_DIR}/G0_SEMGIR_LISTS_v1.prompt.md",
+                "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
             },
         },
     },
     # ------------------------------------------------------------------
-    # SemGIR-Lists v2 — Grammar 2 (SYSTEM_PROMPT_LISTS_v2)
+    # GraphQ Tree
     # ------------------------------------------------------------------
-    "semgir_lists_v2": {
-        # Folder produced by model_eval for v2 prompt (replace placeholder with actual timestamp folder)
-        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v2/20260605_203824",
-        # Ground-truth JSON for this grammar
-        "ground_truths_path": "ground_truths/sem_gir_comparison/ground_truths_semgir_lists_v2.json",
+    "graphq_tree": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_e/ground_truth_graphq_tree.json",
         "criteria_config": {
-            "G0_SEMGIR_LISTS_v2": {
-                "name": "Overall Translation Quality (SemGIR-Lists v2)",
+            "EVAL_PROMPT_GRAPHQ_TREE": {
+                "name": "Overall Translation Quality (GraphQ Tree)",
                 "weight": 1.0,
                 "query_ids": ALL_QUERY_IDS,
-                "prompt_file": f"{PROMPTS_DIR}/G0_SEMGIR_LISTS_v2.prompt.md",
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_GRAPHQ_TREE.prompt.md",
             },
         },
     },
     # ------------------------------------------------------------------
-    # SemGIR-Lists v3 — Grammar 3 (SYSTEM_PROMPT_LISTS_v3)
+    # Lambda DCS
     # ------------------------------------------------------------------
-    "semgir_lists_v3": {
-        # Folder produced by model_eval for v3 prompt (replace placeholder with actual timestamp folder)
-        "summary_run_dir": "outputs/summary/SYSTEM_PROMPT_LISTS_v3/20260606_030045",
-        # Ground-truth JSON for this grammar
-        "ground_truths_path": "ground_truths/sem_gir_comparison/ground_truths_semgir_lists_v3.json",
+    "lambda_dcs": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_a/ground_truth_lambda_dcs.json",
         "criteria_config": {
-            "G0_SEMGIR_LISTS_v3": {
-                "name": "Overall Translation Quality (SemGIR-Lists v3)",
+            "EVAL_PROMPT_LAMBDA_DCS": {
+                "name": "Overall Translation Quality (Lambda DCS)",
                 "weight": 1.0,
                 "query_ids": ALL_QUERY_IDS,
-                "prompt_file": f"{PROMPTS_DIR}/G0_SEMGIR_LISTS_v3.prompt.md",
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_LAMBDA_DCS.prompt.md",
+            },
+        },
+    },
+    # ------------------------------------------------------------------
+    # NSQA
+    # ------------------------------------------------------------------
+    "nsqa": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_c/ground_truth_nsqa.json",
+        "criteria_config": {
+            "EVAL_PROMPT_NSQA": {
+                "name": "Overall Translation Quality (NSQA)",
+                "weight": 1.0,
+                "query_ids": ALL_QUERY_IDS,
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_NSQA.prompt.md",
+            },
+        },
+    },
+    # ------------------------------------------------------------------
+    # PCCG CGG Lambda
+    # ------------------------------------------------------------------
+    "pccg_cgg_lambda": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
+        "criteria_config": {
+            "EVAL_PROMPT_PCCG_CGG_LAMBDA": {
+                "name": "Overall Translation Quality (PCCG CGG Lambda)",
+                "weight": 1.0,
+                "query_ids": ALL_QUERY_IDS,
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_PCCG_CGG_LAMBDA.prompt.md",
+            },
+        },
+    },
+    # ------------------------------------------------------------------
+    # Squall
+    # ------------------------------------------------------------------
+    "squall": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_d/ground_truth_squall.json",
+        "criteria_config": {
+            "EVAL_PROMPT_SQUALL": {
+                "name": "Overall Translation Quality (Squall)",
+                "weight": 1.0,
+                "query_ids": ALL_QUERY_IDS,
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_SQUALL.prompt.md",
             },
         },
     },
