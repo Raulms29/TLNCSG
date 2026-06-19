@@ -202,7 +202,14 @@ def evaluate_grammars(
             model_output_dir = grammar_output_dir / model_group
             model_output_dir.mkdir(parents=True, exist_ok=True)
 
-            file_out = model_output_dir / f"evaluated_{execution_file.name}"
+            query_id_match = re.search(r"_(Q\d+)_", execution_file.name)
+            query_id = query_id_match.group(1) if query_id_match else "unknown"
+            thinking_match = re.search(r"_th_(true|false)", execution_file.name)
+            if not thinking_match:
+                thinking_match = re.search(r"_thinking_(true|false)", execution_file.name)
+            thinking = thinking_match.group(1) if thinking_match else "unknown"
+            
+            file_out = model_output_dir / f"eval_trace_{query_id}_th_{thinking}.csv"
             evaluated_df.to_csv(file_out, index=False, encoding="utf-8")
             per_file_paths.append(str(file_out))
             grammar_frames.append(evaluated_df)
@@ -210,7 +217,7 @@ def evaluate_grammars(
             # Persist cumulative partial files after each execution file
             partial_df = pd.concat(grammar_frames, ignore_index=True)
             partial_df.to_csv(
-                grammar_output_dir / f"evaluation_all_runs_partial_{execution_id}.csv",
+                grammar_output_dir / "scores_all_evaluations_partial.csv",
                 index=False,
                 encoding="utf-8",
             )
@@ -221,15 +228,15 @@ def evaluate_grammars(
                 confidence_level=confidence_level,
             )
             for key, stem in [
-                ("by_model_mode_query_criterion", "evaluation_model_mode_query_criterion_partial"),
-                ("by_model_mode_criterion",       "evaluation_model_mode_criterion_partial"),
-                ("by_query_criterion",            "evaluation_query_criterion_partial"),
-                ("by_model_mode_query",           "evaluation_model_mode_query_partial"),
-                ("by_model_mode",                 "evaluation_model_mode_partial"),
-                ("by_query",                      "evaluation_query_partial"),
+                ("by_model_mode_query_criterion", "scores_by_model_query_criterion_partial"),
+                ("by_model_mode_criterion",       "scores_by_criterion_partial"),
+                ("by_query_criterion",            "scores_by_query_criterion_partial"),
+                ("by_model_mode_query",           "scores_by_model_query_partial"),
+                ("by_model_mode",                 "grammar_scores_by_model_partial"),
+                ("by_query",                      "scores_by_query_partial"),
             ]:
                 p_aggs[key].to_csv(
-                    grammar_output_dir / f"{stem}_{execution_id}.csv",
+                    grammar_output_dir / f"{stem}.csv",
                     index=False,
                     encoding="utf-8",
                 )
@@ -249,24 +256,44 @@ def evaluate_grammars(
         )
 
         def _save(df: pd.DataFrame, stem: str, base: Path = grammar_output_dir) -> str:
-            p = base / f"{stem}_{execution_id}.csv"
+            p = base / f"{stem}.csv"
             df.to_csv(p, index=False, encoding="utf-8")
             return str(p)
 
-        grammar_result: dict[str, Any] = {
+        per_grammar_results[grammar_label] = {
             "output_dir": str(grammar_output_dir),
-            "per_file_outputs": per_file_paths,
-            "all_rows_file": _save(grammar_all_df, "evaluation_all_runs"),
-            "model_mode_query_criterion_file": _save(aggs["by_model_mode_query_criterion"], "evaluation_model_mode_query_criterion"),
-            "model_mode_criterion_file":       _save(aggs["by_model_mode_criterion"],       "evaluation_model_mode_criterion"),
-            "query_criterion_file":            _save(aggs["by_query_criterion"],            "evaluation_query_criterion"),
-            "model_mode_query_file":           _save(aggs["by_model_mode_query"],           "evaluation_model_mode_query"),
-            "model_mode_file":                 _save(aggs["by_model_mode"],                 "evaluation_model_mode"),
-            "query_file":                      _save(aggs["by_query"],                      "evaluation_query"),
-            "all_rows_df": grammar_all_df,
-            **{f"{k}_df": v for k, v in aggs.items()},
+            "file_paths": per_file_paths,
+            "all_runs_file": _save(grammar_all_df, "scores_all_evaluations"),
+            "by_model_mode_query_criterion_file": _save(
+                aggs["by_model_mode_query_criterion"], "scores_by_model_query_criterion"
+            ),
+            "by_model_mode_criterion_file": _save(
+                aggs["by_model_mode_criterion"], "scores_by_criterion"
+            ),
+            "by_query_criterion_file": _save(
+                aggs["by_query_criterion"], "scores_by_query_criterion"
+            ),
+            "by_model_mode_query_file": _save(
+                aggs["by_model_mode_query"], "scores_by_model_query"
+            ),
+            "by_model_mode_file": _save(aggs["by_model_mode"], "grammar_scores_by_model"),
+            "by_query_file": _save(aggs["by_query"], "scores_by_query"),
+            "by_model_mode_df": aggs["by_model_mode"],
         }
-        per_grammar_results[grammar_label] = grammar_result
+
+        # Clean up partial files
+        partial_files = [
+            grammar_output_dir / "scores_all_evaluations_partial.csv",
+            grammar_output_dir / "scores_by_model_query_criterion_partial.csv",
+            grammar_output_dir / "scores_by_criterion_partial.csv",
+            grammar_output_dir / "scores_by_query_criterion_partial.csv",
+            grammar_output_dir / "scores_by_model_query_partial.csv",
+            grammar_output_dir / "grammar_scores_by_model_partial.csv",
+            grammar_output_dir / "scores_by_query_partial.csv",
+        ]
+        for pf in partial_files:
+            if pf.exists():
+                pf.unlink()
         all_combined_frames.append(grammar_all_df)
 
         # Persist cumulative combined partial files after each grammar completes
@@ -304,37 +331,44 @@ def evaluate_grammars(
     # -----------------------------------------------------------------------
     print("\nBuilding combined cross-grammar aggregation...")
 
-    combined_df = pd.concat(all_combined_frames, ignore_index=True)
+    all_combined_df = pd.concat(all_combined_frames, ignore_index=True)
 
-    combined_aggs = _aggregate_outputs(
-        combined_df,
+    c_aggs = _aggregate_outputs(
+        all_combined_df,
         criteria_config=merged_criteria,
         group_has_grammar=True,
         confidence_level=confidence_level,
     )
 
-    def _save_combined(df: pd.DataFrame, stem: str) -> str:
-        p = output_dir / f"{stem}_{execution_id}.csv"
+    def _save_comb(df: pd.DataFrame, stem: str) -> str:
+        p = output_dir / f"{stem}.csv"
         df.to_csv(p, index=False, encoding="utf-8")
         return str(p)
 
-    result: dict[str, Any] = {
+    return {
         "output_dir": str(output_dir),
         "per_grammar": per_grammar_results,
-        "combined_all_rows_file": _save_combined(combined_df, "combined_all_runs"),
-        "combined_all_rows_df": combined_df,
+        "combined_all_rows_file": _save_comb(
+            all_combined_df, "scores_all_evaluations"
+        ),
+        "combined_by_model_mode_query_criterion_file": _save_comb(
+            c_aggs["by_model_mode_query_criterion"],
+            "scores_by_model_query_criterion",
+        ),
+        "combined_by_model_mode_criterion_file": _save_comb(
+            c_aggs["by_model_mode_criterion"], "scores_by_criterion"
+        ),
+        "combined_by_query_criterion_file": _save_comb(
+            c_aggs["by_query_criterion"], "scores_by_query_criterion"
+        ),
+        "combined_by_model_mode_query_file": _save_comb(
+            c_aggs["by_model_mode_query"], "scores_by_model_query"
+        ),
+        "combined_by_model_mode_file": _save_comb(
+            c_aggs["by_model_mode"], "scores_by_model"
+        ),
+        "combined_by_query_file": _save_comb(
+            c_aggs["by_query"], "scores_by_query"
+        ),
+        "combined_by_model_mode_df": c_aggs["by_model_mode"],
     }
-    for key, stem in [
-        ("by_model_mode_query_criterion", "combined_model_mode_query_criterion"),
-        ("by_model_mode_criterion",       "combined_model_mode_criterion"),
-        ("by_query_criterion",            "combined_query_criterion"),
-        ("by_model_mode_query",           "combined_model_mode_query"),
-        ("by_model_mode",                 "combined_model_mode"),
-        ("by_query",                      "combined_query"),
-    ]:
-        df = combined_aggs[key]
-        result[f"combined_{key}_file"] = _save_combined(df, stem)
-        result[f"combined_{key}_df"] = df
-
-    print(f"Saved output folder: {output_dir}")
-    return result

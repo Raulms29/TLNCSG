@@ -27,7 +27,7 @@ EVALUATOR_THINKING = False
 
 # Confidence level for statistical intervals. Set to None to disable calculating
 # and displaying confidence intervals in all aggregate output tables.
-CONFIDENCE_LEVEL = None
+CONFIDENCE_LEVEL = 0.95
 
 # Quick test mode: run only selected queries / one source model.
 TEST_MODE = False
@@ -53,41 +53,12 @@ ALL_QUERY_IDS = [f"Q{i:02d}" for i in range(1, 11)]  # Q01 … Q10
 
 GRAMMARS_CONFIG = {
     # ------------------------------------------------------------------
-    # SemGIR
-    # ------------------------------------------------------------------
-    "semgir": {
-        "summary_run_dir": "<<FILL_RUN_DIR>>",
-        "ground_truths_path": "ground_truths/ground_truth_sem_gir.json",
-        "criteria_config": {
-            "EVAL_PROMPT_SEMGIR": {
-                "name": "Overall Translation Quality (SemGIR)",
-                "weight": 1.0,
-                "query_ids": ALL_QUERY_IDS,
-                "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
-            },
-        },
-    },
-    # ------------------------------------------------------------------
-    # GraphQ Tree
-    # ------------------------------------------------------------------
-    "graphq_tree": {
-        "summary_run_dir": "<<FILL_RUN_DIR>>",
-        "ground_truths_path": "ground_truths/class_e/ground_truth_graphq_tree.json",
-        "criteria_config": {
-            "EVAL_PROMPT_GRAPHQ_TREE": {
-                "name": "Overall Translation Quality (GraphQ Tree)",
-                "weight": 1.0,
-                "query_ids": ALL_QUERY_IDS,
-                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_GRAPHQ_TREE.prompt.md",
-            },
-        },
-    },
-    # ------------------------------------------------------------------
     # Lambda DCS
     # ------------------------------------------------------------------
     "lambda_dcs": {
         "summary_run_dir": "<<FILL_RUN_DIR>>",
         "ground_truths_path": "ground_truths/class_a/ground_truth_lambda_dcs.json",
+        "expect_json_response": False,
         "criteria_config": {
             "EVAL_PROMPT_LAMBDA_DCS": {
                 "name": "Overall Translation Quality (Lambda DCS)",
@@ -98,26 +69,12 @@ GRAMMARS_CONFIG = {
         },
     },
     # ------------------------------------------------------------------
-    # NSQA
-    # ------------------------------------------------------------------
-    "nsqa": {
-        "summary_run_dir": "<<FILL_RUN_DIR>>",
-        "ground_truths_path": "ground_truths/class_c/ground_truth_nsqa.json",
-        "criteria_config": {
-            "EVAL_PROMPT_NSQA": {
-                "name": "Overall Translation Quality (NSQA)",
-                "weight": 1.0,
-                "query_ids": ALL_QUERY_IDS,
-                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_NSQA.prompt.md",
-            },
-        },
-    },
-    # ------------------------------------------------------------------
     # PCCG CGG Lambda
     # ------------------------------------------------------------------
     "pccg_cgg_lambda": {
         "summary_run_dir": "<<FILL_RUN_DIR>>",
         "ground_truths_path": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
+        "expect_json_response": False,
         "criteria_config": {
             "EVAL_PROMPT_PCCG_CGG_LAMBDA": {
                 "name": "Overall Translation Quality (PCCG CGG Lambda)",
@@ -128,17 +85,66 @@ GRAMMARS_CONFIG = {
         },
     },
     # ------------------------------------------------------------------
+    # NSQA
+    # ------------------------------------------------------------------
+    "nsqa": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_c/ground_truth_nsqa.json",
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_NSQA": {
+                "name": "Overall Translation Quality (NSQA)",
+                "weight": 1.0,
+                "query_ids": ALL_QUERY_IDS,
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_NSQA.prompt.md",
+            },
+        },
+    },
+    # ------------------------------------------------------------------
     # Squall
     # ------------------------------------------------------------------
     "squall": {
         "summary_run_dir": "<<FILL_RUN_DIR>>",
         "ground_truths_path": "ground_truths/class_d/ground_truth_squall.json",
+        "expect_json_response": False,
         "criteria_config": {
             "EVAL_PROMPT_SQUALL": {
                 "name": "Overall Translation Quality (Squall)",
                 "weight": 1.0,
                 "query_ids": ALL_QUERY_IDS,
                 "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_SQUALL.prompt.md",
+            },
+        },
+    },
+    # ------------------------------------------------------------------
+    # GraphQ Tree
+    # ------------------------------------------------------------------
+    "graphq_tree": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/class_e/ground_truth_graphq_tree.json",
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_GRAPHQ_TREE": {
+                "name": "Overall Translation Quality (GraphQ Tree)",
+                "weight": 1.0,
+                "query_ids": ALL_QUERY_IDS,
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_GRAPHQ_TREE.prompt.md",
+            },
+        },
+    },
+    # ------------------------------------------------------------------
+    # SemGIR
+    # ------------------------------------------------------------------
+    "semgir": {
+        "summary_run_dir": "<<FILL_RUN_DIR>>",
+        "ground_truths_path": "ground_truths/ground_truth_sem_gir.json",
+        "expect_json_response": True,
+        "criteria_config": {
+            "EVAL_PROMPT_SEMGIR": {
+                "name": "Overall Translation Quality (SemGIR)",
+                "weight": 1.0,
+                "query_ids": ALL_QUERY_IDS,
+                "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
             },
         },
     },

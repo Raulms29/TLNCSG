@@ -12,7 +12,7 @@ from typing import cast
 from query_eval.query_utils import evaluate_summary_folder
 from config import OLLAMA_SERVER
 
-SUMMARY_RUN_DIR = "outputs/summary/archive_04-2026_to_06-2026/20260506_091738 E2 (keep)"
+SUMMARY_RUN_DIR = "outputs/model_eval/archive_04-2026_to_06-2026/20260506_091738 E2 (keep)"
 
 # Evaluator model and runtime configuration
 EVALUATOR_MODEL = "deepseek-r1:8b"

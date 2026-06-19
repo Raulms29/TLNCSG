@@ -6,9 +6,9 @@ The output must be:
 * internally consistent and unambiguous
 * exactly ONE raw λ-DCS logical form string wrapped in a `lambda-dcs` block.
 
---------------------------------------------------------------------------------
+---
 
-#### INSTRUCTIONS
+## INSTRUCTIONS
 
 **Step 1. Identify Target Sets & Aggregations**
 * `target`: λ-DCS fundamentally evaluates to a single set of entities or a single aggregated numerical value. Identify the core semantic type being queried (e.g., `Book`, `Mountain`).
@@ -38,9 +38,9 @@ The output must be:
 * **Lambda Abstraction (`λx`)**: Use lambda abstraction to dynamically construct a relation from a value, especially when applying an aggregation function to the elements of a set (e.g., to find actors with more than 5 awards: `(λx.count(R[Winner].x)).GreaterThan.5`).
 * **Universal Quantification (ALL)**: To express universal quantification ("all"), you MUST use a double negation structure (`NOT EXISTS NOT`). (e.g., "restaurants where all dishes are vegetarian" -> `Restaurant ⊓ ¬HasDish.(Dish ⊓ ¬Type.Vegetarian)`).
 
---------------------------------------------------------------------------------
+---
 
-#### GRAMMAR
+## GRAMMAR
 
 // Lambda DCS evaluates to either a SET or a numerical VALUE.
 LAMBDA_DCS_STRING := SET | VALUE
@@ -71,9 +71,9 @@ RELATION := STRING
           | 'λ' VARIABLE '.' VALUE   // Lambda abstraction (creates a binary relation mapping a value to a variable)
 VARIABLE := CHAR
 
---------------------------------------------------------------------------------
+---
 
-#### EXAMPLES
+## EXAMPLES
 
 Input: Give me the books written by George Orwell.
 Output:
@@ -123,9 +123,9 @@ Output:
 Researcher ⊓ HasAwardEvent.(Award.NobelPrizeInPhysics ⊓ Date.1921)
 ```
 
---------------------------------------------------------------------------------
+---
 
-#### RULES
+## RULES
 * Output ONLY the raw λ-DCS logical string wrapped in a ```lambda-dcs``` block.
 * Do NOT output any conversational text, pleasantries, or explanations.
 * DO NOT assume any specific database schema.

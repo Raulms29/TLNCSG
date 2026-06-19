@@ -86,83 +86,84 @@ OLLAMA_OPTIONS = {
 }
 
 RUNS_PER_MODEL = 5
-OUTPUT_DIR = "outputs/summary"
-CONFIDENCE_LEVEL = None  # Usa None para no calcular intervalos de confianza
+OUTPUT_DIR = "outputs/model_eval"
+CONFIDENCE_LEVEL = 0.95  # Usa None para no calcular intervalos de confianza
 
 ollama_client = Client(OLLAMA_SERVER)
 
-for prompt_path, config in SYSTEM_PROMPTS_CONFIG.items():
-    print(f"\n==================================================")
-    print(f"Executing evaluation for prompt: {prompt_path}")
-    print(f"==================================================")
+if __name__ == "__main__":
+    for prompt_path, config in SYSTEM_PROMPTS_CONFIG.items():
+        print(f"\n==================================================")
+        print(f"Executing evaluation for prompt: {prompt_path}")
+        print(f"==================================================")
 
-    # 1. Load config values for this specific prompt
-    gt_path = config["ground_truth"]
-    use_weights = config.get("use_representation_weights", True)
-    expect_json = config.get("expect_json_response", True)
+        # 1. Load config values for this specific prompt
+        gt_path = config["ground_truth"]
+        use_weights = config.get("use_representation_weights", True)
+        expect_json = config.get("expect_json_response", True)
 
-    # 2. Dynamically load queries and weights from the associated ground truth file
-    gt_full_path = os.path.join(os.path.dirname(__file__), "..", gt_path)
-    with open(gt_full_path, "r", encoding="utf-8") as f:
-        queries_data = json.load(f)
-    queries = [
-        {
-            "id": q_id,
-            "text": q_info["query"],
-            "representation_weight": float(q_info.get("representation_weight", 1.0)),
-        }
-        for q_id, q_info in queries_data.items()
-    ]
+        # 2. Dynamically load queries and weights from the associated ground truth file
+        gt_full_path = os.path.join(os.path.dirname(__file__), "..", gt_path)
+        with open(gt_full_path, "r", encoding="utf-8") as f:
+            queries_data = json.load(f)
+        queries = [
+            {
+                "id": q_id,
+                "text": q_info["query"],
+                "representation_weight": float(q_info.get("representation_weight", 1.0)),
+            }
+            for q_id, q_info in queries_data.items()
+        ]
 
-    prompt_full_path = os.path.join(os.path.dirname(__file__), "..", prompt_path)
-    system_prompt = utils.load_prompt_file(prompt_full_path)
+        prompt_full_path = os.path.join(os.path.dirname(__file__), "..", prompt_path)
+        system_prompt = utils.load_prompt_file(prompt_full_path)
 
-    # Save outputs under a subdirectory named after the prompt file to prevent conflicts
-    prompt_name = os.path.basename(prompt_path).replace(".prompt.md", "")
-    prompt_output_dir = os.path.join(OUTPUT_DIR, prompt_name)
+        # Save outputs under a subdirectory named after the prompt file to prevent conflicts
+        prompt_name = os.path.basename(prompt_path).replace(".prompt.md", "")
+        prompt_output_dir = os.path.join(OUTPUT_DIR, prompt_name)
 
-    (
-        results_df,
-        model_comparison_df,
-        model_files,
-        query_files,
-        execution_files,
-        all_results_file,
-        model_comparison_file,
-    ) = utils.run_models_summary(
-        ollama_client=ollama_client,
-        models=models,
-        queries=queries,
-        system_prompt=system_prompt,
-        base_options=OLLAMA_OPTIONS,
-        runs_per_model=RUNS_PER_MODEL,
-        output_dir=prompt_output_dir,
-        confidence_level=CONFIDENCE_LEVEL,
-        use_representation_weights=use_weights,
-        expect_json_response=expect_json,
-    )
+        (
+            results_df,
+            model_comparison_df,
+            model_files,
+            query_files,
+            execution_files,
+            all_results_file,
+            model_comparison_file,
+        ) = utils.run_models_summary(
+            ollama_client=ollama_client,
+            models=models,
+            queries=queries,
+            system_prompt=system_prompt,
+            base_options=OLLAMA_OPTIONS,
+            runs_per_model=RUNS_PER_MODEL,
+            output_dir=prompt_output_dir,
+            confidence_level=CONFIDENCE_LEVEL,
+            use_representation_weights=use_weights,
+            expect_json_response=expect_json,
+        )
 
-    print(f"\nFinished evaluation for prompt: {prompt_path}")
-    print("Saved per-model files:")
-    for file_path in model_files:
-        print(f"- {file_path}")
+        print(f"\nFinished evaluation for prompt: {prompt_path}")
+        print("Saved per-model files:")
+        for file_path in model_files:
+            print(f"- {file_path}")
 
-    print("Saved per-query files:")
-    for file_path in query_files:
-        print(f"- {file_path}")
+        print("Saved per-query files:")
+        for file_path in query_files:
+            print(f"- {file_path}")
 
-    print("Saved execution files (query + model + mode):")
-    for file_path in execution_files:
-        print(f"- {file_path}")
+        print("Saved execution files (query + model + mode):")
+        for file_path in execution_files:
+            print(f"- {file_path}")
 
-    print(f"Saved master file: {all_results_file}")
-    print(f"Saved model comparison file: {model_comparison_file}")
+        print(f"Saved master file: {all_results_file}")
+        print(f"Saved model comparison file: {model_comparison_file}")
 
-    print("\nModel comparison summary:")
-    print(model_comparison_df.to_string())
+        print("\nModel comparison summary:")
+        print(model_comparison_df.to_string())
 
-    print("\nDetailed results:")
-    print(results_df.to_string())
+        print("\nDetailed results:")
+        print(results_df.to_string())
 
 
 # models = {

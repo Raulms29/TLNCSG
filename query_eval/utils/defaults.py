@@ -8,11 +8,11 @@ EVALUATOR_USER_PROMPT_TEMPLATE = """Please evaluate the following Semantic Parsi
 [ORIGINAL NATURAL LANGUAGE QUERY]
 {query_text}
 
-[GROUND TRUTH JSON]
-{ground_truth_json}
+[{ground_truth_header}]
+{ground_truth_content}
 
-[CANDIDATE JSON]
-{candidate_json}
+[{candidate_header}]
+{candidate_content}
 
 Carefully analyze the data and output your evaluation strictly in the requested JSON format
 """

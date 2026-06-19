@@ -63,7 +63,8 @@ def _find_execution_files(summary_root: str | Path) -> list[Path]:
     root = Path(summary_root)
     if not root.exists():
         raise FileNotFoundError(f"Summary folder does not exist: {root}")
-    return sorted(root.rglob("executions_*.csv"))
+    files = list(root.rglob("executions_*.csv")) + list(root.rglob("trace_*.csv"))
+    return sorted(files)
 
 
 def _parse_eval_response(raw_response: str) -> tuple[float, str, str]:
@@ -86,11 +87,17 @@ def _evaluate_candidate(
     candidate_json: str,
     evaluator_options: dict | None,
     evaluator_thinking: bool,
+    expect_json_response: bool = True,
 ) -> tuple[float, str, str, str]:
+    ground_truth_header = "GROUND TRUTH JSON" if expect_json_response else "GROUND TRUTH"
+    candidate_header = "CANDIDATE JSON" if expect_json_response else "CANDIDATE"
+
     user_prompt = EVALUATOR_USER_PROMPT_TEMPLATE.format(
         query_text=query_text,
-        ground_truth_json=ground_truth_json,
-        candidate_json=candidate_json,
+        ground_truth_header=ground_truth_header,
+        ground_truth_content=ground_truth_json,
+        candidate_header=candidate_header,
+        candidate_content=candidate_json,
     )
 
     response = utils._call_ollama_with_retry(
@@ -185,10 +192,17 @@ def evaluate_execution_file(
             if expect_json_response:
                 candidate_json = clean_json_response(candidate_raw)
             else:
-                candidate_json = candidate_raw.strip()
+                candidate_json = utils.clean_code_response(candidate_raw)
 
             ground_truth_obj = ground_truths.get(query_id)
-            ground_truth_json = ground_truth_to_json_text(ground_truth_obj)
+            if ground_truth_obj and "solution" in ground_truth_obj:
+                solution_val = ground_truth_obj["solution"]
+                if isinstance(solution_val, str):
+                    ground_truth_json = solution_val
+                else:
+                    ground_truth_json = json.dumps(solution_val, ensure_ascii=False, indent=2)
+            else:
+                ground_truth_json = ground_truth_to_json_text(ground_truth_obj)
 
             if use_representation_weights:
                 representation_weight = float(ground_truth_obj.get("representation_weight", 1.0)) if ground_truth_obj else 1.0
@@ -210,6 +224,7 @@ def evaluate_execution_file(
                     candidate_json=candidate_json,
                     evaluator_options=evaluator_options,
                     evaluator_thinking=evaluator_thinking,
+                    expect_json_response=expect_json_response,
                 )
                 score = score * representation_weight
 
@@ -220,6 +235,8 @@ def evaluate_execution_file(
                     "Criterion": str(criterion_cfg["name"]),
                     "Criterion Weight": float(criterion_cfg["weight"]),
                     "Eval Score": score,
+                    "Supported_Score": score if representation_weight > 0 else np.nan,
+                    "Supported_Query_ID": query_id if representation_weight > 0 else np.nan,
                     "Eval Rationale": rationale,
                     "Eval Error": error,
                     "Eval Raw": eval_raw,
@@ -366,6 +383,7 @@ def _aggregate_outputs(
     common_agg = dict(
         Runs=("Eval Score", "count"),
         Mean_Score=("Eval Score", "mean"),
+        Supported_Mean_Score=("Supported_Score", "mean"),
         Std_Score=("Eval Score", "std"),
         Min_Score=("Eval Score", "min"),
         Max_Score=("Eval Score", "max"),
@@ -373,6 +391,7 @@ def _aggregate_outputs(
     summary_agg = dict(
         Total_Runs=("Eval Score", "count"),
         Overall_Score=("Eval Score", "mean"),
+        Supported_Overall_Score=("Supported_Score", "mean"),
         Std_Score=("Eval Score", "std"),
         Min_Score=("Eval Score", "min"),
         Max_Score=("Eval Score", "max"),
@@ -388,7 +407,7 @@ def _aggregate_outputs(
     # model × mode × criterion
     mmc = g + ["Model", "Thinking", "Criterion ID", "Criterion"]
     by_mmc = _merge_ci(
-        _agg(mmc, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique")}),
+        _agg(mmc, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique"), "Supported_Queries": ("Supported_Query_ID", "nunique")}),
         mmc,
     )
 
@@ -415,7 +434,7 @@ def _aggregate_outputs(
     # model × mode
     mm = g + ["Model", "Thinking"]
     by_mm = _merge_ci(
-        _agg(mm, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique")}),
+        _agg(mm, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique"), "Supported_Queries": ("Supported_Query_ID", "nunique")}),
         mm,
     )
     by_mm = by_mm.merge(
@@ -524,55 +543,55 @@ def evaluate_summary_folder(
         if evaluated_df.empty:
             continue
 
-        model_group = safe_name(execution_file.parent.name)
-        model_output_dir = output_dir / model_group
-        model_output_dir.mkdir(parents=True, exist_ok=True)
-
-        file_out = model_output_dir / f"evaluated_{execution_file.name}"
-        evaluated_df.to_csv(file_out, index=False, encoding="utf-8")
+        file_out = _save_evaluated_execution(evaluated_df, execution_file, evaluator_model, output_dir)
         per_file_paths.append(str(file_out))
 
         all_frames.append(evaluated_df)
 
         # Update partial cumulative files to avoid losses in case of error
         partial_df = pd.concat(all_frames, ignore_index=True)
-        partial_df.to_csv(
-            output_dir / f"evaluation_all_runs_partial_{execution_id}.csv",
-            index=False,
-            encoding="utf-8",
-        )
+        # Clean up partial files
+        partial_files = [
+            output_dir / "all_evaluations_partial.csv",
+            output_dir / "by_model_query_criterion_partial.csv",
+            output_dir / "by_criterion_partial.csv",
+            output_dir / "by_query_criterion_partial.csv",
+            output_dir / "by_model_query_partial.csv",
+            output_dir / "by_model_partial.csv",
+            output_dir / "by_query_partial.csv",
+        ]
+        for pf in partial_files:
+            if pf.exists():
+                pf.unlink()
 
         p_aggs = _aggregate_outputs(partial_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
         p_aggs["by_model_mode_query_criterion"].to_csv(
-            output_dir
-            / f"evaluation_model_mode_query_criterion_partial_{execution_id}.csv",
+            output_dir / "by_model_query_criterion_partial.csv",
             index=False,
             encoding="utf-8",
         )
         p_aggs["by_model_mode_criterion"].to_csv(
-            output_dir
-            / f"evaluation_model_mode_criterion_overall_partial_{execution_id}.csv",
+            output_dir / "scores_by_criterion_partial.csv",
             index=False,
             encoding="utf-8",
         )
         p_aggs["by_query_criterion"].to_csv(
-            output_dir
-            / f"evaluation_query_criterion_overall_partial_{execution_id}.csv",
+            output_dir / "scores_by_query_criterion_partial.csv",
             index=False,
             encoding="utf-8",
         )
         p_aggs["by_model_mode_query"].to_csv(
-            output_dir / f"evaluation_model_mode_query_partial_{execution_id}.csv",
+            output_dir / "scores_by_model_query_partial.csv",
             index=False,
             encoding="utf-8",
         )
         p_aggs["by_model_mode"].to_csv(
-            output_dir / f"evaluation_model_mode_overall_partial_{execution_id}.csv",
+            output_dir / "scores_by_model_partial.csv",
             index=False,
             encoding="utf-8",
         )
         p_aggs["by_query"].to_csv(
-            output_dir / f"evaluation_query_overall_partial_{execution_id}.csv",
+            output_dir / "scores_by_query_partial.csv",
             index=False,
             encoding="utf-8",
         )
@@ -590,21 +609,13 @@ def evaluate_summary_folder(
     by_model_mode = aggs["by_model_mode"]
     by_query = aggs["by_query"]
 
-    all_file = output_dir / f"evaluation_all_runs_{execution_id}.csv"
-    model_mode_query_criterion_file = (
-        output_dir / f"evaluation_model_mode_query_criterion_{execution_id}.csv"
-    )
-    model_mode_criterion_file = (
-        output_dir / f"evaluation_model_mode_criterion_overall_{execution_id}.csv"
-    )
-    query_criterion_file = (
-        output_dir / f"evaluation_query_criterion_overall_{execution_id}.csv"
-    )
-    model_mode_query_file = (
-        output_dir / f"evaluation_model_mode_query_{execution_id}.csv"
-    )
-    model_mode_file = output_dir / f"evaluation_model_mode_overall_{execution_id}.csv"
-    query_file = output_dir / f"evaluation_query_overall_{execution_id}.csv"
+    all_file = output_dir / "scores_all_evaluations.csv"
+    model_mode_query_criterion_file = output_dir / "scores_by_model_query_criterion.csv"
+    model_mode_criterion_file = output_dir / "scores_by_criterion.csv"
+    query_criterion_file = output_dir / "scores_by_query_criterion.csv"
+    model_mode_query_file = output_dir / "scores_by_model_query.csv"
+    model_mode_file = output_dir / "scores_by_model.csv"
+    query_file = output_dir / "scores_by_query.csv"
 
     all_evaluated_df.to_csv(all_file, index=False, encoding="utf-8")
     by_model_mode_query_criterion.to_csv(

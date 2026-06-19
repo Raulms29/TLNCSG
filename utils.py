@@ -57,6 +57,21 @@ def _extract_json_text(text: str) -> str:
     if match:
         return match.group(1).strip()
     return text_str
+
+
+def clean_code_response(text: str) -> str:
+    """Extract code from the last markdown block, regardless of language. Fallback to stripped text."""
+    if text is None:
+        return ""
+    text_str = str(text).strip()
+    
+    blocks = re.findall(r"```[a-zA-Z0-9_-]*\s*([\s\S]*?)\s*```", text_str, re.IGNORECASE)
+    if blocks:
+        return blocks[-1].strip()
+        
+    return text_str
+
+
 def _format_json_response(text: str, indent: int = 2) -> str:
     """Parse and re-serialize JSON for consistent formatting."""
     raw_json = _extract_json_text(text)
@@ -310,7 +325,7 @@ def confidence_interval(
     """
     alpha = 1 - confidence_level
     mean = float(np.mean(sample))
-    std = float(np.std(sample))
+    std = float(np.std(sample, ddof=1)) if len(sample) > 1 else 0.0
     n = len(sample)
     if n > 30:
         # normal distribution
@@ -356,13 +371,16 @@ def compute_confidence_interval_adaptive(
         # Use t-distribution (existing method)
         return confidence_interval(scores, confidence_level)
     else:
-        # Use bootstrap (percentile method)
+        # Use bootstrap to find CI of the mean
+        rng = np.random.default_rng(seed=42)
+        n_bootstraps = 1000
+        bootstrapped_means = np.mean(
+            rng.choice(scores, size=(n_bootstraps, len(scores)), replace=True), axis=1
+        )
         alpha = 1 - confidence_level
-        lower_percentile = (alpha / 2) * 100
-        upper_percentile = (1 - alpha / 2) * 100
         return (
-            np.percentile(scores, lower_percentile),
-            np.percentile(scores, upper_percentile),
+            float(np.percentile(bootstrapped_means, (alpha / 2) * 100)),
+            float(np.percentile(bootstrapped_means, (1 - alpha / 2) * 100)),
         )
 
 
@@ -665,8 +683,10 @@ def _build_model_comparison_row(
     confidence_level: float | None = 0.95,
 ) -> dict:
     """Aggregate execution records into one model-level comparison row."""
+    valid_records = [r for r in records if r.get("Done Reason") != "skipped_weight_zero"]
+    
     sample = np.array(
-        [float(rec["Inference Time (s)"]) for rec in records], dtype=float
+        [float(rec["Inference Time (s)"]) for rec in valid_records], dtype=float
     )
     mean_time = float(np.mean(sample)) if sample.size else float("nan")
     std_time = float(np.std(sample, ddof=1)) if sample.size > 1 else 0.0
@@ -682,13 +702,13 @@ def _build_model_comparison_row(
 
     latency_percentiles = _compute_latency_percentiles(sample)
 
-    valid_json_count = sum(1 for rec in records if bool(rec["Valid JSON"]))
-    total_calls = len(records)
+    valid_json_count = sum(1 for rec in valid_records if bool(rec["Valid JSON"]))
+    total_calls = len(valid_records)
     valid_json_rate = (valid_json_count / total_calls) * 100 if total_calls else 0.0
 
-    eval_tokens_total = sum(float(rec.get("Eval Count", 0) or 0) for rec in records)
+    eval_tokens_total = sum(float(rec.get("Eval Count", 0) or 0) for rec in valid_records)
     eval_seconds_total = sum(
-        float(rec.get("Eval Duration (s)", 0) or 0) for rec in records
+        float(rec.get("Eval Duration (s)", 0) or 0) for rec in valid_records
     )
     generation_throughput_tps = _compute_throughput_tokens_per_second(
         eval_tokens_total, eval_seconds_total
@@ -749,35 +769,28 @@ def _save_execution_records_file(
     execution_id: str,
     execution_records: list[dict],
 ) -> str:
-    """Save detailed execution records for one model/query/mode and return path."""
-    execution_file = model_dir / (
-        f"executions_{_safe_name(model_name)}_"
-        f"{_safe_name(query_id)}_{_safe_query_name(query_text)}_"
-        f"thinking_{str(thinking_mode).lower()}_{execution_id}.csv"
+    """Save the detailed per-run execution records for a single query."""
+    file_path = (
+        model_dir
+        / f"trace_{_safe_name(query_id)}_{_safe_query_name(query_text)}_th_{str(thinking_mode).lower()}.csv"
     )
-    pd.DataFrame(execution_records).to_csv(
-        execution_file, index=False, encoding="utf-8"
-    )
-    print(f"    Saved executions file: {execution_file}")
-    return str(execution_file)
+    pd.DataFrame(execution_records).to_csv(file_path, index=False, encoding="utf-8")
+    return str(file_path)
 
 
 def _save_model_summary_file(
     model_dir: Path,
     model_name: str,
     execution_id: str,
+    table_columns: list[str],
     model_rows: list[dict],
-    file_columns: list[str],
 ) -> str:
-    """Save one model-level summary CSV and return path."""
-    model_file = (
-        model_dir / f"model_summary_{_safe_name(model_name)}_{execution_id}.csv"
+    """Save the model's summary statistics to a CSV file."""
+    file_path = model_dir / "model_performance.csv"
+    pd.DataFrame(model_rows, columns=table_columns).to_csv(
+        file_path, index=False, encoding="utf-8"
     )
-    pd.DataFrame(model_rows, columns=file_columns).to_csv(
-        model_file, index=False, encoding="utf-8"
-    )
-    print(f"  Saved model file: {model_file}")
-    return str(model_file)
+    return str(file_path)
 
 
 def _save_query_summary_files(
@@ -794,8 +807,8 @@ def _save_query_summary_files(
         query_text = query_def["text"]
         query_df = pd.DataFrame(query_rows_map[query_id], columns=file_columns)
         query_file = output_path / (
-            f"query_summary_{_safe_name(query_id)}_"
-            f"{_safe_query_name(query_text)}_{execution_id}.csv"
+            f"performance_by_query_{_safe_name(query_id)}_"
+            f"{_safe_query_name(query_text)}.csv"
         )
         query_df.to_csv(query_file, index=False, encoding="utf-8")
         query_file_paths.append(str(query_file))
@@ -856,10 +869,8 @@ def run_models_summary(
     query_file_paths: list[str] = []
     execution_file_paths: list[str] = []
     model_comparison_rows: list[dict] = []
-    partial_summary_file = output_path / f"model_summary_all_partial_{execution_id}.csv"
-    partial_model_comparison_file = (
-        output_path / f"model_summary_models_comparison_partial_{execution_id}.csv"
-    )
+    partial_summary_file = output_path / "performance_all_data_partial.csv"
+    partial_model_comparison_file = output_path / "performance_by_model_partial.csv"
 
     enabled_models = [
         (name, cfg) for name, cfg in models.items() if cfg.get("enabled", True)
@@ -986,7 +997,7 @@ def run_models_summary(
                 model_name=model_name,
                 execution_id=execution_id,
                 model_rows=model_rows,
-                file_columns=file_columns,
+                table_columns=file_columns,
             )
         )
 
@@ -1004,8 +1015,8 @@ def run_models_summary(
             f"{partial_model_comparison_file}"
         )
 
-    all_results_file_df = pd.DataFrame(summary_rows, columns=file_columns)
     all_results_df = pd.DataFrame(summary_rows, columns=table_columns)
+    model_comparison_df = pd.DataFrame(model_comparison_rows, columns=comparison_file_columns)
 
     query_file_paths = _save_query_summary_files(
         output_path=output_path,
@@ -1015,17 +1026,17 @@ def run_models_summary(
         file_columns=file_columns,
     )
 
-    all_results_file = output_path / f"model_summary_all_{execution_id}.csv"
-    all_results_file_df.to_csv(all_results_file, index=False, encoding="utf-8")
+    all_results_file = output_path / "performance_all_data.csv"
+    pd.DataFrame(summary_rows, columns=file_columns).to_csv(all_results_file, index=False, encoding="utf-8")
 
-    model_comparison_file = (
-        output_path / f"model_summary_models_comparison_{execution_id}.csv"
-    )
-    model_comparison_df = pd.DataFrame(
-        model_comparison_rows, columns=comparison_file_columns
-    )
+    model_comparison_file = output_path / "performance_by_model.csv"
     model_comparison_df.to_csv(model_comparison_file, index=False, encoding="utf-8")
-    print(f"Saved model comparison file: {model_comparison_file}")
+
+    # Rename partial files to final names
+    if partial_summary_file.exists():
+        partial_summary_file.rename(all_results_file)
+    if partial_model_comparison_file.exists():
+        partial_model_comparison_file.rename(model_comparison_file)
 
     return (
         all_results_df,

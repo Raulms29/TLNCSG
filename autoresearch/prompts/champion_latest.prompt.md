@@ -13,62 +13,57 @@ The IR must be:
 **Step 1. Identify Targets**
 
 * `target`: Identify the elements the user is actually asking for. This must be a primitive identifier (`ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`) or a simple collection/value (`LIST`, `EXPRESSION`, `CONDITION`). 
-* **Target Purity**: The `target` defines *what* is returned; it MUST NOT contain any filtering logic, constraints, or comparisons. All selection logic belongs EXCLUSIVELY in the `constraint` block.
-* **Projection Discipline**: The `target` MUST strictly represent the primary grammatical subject (the "What"). Prioritize the explicit output noun over nouns used for filtering. Do NOT reverse the subject and object (e.g., if asking for "products bought by customers," target the Product, not the Customer).
-* **Extreme Minimalism**: Use primitive identifiers (`ENTITY_ID`/`PATH_ID`) directly. Do NOT wrap these in `LIST`, `NODES`, or `RELATIONS` unless a collection is explicitly requested (e.g., "a list of..."). Never use complex wrappers to return what is essentially a single object.
-* **Strict Key Prohibition**: The `target` array MUST ONLY contain flat identifiers or valid `LIST`/`EXPRESSION` objects. **UNDER NO CIRCUMSTANCES place `map_expression`, `nodes_of`, or `rels_of` inside the target block.** Projection/transformation logic belongs exclusively in `SCALAR_AGGREGATE`.
-* **No Unrequested Projections**: Do NOT use aggregate functions (e.g., `SUM`, `COUNT`) as the `target` unless the user explicitly asks for a calculated value (e.g., "How many...", "What is the total...").
+* **Mandatory JSON Array Structure**: The `target` MUST always be a valid JSON array containing ONLY flat identifiers (e.g., `["e1"]`) OR exactly one SemGIR construct (e.g., `[{"list": ...}]`). **STRICTLY FORBID** mixing target types, using raw objects as targets, returning unwrapped primitive values, or placing multiple distinct constructs in the array.
+* **Flat Retrieval Default**: For standard entity, relationship, or attribute retrieval queries ("find", "list", "show", "which"), the `target` MUST default to a flat array of direct identifiers (e.g., `["e1"]`) or simple attribute projections (`EXPRESSION -> ATTRIBUTE`). **STRICTLY FORBID** wrapping standard retrievals in `LIST`, `COUNT`, or `SCALAR_AGGREGATE` unless the natural language explicitly requests a collated set, ranked output, or computed value.
+* **Target Purity & Aggregation Boundary**: The `target` defines *what* is returned. All selection logic belongs EXCLUSIVELY in the `constraint` block. **STRICTLY FORBID** using aggregation constructs (e.g., `MAX`, `SUM`) inside the target array to retrieve an entity ID; aggregations return scalar values, not entities. To retrieve the specific entity that possesses a maximum/minimum value, the target must be a flat `ENTITY_ID` and the logic MUST be implemented via `order_by` and `limit`.
+* **Existence Query Format**: For "Whether" or existence queries, use a valid `CONDITION` or `EXPRESSION` as the target. **Literal booleans (e.g., `[true]`) are strictly forbidden.**
+* **Strict Key Prohibition**: The `target` array MUST ONLY contain flat identifiers or valid SemGIR constructs. Ad-hoc JSON structures and map_expressions nested directly inside the target array are strictly forbidden.
 
-**Step 2. Identify Entities**
+**Step 2. Identify Entities & Enforce Semantic Boundaries**
 
-* Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `arg` does NOT substitute for an explicit constraint.
-* Assign a concrete `type` (e.g., Director, Movie, Organization).
-* Do NOT create entities for simple descriptive values; use attributes inside the `constraint` block.
-* If the query names a specific entity, assert its identity with an explicit `COMPARISON` in `constraint`.
-* **Strictly avoid "topology bypass"**: Do not collapse connections into attributes:
-    * **Relationship Attributes**: Data belonging to a connection (e.g., marriage date) MUST be an attribute of the `RELATIONSHIP_ID`, never the `ENTITY_ID`.
-    * **Membership/Residence**: Use separate entities and relationships for categories, nationalities, or locations.
-    * **Ordinality/Rank**: Use `order_by`, `skip`, and `limit` in Step 5; NEVER hallucinate rank attributes (e.g., 'funding_rank').
-    * **Distance/Depth**: Use `COUNT` of relationships/paths; never constrain hop counts on a single edge.
+* Identify all distinct entities mentioned and assign each a unique, non-descriptive `id` (e.g., `e1`, `r2`). A descriptive ID does NOT substitute for an explicit constraint.
+* **Absolute Ontological Type Boundary**: The `type` field MUST strictly preserve the high-level semantic class/category explicitly named or structurally implied in the prompt. **ABSOLUTELY FORBID** downgrading to generic placeholders (`Person`, `Entity`, `Item`) when specific categories are provided, or deriving types from instance names, roles, professions, titles, or product names (e.g., treating "Tesla" or "OpenAI" as a semantic type instead of a value). Types are ontological categories only; all instance-specific data belongs EXCLUSIVELY in the `constraint` block as attribute comparisons.
+* **Type Fidelity Preservation**: When querying paths, chains, or multi-hop connections, you MUST preserve the exact ontological types specified in the prompt for each hop. **STRICTLY FORBID** changing or downgrading specific categories along traversal edges without explicit logical warrant from the input.
+* **Constraint Integrity**: Constraints must ONLY reflect explicit query requirements. **STRICTLY FORBID** introducing unrequested logical predicates, implied counts, arbitrary thresholds (e.g., `sales > 0`), or auxiliary entities not explicitly warranted by the natural language input.
 
-**Step 3. Extract Relationships & Paths**
+**Step 3. Enforce Topology & Extract Relationships**
 
-* `relationships`: Extract explicit semantic edges using ROLE-BASED labels. Ensure directionality matches the semantic flow.
-* **Inter-Entity Connectivity ("Between/Among")**: When a query asks for relationships "between" or "among" a set of entities, you MUST model direct edges connecting those specific members as `from` and `to`. Do not route these through third parties unless requested.
-* **No Self-Loops**: Forbid self-referencing relationships (`from` MUST NOT equal `to`). Binary roles (e.g., marriage, sibling) logically require two distinct entities; a self-loop here is a critical structural failure.
-* `paths`: Use for traversals where the hop count is unknown or variable. 
-* **Topological Feasibility**: A path's structure must be physically capable of satisfying its constraints. **You MUST NOT define a topology as a single direct relationship if the constraint specifies multiple hops (e.g., "exactly 3 relationships").** The defined graph structure must logically allow for the requested depth/complexity.
-* **Reference Integrity (Zero Tolerance)**: Every `ENTITY_ID`, `RELATIONSHIP_ID`, or `PATH_ID` used in ANY block (`target`, `relationships`, `paths`, `constraint`) MUST be explicitly declared in its respective definition block *before* it is referenced. Referencing an undeclared ID is a critical failure.
+* `relationships`: Extract explicit semantic edges using ROLE-BASED labels. Ensure directionality matches the grammatical flow of the prompt (`from` = subject/promoter, `to` = object/target).
+* **Multi-Participant Anti-Self-Loop Rule**: When a query implies connections between two or more distinct entities (e.g., "relationships between", "influences"), you MUST declare each participant as a separate `ENTITY` node connected via explicit `RELATIONSHIP`s. **ABSOLUTELY FORBID** modeling inter-entity relationships as self-loops (`from == to`) on a single entity. Collapse participants into one node ONLY when explicitly warranted by the prompt.
+* **Topological Integrity Mandate**: All relational concepts—including events, locations, jurisdictions, affiliations, and demographic attributes (e.g., nationality, origin, gender) are structural graph elements. They MUST be modeled as separate `ENTITY` nodes connected via explicit `RELATIONSHIP`s. 
+* **Anti-Simulation Rule (No Topology Bypass)**: **ABSOLUTELY FORBID** simulating graph topology using non-structural means. This includes:
+    1. **Attribute Invention**: Inventing attributes (e.g., 'kingdom', 'reign_order', 'rank') to replace entities or relationship properties.
+    2. **Role Hallucination**: Inventing generic placeholder roles (e.g., 'any', 'related_to', 'connection') to force a link between entities when no specific semantic role is provided in the text.
+    All structural logic must rely on explicitly declared relationships and existing attributes.
+* **Direct Edge Preference**: For any known single-hop or fixed-degree connection between specific entities, use a direct `RELATIONSHIP`. **STRICTLY FORBID** inventing `PATH` objects, intermediate nodes, or auxiliary entities to model logic that can be expressed via a simple relationship. Reserve `paths` ONLY for traversals where the hop count is unknown, variable, or explicitly multi-hop.
+* **Graph Connectivity & Reference Integrity**: All declared entities and relationships MUST form a single, logically connected subgraph with correct directional flow. Verify that `from` and `to` strictly align with semantic roles implied by the context. **STRICTLY FORBID** disconnected components, redundant edges, arbitrary self-loops (`from == to`), or reversed directionality. Every `ENTITY_ID`, `RELATIONSHIP_ID`, or `PATH_ID` used MUST be explicitly declared before reference.
+* **Relationship Attributes**: Data belonging strictly to a connection (e.g., release date, weight, duration, marriage year) MUST be an attribute of the `RELATIONSHIP_ID`, never the `ENTITY_ID`.
 
-**Step 4. Build Constraints**
+**Step 4. Build Constraints & Shape Results**
 
 * `constraint`: Filter block combining attribute comparisons, logical operators, and topology checks. 
-* **Branch Isolation (Anti-Hoisting)**: When using `OR`, constraints must be nested precisely within the branch they qualify. If a modifier applies only to one alternative (e.g., "Sales from NY OR Sales from Austin that exceed 100"), it MUST remain inside that specific `OR` branch; do NOT hoist it into a global `AND` block wrapper that would apply the filter to both branches.
-* **Root-Level Logic Prohibition**: Keys such as `and_conditions`, `or_conditions`, and `not_condition` MUST NEVER appear at the root of the query object; they must be nested inside the `constraint` field.
-* **Disjoint Logic & Hypothesis Splitting**: Split mutually exclusive or union-based conditions into separate hypotheses. 
-* **Absence of Relationships**: Use the `NOT` operator directly on the `RELATIONSHIP_ID` (e.g., `{ not_condition: r1 }`).
-* **Path Content Filtering**: Use `QUANTIFIER_PREDICATE` (`EXISTS`, `NONE`) over path nodes/relations to filter paths based on whether they contain or avoid specific elements.
-* **Expression Integrity**: The `left` and `right` keys of a `COMPARISON` must be scalar `EXPRESSION` objects (Numbers, Strings, Attributes). Do NOT use logic blocks (`AND`, `OR`) or structural definitions as operands in a comparison.
+* **COMPARISON vs Logical Operator Boundaries (Critical)**: A `COMPARISON` structure is strictly binary and MUST ONLY contain the keys `left`, `operator`, and `right`. **STRICTLY FORBID** placing logical operators (`and_conditions`, `or_conditions`, `not_condition`) or complex structural definitions as siblings to `left`/`right` within a `COMPARISON`. Logical groupings must be standalone `CONDITION` wrappers (`{ and_conditions: [...] }`, etc.) at the root of the `constraint` block.
+* **Scoping & Filter Placement**: Filters that apply exclusively to elements inside a `LIST` MUST be placed in the list's `filter` key. Global constraints apply ONLY to the target entities/relationships. **STRICTLY FORBID** leaking list-scoped predicates (e.g., demographic filters, affiliation checks) into the root `constraint`, and NEVER place global target constraints inside a `LIST.filter`.
+* **Expression Integrity**: The `left` and `right` keys of a `COMPARISON` must be scalar `EXPRESSION` objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.
+* **Superlatives & Ranking**: Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` only when explicitly demanded by the natural language for sorting, ranking, pagination, or deduplication. **MANDATORY**: Any superlative requirement ("highest", "most", "top-N", "best") MUST be implemented as a combination of `order_by` (sorting by the relevant attribute) AND `limit`. **STRICTLY FORBID** using `limit` for ranking without an accompanying `order_by`.
 
-**Step 5. Shape Results**
+**Step 5. Apply Quantifiers and Aggregations (Lists)**
 
-* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` for sorting, ranking (top-N), pagination, or deduplication. To represent ordinality (e.g., "the fifth"), use these tools instead of hallucinating rank attributes.
-
-**Step 6. Apply Quantifiers and Aggregations (Lists)**
-
-* Always define the set of elements first using a `LIST` and apply a `filter` before aggregating or quantifying.
-* **Valid LIST Structure & Key Ban**: A `LIST` object accepts ONLY `list_elements`, `nodes_of`, `rels_of`, `filter`, `distinct`, `order_by`, `limit`, and `skip`. **`map_expression` is STRICTLY PROHIBITED inside a `LIST`; it belongs exclusively to `SCALAR_AGGREGATE`.**
+* Always define the set of elements first using a `LIST` and apply filters before aggregating or quantifying.
+* **Strict LIST Wrapper Grammar**: The value of the `list` key must be exactly one extraction construct: `CREATE_LIST`, `NODES{...}`, or `RELATIONS{...}`. **STRICTLY FORBID** nesting a raw `LIST` object inside another `list` key, and NEVER place scoping variables (`node_id`, `rel_id`) directly inside a plain `LIST` object. These keys are exclusively valid ONLY within their respective extraction wrappers.
+* **Direct Check Preference for Existence/Negation**: For simple relational existence or negation (e.g., "works with", "not married to anyone"), prefer direct `RELATIONSHIP_ID` checks combined with logical operators (`AND`, `NOT`) in the constraint. Avoid complex quantifier wrappers when a direct edge comparison is structurally sufficient and less error-prone.
 * **Aggregations** (produce a value):
   * `COUNT`: counts elements in a `LIST`. 
-  * `SCALAR_AGGREGATE`: computes `SUM`, `MIN`, `MAX`, `AVG`. 
-    * **Crucial Structural Rule**: A `SCALAR_AGGREGATE` is a standalone block. The keys `map_expression` and `aggregate_kind` belong strictly to the `SCALAR_AGGREGATE` object and are NOT part of the `LIST` object.
+  * **SCALAR_AGGREGATE Structure**: Keys `aggregate_kind` and `map_expression` MUST be strictly siblings to the `list` key within the `SCALAR_AGGREGATE` object. NEVER nest them inside the list wrapper or place them as children of the list construct. The valid structure is exactly: `{ aggregate_kind: "AGGREGATE_KIND", map_expression: EXPRESSION, list: LIST }`.
 * **Quantification** (is a `CONDITION`):
-  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS`, or `NONE` of a plain `LIST` satisfy a condition. Place this directly in the `constraint` block. 
+  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS`, or `NONE` of a plain `LIST` satisfy a condition. Place directly in the `constraint` block.
   * **Boundary**: NEVER nest `COUNT` or `SCALAR_AGGREGATE` inside a `QUANTIFIER_PREDICATE`. If numeric comparison is needed, place the aggregation in the `left` or `right` field of a `COMPARISON`.
-* **Strict Scoping Rules**: Variables scoped via `node_id` (in `NODES`) or `rel_id` (in `RELATIONS`) are strictly local to that list's internal blocks and CANNOT leak to the root query, target, or outer constraint.
 
-**Step 7. Form Hypotheses**
-Output multiple hypotheses ONLY for genuine syntactic/topological ambiguity or union-based sets with distinct constraints. Disjoint conditions MUST never be merged into a single hypothesis with an `AND` block.
+**Step 6. Form Hypotheses & Isolate Logic**
+
+Output multiple hypotheses ONLY for genuine syntactic/topological ambiguity.
+* **Mandatory Hypothesis Isolation (Union vs Intersection)**: If the natural language presents disjoint alternatives, independent scenarios, or requests for different datasets based on distinct criteria (e.g., "Find X from city A AND Y from city B"), you MUST output separate `QUERY` entries in `HYPOTHESES_SET`. **STRICTLY FORBID** merging these into a single query using `AND`, as this creates a logical intersection filter that forces simultaneous satisfaction of independent conditions (which usually results in an empty set) rather than the intended union.
+* Merge hypotheses ONLY when the conditions explicitly describe concurrent, unified requirements over the same target scope.
 
 ---
 
@@ -204,58 +199,32 @@ BOOLEAN := true | false
 
 ## EXAMPLES
 
-Input: "Which movies feature actors who have won an Oscar?"
+Input: Which distinct companies founded after 2000 employ engineers who have won a Turing Award?
 Output:
-
 ```json
 [
   {
     "target": [ "e1" ],
     "entities": [
-      { "id": "e1", "type": "Movie" },
-      { "id": "e2", "type": "Actor" },
+      { "id": "e1", "type": "Company" },
+      { "id": "e2", "type": "Engineer" },
       { "id": "e3", "type": "Award" }
     ],
     "relationships": [
-      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" },
+      { "id": "r1", "role": "employs", "from": "e1", "to": "e2" },
       { "id": "r2", "role": "won", "from": "e2", "to": "e3" }
     ],
     "constraint": {
-      "left": { "attribute_name": "name", "of": "e3" },
-      "operator": "=",
-      "right": "Oscar"
-    }
-  }
-]
-```
-
-Input: "Which movies wwere directed by Eastwood or star Meryl Streep?"
-Output:
-
-```json
-[
-  {
-    "target": [ "e1" ],
-    "entities": [
-      { "id": "e1", "type": "Movie" },
-      { "id": "e4", "type": "Director" },
-      { "id": "e2", "type": "Actor" }
-    ],
-    "relationships": [
-      { "id": "r3", "role": "director", "from": "e4", "to": "e1" },
-      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" }
-    ],
-    "constraint": {
-      "or_conditions": [
+      "and_conditions": [
         {
-          "left": { "attribute_name": "name", "of": "e4" },
+          "left": { "attribute_name": "name", "of": "e3" },
           "operator": "=",
-          "right": "Eastwood"
+          "right": "Turing Award"
         },
         {
-          "left": { "attribute_name": "name", "of": "e2" },
-          "operator": "=",
-          "right": "Meryl Streep"
+          "left": { "attribute_name": "foundation_year", "of": "e1" },
+          "operator": ">",
+          "right": 2000
         }
       ]
     },
@@ -264,13 +233,74 @@ Output:
 ]
 ```
 
-Input: "Which movies have directors who share a last name with one of the actors?"
+Input: "Identify the vehicles that are manufactured by Tesla or use hydrogen fuel
 Output:
-
 ```json
 [
   {
     "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Vehicle" },
+      { "id": "e2", "type": "Manufacturer" },
+      { "id": "e3", "type": "Fuel" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "manufactured_by", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "uses_fuel", "from": "e1", "to": "e3" }
+    ],
+    "constraint": {
+      "or_conditions": [
+        {
+          "left": { "attribute_name": "name", "of": "e2" },
+          "operator": "=",
+          "right": "Tesla"
+        },
+        {
+          "left": { "attribute_name": "type", "of": "e3" },
+          "operator": "=",
+          "right": "hydrogen"
+        }
+      ]
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Give me the publication year and number of words of the books written by Tolkien
+Output:
+```json
+[
+  {
+    "target": [
+      { "attribute_name": "publication_year", "of": "e1" },
+      { "attribute_name": "number_of_words", "of": "e1" }
+    ],
+    "entities": [
+      { "id": "e1", "type": "Book" },
+      { "id": "e2", "type": "Author" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "wrote", "from": "e2", "to": "e1" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e2" },
+      "operator": "=",
+      "right": "Tolkien"
+    }
+  }
+]
+```
+
+Input: Give me the release date and name of movies which have directors who share a last name with one of the actors
+Output:
+```json
+[
+  {
+    "target": [
+      { "attribute_name": "release_date", "of": "e1" },
+      { "attribute_name": "name", "of": "e1" }
+    ],
     "entities": [
       { "id": "e1", "type": "Movie" },
       { "id": "e4", "type": "Director" },
@@ -289,19 +319,88 @@ Output:
 ]
 ```
 
-Input: Which movies have a cast consisting entirely of actors from Spain?
+Input: Give me the direct relationships between OpenAI employees, provided neither of them is a contractor
 Output:
+```json
+[
+  {
+    "target": [ "r2" ],
+    "entities": [
+      { "id": "e1", "type": "Organization" },
+      { "id": "e2", "type": "Employee" },
+      { "id": "e3", "type": "Employee" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "works_for", "from": "e2", "to": "e1" },
+      { "id": "r3", "role": "works_for", "from": "e3", "to": "e1" },
+      { "id": "r2", "role": "any", "from": "e2", "to": "e3" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "name", "of": "e1" },
+          "operator": "=",
+          "right": "OpenAI"
+        },
+        {
+          "left": { "attribute_name": "employment_type", "of": "e2" },
+          "operator": "!=",
+          "right": "contractor"
+        },
+        {
+          "left": { "attribute_name": "employment_type", "of": "e3" },
+          "operator": "!=",
+          "right": "contractor"
+        }
+      ]
+    }
+  }
+]
+```
 
+Input: Give me each of the CEOs of tech companies together with the list of their previous jobs
+Output:
+```json
+[
+  {
+    "target": [
+      "e1",
+      {
+        "list": {
+          "list_elements": "e2"
+        }
+      }
+    ],
+    "entities": [
+      { "id": "e1", "type": "CEO" },
+      { "id": "e2", "type": "Job" },
+      { "id": "e3", "type": "Company" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "is_ceo_of", "from": "e1", "to": "e3" },
+      { "id": "r2", "role": "worked_as", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "industry", "of": "e3" },
+      "operator": "=",
+      "right": "tech"
+    }
+  }
+]
+```
+
+Input: Which projects have a team consisting entirely of researchers from Japan?
+Output:
 ```json
 [
   {
     "target": [ "e1" ],
     "entities": [
-      { "id": "e1", "type": "Movie" },
-      { "id": "e2", "type": "Actor" }
+      { "id": "e1", "type": "Project" },
+      { "id": "e2", "type": "Researcher" }
     ],
     "relationships": [
-      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" }
+      { "id": "r1", "role": "works_on", "from": "e2", "to": "e1" }
     ],
     "constraint": {
       "list": {
@@ -310,7 +409,7 @@ Output:
       "condition": {
         "left": { "attribute_name": "nationality", "of": "e2" },
         "operator": "=",
-        "right": "Spain"
+        "right": "Japan"
       },
       "quantifier_kind": "ALL"
     }
@@ -318,18 +417,12 @@ Output:
 ]
 ```
 
-Input: Identify a path starting from a Topic whose description starts with 'image' and ends with 'reconstruction', and ending at an article whose title contains 'Neural Network Optimization', and list the nodes of the path.
+Input: Identify any path of exactly 3 hops starting from a Topic whose description starts with 'image' and ends with 'reconstruction', and ending at an article whose title contains 'Neural Network Optimization'
 Output:
-
 ```json
 [
   {
-    "target": [
-      "p1",
-      {
-        "list": { "nodes_of": "p1", "node_id": "e3" }
-      }
-    ],
+    "target": [ "p1" ],
     "entities": [
       { "id": "e1", "type": "Topic" },
       { "id": "e2", "type": "Article" }
@@ -348,6 +441,15 @@ Output:
           "left": { "attribute_name": "title", "of": "e2" },
           "operator": "CONTAINS",
           "right": "Neural Network Optimization"
+        },
+        {
+          "left": {
+            "count": {
+              "list": { "rels_of": "p1", "rel_id": "r1" }
+            }
+          },
+          "operator": "=",
+          "right": 3
         }
       ]
     },
@@ -356,15 +458,50 @@ Output:
 ]
 ```
 
-Input: List the 5 movies released after 2020-01-01 with the highest revenue, skipping the top 10.
+Input: Find the communication route from the server 'SR45' to 'SR99', and list the nodes along the route
 Output:
+```json
+[
+  {
+    "target": [
+      "p1",
+      {
+        "list": { "nodes_of": "p1", "node_id": "e3" }
+      }
+    ],
+    "entities": [
+      { "id": "e1", "type": "Server" },
+      { "id": "e2", "type": "Server" }
+    ],
+    "paths": [
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["communicates_with"] }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "server_id", "of": "e1" },
+          "operator": "=",
+          "right": "SR45"
+        },
+        {
+          "left": { "attribute_name": "server_id", "of": "e2" },
+          "operator": "=",
+          "right": "SR99"
+        }
+      ]
+    }
+  }
+]
+```
 
+Input: List the video games released after 2020-01-01 ranked from 11th to 15th by highest sales
+Output:
 ```json
 [
   {
     "target": [ "e1" ],
     "entities": [
-      { "id": "e1", "type": "Movie" }
+      { "id": "e1", "type": "VideoGame" }
     ],
     "constraint": {
       "left": { "attribute_name": "release_date", "of": "e1" },
@@ -373,7 +510,7 @@ Output:
     },
     "order_by": [
       {
-        "expression": { "attribute_name": "revenue", "of": "e1" },
+        "expression": { "attribute_name": "sales", "of": "e1" },
         "direction": "DESC"
       }
     ],
@@ -416,6 +553,78 @@ Output:
           "left": { "attribute_name": "name", "of": "e2" },
           "operator": "=",
           "right": "Dancing Crane Cafe"
+        }
+      ]
+    }
+  }
+]
+```
+
+Input: What is the maximum capacity among stadiums located in cities that have at least one subway station?
+Output:
+```json
+[
+  {
+    "target": [
+      {
+        "list": {
+          "list": { "list_elements": "e1" }
+        },
+        "map_expression": { "attribute_name": "capacity", "of": "e1" },
+        "aggregate_kind": "MAX"
+      }
+    ],
+    "entities": [
+      { "id": "e1", "type": "Stadium" },
+      { "id": "e2", "type": "City" },
+      { "id": "e3", "type": "Station" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "located_in", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "has_station", "from": "e2", "to": "e3" }
+    ],
+    "constraint": {
+      "list": {
+        "list": { "list_elements": "e3" }
+      },
+      "condition": {
+        "left": { "attribute_name": "type", "of": "e3" },
+        "operator": "=",
+        "right": "Subway"
+      },
+      "quantifier_kind": "EXISTS"
+    }
+  }
+]
+```
+
+Input: Give me the investment amount and funding date of the investments made by verified firms into startups that are not located in London
+Output:
+```json
+[
+  {
+    "target": [
+      { "attribute_name": "investment_amount", "of": "r1" },
+      { "attribute_name": "funding_date", "of": "r1" }
+    ],
+    "entities": [
+      { "id": "e1", "type": "Firm" },
+      { "id": "e2", "type": "Startup" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "invested_in", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "is_verified", "of": "e1" },
+          "operator": "=",
+          "right": true
+        },
+        {
+          "left": { "attribute_name": "location", "of": "e2" },
+          "operator": "!=",
+          "right": "London"
         }
       ]
     }
