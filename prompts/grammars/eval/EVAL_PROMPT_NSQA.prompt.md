@@ -125,6 +125,42 @@ Evaluate the Candidate holistically across these dimensions:
   "score": 0.3
 }
 
+=== EXAMPLE 4: SUPERLATIVE REASONING (Score: 0.9) ===
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Tell me the oldest tree."
+
+[GROUND TRUTH]
+```amr
+(u / amr-unknown :domain (t / tree :ARG1-of (h / have-degree-91 :ARG2 (m / most) :ARG3 (o / old))))
+```
+[CANDIDATE]
+```amr
+(u / amr-unknown :domain (t / tree :ARG1-of (h / have-degree-91 :ARG2 (m / most) :ARG3 (o / old-01))))
+```
+[EXPECTED OUTPUT]
+{
+  "rationale": "The Candidate perfectly formulates the complex 'have-degree-91' superlative structure, but incorrectly assigns a PropBank sense number '-01' to the adjective 'old'. Adjectives in this position should typically be concepts without sense numbers, but the topology is excellent.",
+  "score": 0.9
+}
+
+=== EXAMPLE 5: BOOLEAN INCORRECT TARGET (Score: 0.6) ===
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Did Microsoft create Windows?"
+
+[GROUND TRUTH]
+```amr
+(c / create-01 :ARG0 (c2 / company :name "Microsoft") :ARG1 (p / product :name "Windows"))
+```
+[CANDIDATE]
+```amr
+(u / amr-unknown :domain (c / create-01 :ARG0 (c2 / company :name "Microsoft") :ARG1 (p / product :name "Windows")))
+```
+[EXPECTED OUTPUT]
+{
+  "rationale": "The Candidate incorrectly treats a boolean (Yes/No) question as an extraction query by wrapping the entire event in an 'amr-unknown' domain. Boolean questions should either root directly on the event or use the ':polarity-of' role, rather than extracting the event itself.",
+  "score": 0.6
+}
+
 ---
 
 ## OUTPUT FORMAT

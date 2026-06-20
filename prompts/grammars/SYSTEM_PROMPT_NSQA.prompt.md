@@ -101,6 +101,12 @@ Output:
 (u / amr-unknown :domain (h / height) :poss (b / building :ARG1-of (h2 / have-degree-91 :ARG2 (m / most) :ARG3 (t / tall))))
 ```
 
+Input: Which musicians play the guitar and sing?
+Output:
+```amr
+(u / amr-unknown :domain (m / musician) :ARG0-of (p / play-01 :ARG1 (g / guitar)) :ARG0-of (s / sing-01))
+```
+
 ---
 
 ## RULES

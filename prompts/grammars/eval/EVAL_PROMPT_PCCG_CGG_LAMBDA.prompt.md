@@ -156,6 +156,24 @@ avg(x, laptop(x), weight(x))
   "score": 0.3
 }
 
+=== EXAMPLE 5: BOOLEAN QUERY VS ABSTRACTION (Score: 0.6) ===
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Is Barcelona located in Spain?"
+
+[GROUND TRUTH]
+```lambda-calculus
+located_in(barcelona, spain)
+```
+[CANDIDATE]
+```lambda-calculus
+λx.located_in(barcelona, spain)
+```
+[EXPECTED OUTPUT]
+{
+  "rationale": "The Candidate incorrectly treats a boolean (Yes/No) question as an extraction query by prefixing it with a lambda abstraction. Boolean queries must evaluate directly to a closed truth value (t) without declaring unbound free variables at the root.",
+  "score": 0.6
+}
+
 ---
 
 ## OUTPUT FORMAT
