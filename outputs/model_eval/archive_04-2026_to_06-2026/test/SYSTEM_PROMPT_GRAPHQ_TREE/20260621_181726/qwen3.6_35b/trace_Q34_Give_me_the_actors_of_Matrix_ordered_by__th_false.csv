@@ -1,0 +1,151 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q34,Give me the actors of Matrix ordered by height.,qwen3.6:35b,False,0.025,27.142998,True,stop,3130,1.650289,1659,25.295592,65.5845,"<thinking>
+The user wants a list of actors from the movie ""Matrix"".
+1.  **Root Query**: This is an `EntityQuery` because it asks for entities (actors).
+2.  **Target EntitySet**: Actors (`<C> actor </C>`).
+3.  **Constraint**: The actors must be related to the entity ""Matrix"" via the relation ""actor"". Since we are looking for actors *of* the movie, the relation goes from Actor -> Movie. Therefore, to filter actors by their connection to the movie, we look for actors that have a forward relation ""actor"" to ""Matrix"", or equivalently, actors that are connected backward from ""Matrix"". In GraphQ IR syntax provided in examples: `<C> actor </C> that <R> actor </R> backward to <E> Matrix </E>`.
+4.  **Ordering**: The user specifies ""ordered by height"". This implies an `AttributeQuery` or a specific sorting mechanism. However, standard GraphQ IR usually separates the extraction of the entity from the attribute used for sorting if it's not just returning the attribute value. But looking at the grammar, `EntityQuery` returns entities. If we need to order them, we typically extract the attribute in an `AttributeQuery` or use a `SelectQuery` if asking for the ""tallest"". Here it asks for *the actors* (plural) ordered by height.
+    *   Strictly speaking, GraphQ IR as defined doesn't have a direct ""ORDER BY"" clause in the basic grammar provided (`S := EntityQuery | ...`).
+    *   However, often ""ordered by X"" implies we want the entities, and the sorting key is attribute X.
+    *   Let's look at `AttributeQuery`: ""what is the attribute A of EntitySet"". This returns values.
+    *   Let's look at `EntityQuery`: ""what is EntitySet"". This returns entities.
+    *   If the system supports ordering, it might be implicit or part of a more complex query structure not fully detailed in the basic grammar. However, usually, if one asks for ""actors ordered by height"", they want the list of actors. The ""ordered by"" part is a presentation detail.
+    *   Wait, let's re-read the prompt's examples. There is no example of ordering.
+    *   Let's consider if this should be an `AttributeQuery` returning heights? No, it asks for ""actors"".
+    *   Let's consider if this is a `SelectQuery`? No, that's for superlatives (""who is the tallest"").
+    *   Given the constraints of the provided grammar, I will formulate it as an `EntityQuery` retrieving the actors. The ""ordered by height"" might be interpreted as needing to extract the height attribute as well, or it's a constraint on the output format which isn't strictly in the IR definition.
+    *   However, a common interpretation in these parsers for ""X ordered by Y"" is that you want the entities X, and the sorting key is Y. If I must stick to the grammar, I will provide the `EntityQuery` for the actors.
+    *   Alternative: Maybe it wants the heights? ""Give me the actors..."" usually means return the actor names/IDs.
+    *   Let's stick to the core request: Get the actors of Matrix.
+    *   Representation 1: what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
+
+    *Self-Correction*: Does ""ordered by height"" change the query type? If I can't express ordering in the AST, I should probably just return the entities. But wait, is there a way to include the attribute?
+    If I look at `AttributeQuery`, it returns the attribute value.
+    If I look at `EntityQuery`, it returns the entity.
+    The prompt asks for ""actors"". So `EntityQuery` is correct.
+    
+    Let's refine the Relation direction.
+    Entity: Actor.
+    Relation: actor (Actor -> Movie).
+    Target: Matrix.
+    We want Actors such that they point to Matrix.
+    In the example ""Give me the actors of the movie Inception"", the representation was: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+    This implies the relation `actor` is defined as `Movie -> Actor` in the graph schema for the purpose of the ""backward"" traversal from the movie? Or does it mean the relation *from* the actor *to* the movie is `actor`, so traversing *backward* along that edge gets you to the movie?
+    Let's check the example logic:
+    ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+    If the relation is `Actor --[actor]--> Movie`, then going *forward* from Actor gets you to Movie. Going *backward* from Movie gets you to Actor.
+    So, starting with Concept `actor`, we constrain it by saying ""that [has a relation] `actor` [going] backward to `Inception`"". This phrasing is slightly ambiguous in natural language but standard in GraphQ IR: ""Entity A that Relation DIR to Entity B"" means there is an edge of type Relation between A and B. If DIR is `backward`, it usually means the edge points *from* B *to* A? Or does it mean we traverse the relation in the backward direction from the current node?
+    
+    Let's look at the example again:
+    `<C> actor </C>` (Current Node)
+    `that <R> actor </R> backward to <E> Inception </E>`
+    If the graph edge is `Actor --[actor]--> Movie`, then from Actor, you go forward to Movie.
+    The constraint says: ""Actor ... that [relation 'actor'] ... to Inception"".
+    If the direction is `backward`, it typically means the relation is defined as `Movie --[actor]--> Actor` (inverse) or we are traversing the existing edge backwards.
+    Given the example output uses `backward` for ""actors of movie"", I will follow that pattern exactly.
+
+    Regarding ""ordered by height"": Since the grammar does not support ORDER BY, and the primary request is ""Give me the actors"", I will generate the EntityQuery. If the user wanted heights, they would ask ""What are the heights..."".
+
+    Representation 1: what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+2,Q34,Give me the actors of Matrix ordered by height.,qwen3.6:35b,False,0.025,19.958724,True,stop,3130,0.108891,1383,19.650189,70.381,"<thinking>
+The user wants a list of actors from the movie ""Matrix"".
+1.  **Root Query**: This is an `EntityQuery` because it asks for entities (actors).
+2.  **Target EntitySet**: Actors (`<C> actor </C>`).
+3.  **Constraint**: The actors must be related to the entity ""Matrix"" via the relation ""actor"". Since we are looking for actors *of* the movie, the relation goes from Actor -> Movie. Therefore, to filter actors by their connection to the movie, we look for actors that have a forward relation ""actor"" to the movie ""Matrix"".
+    *   Relation: `<R> actor </R>`
+    *   Direction: `forward` (from Actor to Movie)
+    *   Target Entity: `<E> Matrix </E>`
+4.  **Ordering**: The user specifies ""ordered by height"". This implies an attribute query structure or a select query with sorting. However, standard GraphQ IR for simple extraction usually just extracts the entities. If ordering is required in the output format, it's often handled by the client or specific `SelectQuery` logic if asking for the *top* one. But here it asks for ""the actors"" (plural) ordered by a property.
+    *   Looking at the grammar, `AttributeQuery` returns an attribute value. `EntityQuery` returns entities.
+    *   If I use `AttributeQuery`, I would get heights, not actors.
+    *   If I use `EntityQuery`, I get actors. The ordering is a post-processing step or part of a `SelectQuery` if it were ""who is the tallest"".
+    *   However, sometimes ""ordered by"" implies we want the attribute values associated with the entities, or just the entities sorted. Given the examples, simple extraction is preferred unless it's a superlative (""largest"", ""smallest"").
+    *   Let's re-read the prompt's intent. ""Give me the actors... ordered by height"". This is slightly ambiguous in strict GraphQ IR which focuses on retrieval. Usually, this maps to retrieving the entities and their attributes, or just the entities.
+    *   Let's look at `SelectQuery`. It handles superlatives.
+    *   Let's look at `AttributeQuery`. It returns an attribute.
+    *   If I strictly follow ""Give me the actors"", it's an `EntityQuery`. The ordering is a modifier. In many graph query languages, this might be `ORDER BY`. GraphQ IR doesn't explicitly have an `ORDER BY` operator in the core grammar provided for simple extraction.
+    *   However, if the question implies retrieving the height *of* the actors to order them, or just listing them, the primary goal is the list of actors.
+    *   Let's assume the standard interpretation: Retrieve the entities (actors) that satisfy the constraint. The ""ordered by"" part might be ignored in the strict IR if no specific aggregation/superlative is requested, OR it implies we want the attribute values too? No, ""Give me the actors"" means return the actor nodes.
+    *   Wait, is there a way to express ordering? The grammar doesn't show an `ORDER BY` clause. It shows `SelectQuery` for superlatives.
+    *   Perhaps the user wants the heights? ""What are the heights of the actors..."" -> AttributeQuery.
+    *   But it says ""Give me the actors"".
+    *   Let's stick to `EntityQuery` for the actors. The ordering is likely a client-side instruction or outside the scope of this specific IR's retrieval capabilities unless it maps to a `SelectQuery` for each actor? No.
+    *   Actually, often in these benchmarks, ""ordered by X"" with plural results is treated as just retrieving the entities, or sometimes it's a trick question where you retrieve the attribute. But ""Give me the actors"" strongly points to EntityQuery.
+    *   Let's consider if it should be `AttributeQuery` returning heights? No, that would be ""What are the heights..."".
+    *   Let's consider if it should be `SelectQuery`? No, that's for ""Who is the tallest..."".
+    *   I will formulate this as an `EntityQuery` retrieving actors. The constraint links them to Matrix.
+
+    Representation 1: what is <ES> <C> actor </C> that <R> actor </R> forward to <E> Matrix </E> </ES>
+
+    Wait, ""ordered by height"" might imply we need the attribute `height` as well? Or maybe the prompt implies a specific format not fully covered?
+    Let's look at similar examples. Usually, if ordering is mentioned without a superlative, it's just retrieval. I will provide the EntityQuery.
+
+    *Self-Correction*: Some interpretations of GraphQ IR might map ""ordered by"" to retrieving the attribute values if the user wants to see them. But ""Give me the actors"" is the primary object. I will stick to EntityQuery.
+
+    Let's refine the Relation direction.
+    Actor --(actor)--> Movie.
+    We want Actors.
+    So we start with Concept `actor`.
+    Constraint: that <R> actor </R> forward to <E> Matrix </E>.
+
+    Representation 1: what is <ES> <C> actor </C> that <R> actor </R> forward to <E> Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"

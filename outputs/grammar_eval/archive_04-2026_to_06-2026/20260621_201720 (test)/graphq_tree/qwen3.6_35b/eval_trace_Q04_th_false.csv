@@ -1,0 +1,375 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q04,Give me the communication routes between the server with ID 'SR45' and any server at the University of Oviedo.,qwen3.6:35b,False,0.025,24.002224,True,stop,3145,0.458016,2035,23.337775,87.1977,"<thinking>
+The user wants to find ""communication routes"" (Relations) connecting two specific sets of servers.
+1.  **Source**: Server with ID 'SR45'. This is a specific Entity `<E> SR45 </E>` constrained by an Attribute `id` equal to 'SR45'. Or simply the entity itself if 'SR45' uniquely identifies it in the context of the graph schema for servers. Let's assume 'SR45' is the entity name/ID.
+2.  **Destination**: Any server at the University of Oviedo. This is an EntitySet `<ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>`.
+3.  **Query Type**: Since we are looking for relations (routes) between two sets, this is a `RelationQuery`.
+4.  **Structure**: ""what is the relation from [Source EntitySet] to [Destination EntitySet]"".
+
+Let's refine the Source. The prompt says ""server with ID 'SR45'"". In GraphQ IR, we can represent this as an Entity `<E> SR45 </E>` if the graph uses IDs as primary keys/names, or filter a Concept `<C> server </C>` by Attribute `<A> id </A>` COP Value `'SR45'`. Given the specificity, filtering is safer.
+Source: `<ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES>`
+
+Destination: `<ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>`
+
+Relation: The ""communication route"" itself. Let's call the relation `communicates with` or `connection`. The prompt asks for the routes *between* them. Usually, this implies finding the edge(s).
+Query: `what is the relation from [Source] to [Destination]`? Or `what is the relation between [Source] and [Destination]`? The grammar supports `from ... to ...`.
+
+Let's construct Representation 1:
+""what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>""
+
+Wait, the grammar for `RelationQuery` is:
+`RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet`
+
+So:
+Rep 1: what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>
+
+Let's double check the direction for the destination.
+""server ... at the University"".
+Relation: `located at`.
+Direction: From Server to University is `forward`. So from University to Server is `backward`.
+The constraint is on the server: ""that [is] located at [University]"".
+So: `<C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E>`?
+No, if the relation is `located_at(Server, University)`, then `Server --[located_at]--> University`.
+To find servers *at* the university, we start with Concept `server` and constrain it by the relation pointing TO the university.
+So: `<C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E>` is correct if the edge exists from Server to Uni.
+Alternatively, using backward direction from the Uni perspective: `<E> University of Oviedo </E> that <R> has_server </R> forward to ...`? No, we are defining the set of servers.
+Standard pattern: `<C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E>`.
+
+Let's re-read the prompt carefully: ""communication routes between..."".
+This implies we want the edges connecting the two sets.
+The `RelationQuery` returns the relations (edges) from Set A to Set B.
+
+Representation 1:
+what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E> </ES>
+
+Let's verify the `AttributeConstraint` syntax.
+`AttributeConstraint := ""whose"" Attribute COP Value`
+`<A> id </A>` is the attribute. `is` is COP. `<V> string ""SR45"" </V>` is value.
+
+Let's verify the `RelationConstraint` syntax.
+`RelationConstraint := ""that"" Relation DIR ""to"" EntitySet`
+`<C> server </C>` is the base.
+`that <R> located at </R> forward to <E> University of Oviedo </E>`
+
+Final check on Representation 1 string:
+`what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E> </ES>`
+
+Now, convert to AST.
+Root: `RelationQuery`
+Child 1: `""what is the relation from""`
+Child 2: `EntitySet` (Source)
+   - `<ES>`
+   - EntitySet (Concept + Constraint)
+     - Concept `<C> server </C>`
+     - Constraint
+       - AttributeConstraint
+         - ""whose""
+         - Attribute `<A> id </A>`
+         - COP ""is""
+         - Value `<V> string ""SR45"" </V>`
+   - `</ES>`
+Child 3: `""to""`
+Child 4: `EntitySet` (Destination)
+   - `<ES>`
+   - EntitySet (Concept + Constraint)
+     - Concept `<C> server </C>`
+     - Constraint
+       - RelationConstraint
+         - ""that""
+         - Relation `<R> located at </R>`
+         - DIR ""forward""
+         - ""to""
+         - EntitySet
+           - Entity `<E> University of Oviedo </E>`
+   - `</ES>`
+
+Wait, the grammar for `RelationQuery` in the AST example for `AttributeQuery` shows:
+`AttributeQuery` -> `""what is the attribute""`, `Attribute`, `""of""`, `EntitySet`.
+For `RelationQuery`: `""what is the relation from""`, `EntitySet`, `""to""`, `EntitySet`.
+
+Let's build the tree.
+</think>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""server""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── AttributeConstraint
+    │   │       ├── ""whose""
+    │   │       ├── Attribute
+    │   │       │   ├── ""<A>""
+    │   │       │   ├── ""id""
+    │   │       │   └── ""</A>""
+    │   │       ├── COP
+    │   │       │   └── ""is""
+    │   │       └── Value
+    │   │           ├── VTYPE
+    │   │           │   └── ""string""
+    │   │           ├── ""<V>""
+    │   │           ├── ""SR45""
+    │   │           └── ""</V>""
+    │   └── ""</ES>""
+    ├── ""to""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""server""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""located at""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""University of Oviedo""
+        │               └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""server""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── AttributeConstraint
+    │   │       ├── ""whose""
+    │   │       ├── Attribute
+    │   │       │   ├── ""<A>""
+    │   │       │   ├── ""id""
+    │   │       │   └── ""</A>""
+    │   │       ├── COP
+    │   │       │   └── ""is""
+    │   │       └── Value
+    │   │           ├── VTYPE
+    │   │           │   └── ""string""
+    │   │           ├── ""<V>""
+    │   │           ├── ""SR45""
+    │   │           └── ""</V>""
+    │   └── ""</ES>""
+    ├── ""to""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""server""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""located at""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""University of Oviedo""
+        │               └── ""</E>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q04_Give_me_the_communication_routes_between_th_false.csv
+graphq_tree,2,Q04,Give me the communication routes between the server with ID 'SR45' and any server at the University of Oviedo.,qwen3.6:35b,False,0.025,22.221514,True,stop,3145,0.085291,1793,21.942157,81.7148,"<thinking>
+The user wants to find ""communication routes"" (Relations) connecting two specific sets of servers.
+1.  **Source**: Server with ID 'SR45'. This is a specific Entity `<E> SR45 </E>` constrained by an Attribute `id` equal to 'SR45'. Or simply the entity itself if 'SR45' uniquely identifies it in the context of the graph schema for servers. Let's assume 'SR45' is the entity name/ID.
+2.  **Destination**: Any server at the University of Oviedo. This is an EntitySet `<ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>`.
+3.  **Query Type**: Since we are looking for relations (routes) between two sets, this is a `RelationQuery`.
+4.  **Structure**: ""what is the relation from [Source EntitySet] to [Destination EntitySet]"".
+
+Let's refine the Source. The prompt says ""server with ID 'SR45'"". In GraphQ IR, we can represent this as an Entity `<E> SR45 </E>` if the graph uses IDs as primary keys/names, or filter a Concept `<C> server </C>` by Attribute `<A> id </A>` COP Value `'SR45'`. Given the specificity, filtering is safer.
+Source: `<ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES>`
+
+Destination: `<ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>`
+
+Relation: The ""communication route"" itself. Let's call the relation `communicates with` or `connection`. The prompt asks for the routes *between* them. Usually, this implies finding the edge(s).
+Query: ""what is the relation from [Source] to [Destination]""
+
+Let's construct Representation 1:
+""what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>""
+
+Wait, the grammar for `RelationQuery` is:
+`RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet`
+
+So:
+Rep 1: what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> backward to <E> University of Oviedo </E> </ES>
+
+Let's double check the direction for the destination.
+""server ... at the University"".
+Relation: `located at`.
+Direction: From Server to University is `forward`. So from University to Server is `backward`.
+The constraint is on the Server EntitySet. ""Server that [is] located at [University]"".
+So: `<C> server </C>` that `<R> located at </R>` forward to `<E> University of Oviedo </E>`.
+Wait, if the relation is `located_at(server, university)`, then `server` -> `university` is forward.
+The constraint ""that has relation R forward to E"" means we are looking for nodes X such that X --R--> E exists.
+So: `<ES> <C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E> </ES>`.
+
+Let's re-read the prompt: ""any server at the University of Oviedo"".
+Yes, servers are located *at* the university.
+So `server` --[located at]--> `university`.
+Constraint on Server: `that <R> located at </R> forward to <E> University of Oviedo </E>`.
+
+Source: ""server with ID 'SR45'"".
+Constraint on Server: `whose <A> id </A> is <V> string ""SR45"" </V>`.
+
+Final Rep 1:
+what is the relation from <ES> <C> server </C> whose <A> id </A> is <V> string ""SR45"" </V> </ES> to <ES> <C> server </C> that <R> located at </R> forward to <E> University of Oviedo </E> </ES>
+
+The relation name itself is ""communication route"". The query asks for the *routes*. In GraphQ, `RelationQuery` returns the relations. We don't necessarily need to constrain the *type* of relation in the query structure unless we want specific ones, but here it asks for ""the communication routes"", implying the result is the set of relations.
+
+One detail: The prompt asks for routes *between* them. This implies a path or direct edge. `RelationQuery` typically finds direct edges. If it meant paths, it might be more complex, but standard GraphQ IR usually handles direct relation extraction. I will assume direct communication links.
+
+Let's build the AST.
+Root: RelationQuery
+Left EntitySet: Server with ID SR45
+Right EntitySet: Server at University of Oviedo
+
+Left ES:
+<ES>
+  Concept <C> server </C>
+  Constraint
+    AttributeConstraint
+      ""whose""
+      Attribute <A> id </A>
+      COP ""is""
+      Value <V> string ""SR45"" </V>
+</ES>
+
+Right ES:
+<ES>
+  Concept <C> server </C>
+  Constraint
+    RelationConstraint
+      ""that""
+      Relation <R> located at </R>
+      DIR ""forward""
+      ""to""
+      EntitySet
+        Entity <E> University of Oviedo </E>
+</ES>
+
+Relation Query connects these two.
+</think>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""server""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── AttributeConstraint
+    │   │       ├── ""whose""
+    │   │       ├── Attribute
+    │   │       │   ├── ""<A>""
+    │   │       │   ├── ""id""
+    │   │       │   └── ""</A>""
+    │   │       ├── COP
+    │   │       │   └── ""is""
+    │   │       └── Value
+    │   │           ├── VTYPE
+    │   │           │   └── ""string""
+    │   │           ├── ""<V>""
+    │   │           ├── ""SR45""
+    │   │           └── ""</V>""
+    │   └── ""</ES>""
+    ├── ""to""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""server""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""located at""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""University of Oviedo""
+        │               └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""server""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── AttributeConstraint
+    │   │       ├── ""whose""
+    │   │       ├── Attribute
+    │   │       │   ├── ""<A>""
+    │   │       │   ├── ""id""
+    │   │       │   └── ""</A>""
+    │   │       ├── COP
+    │   │       │   └── ""is""
+    │   │       └── Value
+    │   │           ├── VTYPE
+    │   │           │   └── ""string""
+    │   │           ├── ""<V>""
+    │   │           ├── ""SR45""
+    │   │           └── ""</V>""
+    │   └── ""</ES>""
+    ├── ""to""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""server""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""located at""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""University of Oviedo""
+        │               └── ""</E>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q04_Give_me_the_communication_routes_between_th_false.csv

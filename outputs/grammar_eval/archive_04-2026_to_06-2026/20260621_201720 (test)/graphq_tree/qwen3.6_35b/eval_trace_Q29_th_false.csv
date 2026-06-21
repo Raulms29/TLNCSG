@@ -1,0 +1,290 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q29,Tell me the height of the tallest Argentine player.,qwen3.6:35b,False,0.025,17.660882,True,stop,3130,1.746658,1075,15.730721,68.3376,"<thinking>
+The query asks for a specific attribute (height) of an entity defined by a superlative condition (tallest) within a specific group (Argentine players).
+
+1.  **Intent**: Find the height (Attribute) of the person who is the tallest among Argentine players. This is a `SelectQuery` because it asks ""Which one"" (implied by ""the tallest"") has the largest value for an attribute, or potentially an `AttributeQuery` returning the value itself if interpreted as ""What is the height..."". However, standard GraphQ patterns for ""tallest X"" usually map to `SelectQuery` to identify the entity, or `ValueQuery` with a superlative operator if asking for the value directly. Let's look at the phrasing: ""Tell me the height..."". This suggests returning the *value* of the height. But ""of the tallest Argentine player"" implies we first need to select the player who is the tallest, then get their height.
+    *   Option A: `SelectQuery` -> ""Which Argentine player has the largest height?"" (Returns Entity)
+    *   Option B: `ValueQuery` -> ""What is the maximum height among Argentine players?"" (Returns Value)
+    *   Option C: `AttributeQuery` on a constrained set? No, ""tallest"" is a superlative.
+
+    Let's re-read the grammar for `SelectQuery`: `which one has the [SOP] [Attribute] among [EntitySet]`. This returns the Entity.
+    The user asks for the *height*, not the player. So it's likely a `ValueQuery` asking for the value of the attribute `height` of the entity that satisfies the superlative condition. Or, more simply, it can be modeled as finding the maximum height directly.
+
+    Let's look at the example: ""Which one has the largest area among cities?"" -> `SelectQuery`.
+    If the question was ""What is the largest area among cities?"", it would likely be a `ValueQuery` with `maximum`.
+
+    However, ""Tell me the height of the tallest Argentine player"" can be decomposed:
+    1. Identify the set of Argentine players.
+    2. Find the one with the maximum height.
+    3. Return that height.
+
+    Let's try to map it to `ValueQuery` using `maximum` over the attribute `height` for the concept `player` constrained by nationality `Argentina`.
+    
+    Representation 1: what is maximum of <A> height </A> of <ES> <C> player </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+
+    Let's check the constraints.
+    Root: `ValueQuery` (""what is"")
+    Value: `VOP` ""maximum"" + ""of"" + `Attribute` ""height"" + ""of"" + `EntitySet`.
+    EntitySet: `<ES>` Concept ""player"" Constraint (Relation ""nationality"" forward to Entity ""Argentina"") `</ES>`.
+
+    This seems robust and directly answers ""what is the height"".
+
+    Let's double check if ""tallest Argentine player"" implies a specific entity selection first. If I use `SelectQuery`, I get the player. Then I'd need another step. GraphQ IR usually handles this in one go for value extraction via aggregation/superlative operators on attributes.
+
+    So, `ValueQuery` with `maximum` is appropriate.
+
+    Representation 1: what is maximum of <A> height </A> of <ES> <C> player </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── VOP
+        │   └── ""maximum""
+        ├── ""of""
+        └── Value
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── ""of""
+            └── EntitySet
+                ├── ""<ES>""
+                ├── EntitySet
+                │   └── Concept
+                │       ├── ""<C>""
+                │       ├── ""player""
+                │       └── ""</C>""
+                ├── Constraint
+                │   └── RelationConstraint
+                │       ├── ""that""
+                │       ├── Relation
+                │       │   ├── ""<R>""
+                │       │   ├── ""nationality""
+                │       │   └── ""</R>""
+                │       ├── DIR
+                │       │   └── ""forward""
+                │       ├── ""to""
+                │       └── EntitySet
+                │           └── Entity
+                │               ├── ""<E>""
+                │               ├── ""Argentina""
+                │               └── ""</E>""
+                └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q29,"The Candidate is highly accurate, capturing the ValueQuery type, the maximum aggregation (VOP), the attribute extraction, and the complex EntitySet constraint. The only minor difference is that it uses 'player' instead of 'football player' for the Concept; however, this is a semantic variation that does not alter the fundamental logic or graph traversal of the query.",,"```json
+{
+  ""rationale"": ""The Candidate is highly accurate, capturing the ValueQuery type, the maximum aggregation (VOP), the attribute extraction, and the complex EntitySet constraint. The only minor difference is that it uses 'player' instead of 'football player' for the Concept; however, this is a semantic variation that does not alter the fundamental logic or graph traversal of the query."",
+  ""score"": 0.95
+}
+```","S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── VOP
+        │   └── ""maximum""
+        ├── ""of""
+        └── Value
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── ""of""
+            └── EntitySet
+                ├── ""<ES>""
+                ├── EntitySet
+                │   └── Concept
+                │       ├── ""<C>""
+                │       ├── ""football player""
+                │       └── ""</C>""
+                ├── Constraint
+                │   └── RelationConstraint
+                │       ├── ""that""
+                │       ├── Relation
+                │       │   ├── ""<R>""
+                │       │   ├── ""nationality""
+                │       │   └── ""</R>""
+                │       ├── DIR
+                │       │   └── ""forward""
+                │       ├── ""to""
+                │       └── EntitySet
+                │           └── Entity
+                │               ├── ""<E>""
+                │               ├── ""Argentina""
+                │               └── ""</E>""
+                └── ""</ES>""","S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── VOP
+        │   └── ""maximum""
+        ├── ""of""
+        └── Value
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── ""of""
+            └── EntitySet
+                ├── ""<ES>""
+                ├── EntitySet
+                │   └── Concept
+                │       ├── ""<C>""
+                │       ├── ""player""
+                │       └── ""</C>""
+                ├── Constraint
+                │   └── RelationConstraint
+                │       ├── ""that""
+                │       ├── Relation
+                │       │   ├── ""<R>""
+                │       │   ├── ""nationality""
+                │       │   └── ""</R>""
+                │       ├── DIR
+                │       │   └── ""forward""
+                │       ├── ""to""
+                │       └── EntitySet
+                │           └── Entity
+                │               ├── ""<E>""
+                │               ├── ""Argentina""
+                │               └── ""</E>""
+                └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q29_Tell_me_the_height_of_the_tallest_Argent_th_false.csv
+graphq_tree,2,Q29,Tell me the height of the tallest Argentine player.,qwen3.6:35b,False,0.025,12.77724,True,stop,3130,0.086267,830,12.513426,66.3288,"<thinking>
+The query asks for a specific value (height) associated with an entity defined by a superlative condition (""tallest"") and a concept filter (""Argentine player"").
+
+1.  **Intent**: Find the maximum height among Argentine players. This is a `ValueQuery` because it returns a numeric value (the height).
+2.  **Root Query Type**: `ValueQuery`.
+3.  **Core Logic**: ""what is the maximum <A> height </A> of <ES> <C> player </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>"".
+    *   Wait, the prompt says ""tallest Argentine player"". This implies we are looking for the player who has the maximum height, and then reporting that height. Or simply the value of that maximum height.
+    *   Let's refine the structure. We need the `maximum` of the attribute `height`.
+    *   The domain is `<C> player </C>` constrained by nationality `<E> Argentina </E>`.
+    *   Relation direction: A player *has* a nationality. So from Player to Argentina, the relation is likely `nationality` (forward). Or if we view it as ""Argentina has players"", it's backward. Usually, ""Argentine player"" means the player's attribute is Argentine. So `<C> player </C>` that <R> nationality </R> forward to <E> Argentina </E>.
+4.  **Representation 1**: what is maximum <A> height </A> of <ES> <C> player </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+
+Let's double check the grammar for `ValueQuery` with superlatives.
+`ValueQuery := ""what is"" Value`
+`Value := VOP ""of"" Value | ...`
+So, `what is maximum <A> height ...` fits.
+
+Steps:
+1.  Identify root: `ValueQuery`.
+2.  Identify operation: `maximum` (VOP).
+3.  Identify attribute: `<A> height </A>`.
+4.  Identify target set: `<ES>` containing `<C> player </C>` constrained by `<R> nationality </R>` pointing to `<E> Argentina </E>`.
+
+Representation 1: what is maximum <A> height </A> of <ES> <C> player </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── VOP
+        │   └── ""maximum""
+        ├── ""of""
+        └── Value
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── ""of""
+            └── EntitySet
+                ├── ""<ES>""
+                ├── EntitySet
+                │   └── Concept
+                │       ├── ""<C>""
+                │       ├── ""player""
+                │       └── ""</C>""
+                ├── Constraint
+                │   └── RelationConstraint
+                │       ├── ""that""
+                │       ├── Relation
+                │       │   ├── ""<R>""
+                │       │   ├── ""nationality""
+                │       │   └── ""</R>""
+                │       ├── DIR
+                │       │   └── ""forward""
+                │       ├── ""to""
+                │       └── EntitySet
+                │           └── Entity
+                │               ├── ""<E>""
+                │               ├── ""Argentina""
+                │               └── ""</E>""
+                └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q29,"The Candidate is highly accurate, capturing the ValueQuery type, the maximum aggregation (VOP), the attribute extraction, and the complex EntitySet constraint. The only minor discrepancy is that it uses 'player' instead of 'football player' for the Concept; however, this is a semantic variation that does not alter the fundamental logic or structure of the graph traversal.",,"```json
+{
+  ""rationale"": ""The Candidate is highly accurate, capturing the ValueQuery type, the maximum aggregation (VOP), the attribute extraction, and the complex EntitySet constraint. The only minor discrepancy is that it uses 'player' instead of 'football player' for the Concept; however, this is a semantic variation that does not alter the fundamental logic or structure of the graph traversal."",
+  ""score"": 0.95
+}
+```","S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── VOP
+        │   └── ""maximum""
+        ├── ""of""
+        └── Value
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── ""of""
+            └── EntitySet
+                ├── ""<ES>""
+                ├── EntitySet
+                │   └── Concept
+                │       ├── ""<C>""
+                │       ├── ""football player""
+                │       └── ""</C>""
+                ├── Constraint
+                │   └── RelationConstraint
+                │       ├── ""that""
+                │       ├── Relation
+                │       │   ├── ""<R>""
+                │       │   ├── ""nationality""
+                │       │   └── ""</R>""
+                │       ├── DIR
+                │       │   └── ""forward""
+                │       ├── ""to""
+                │       └── EntitySet
+                │           └── Entity
+                │               ├── ""<E>""
+                │               ├── ""Argentina""
+                │               └── ""</E>""
+                └── ""</ES>""","S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── VOP
+        │   └── ""maximum""
+        ├── ""of""
+        └── Value
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── ""of""
+            └── EntitySet
+                ├── ""<ES>""
+                ├── EntitySet
+                │   └── Concept
+                │       ├── ""<C>""
+                │       ├── ""player""
+                │       └── ""</C>""
+                ├── Constraint
+                │   └── RelationConstraint
+                │       ├── ""that""
+                │       ├── Relation
+                │       │   ├── ""<R>""
+                │       │   ├── ""nationality""
+                │       │   └── ""</R>""
+                │       ├── DIR
+                │       │   └── ""forward""
+                │       ├── ""to""
+                │       └── EntitySet
+                │           └── Entity
+                │               ├── ""<E>""
+                │               ├── ""Argentina""
+                │               └── ""</E>""
+                └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q29_Tell_me_the_height_of_the_tallest_Argent_th_false.csv

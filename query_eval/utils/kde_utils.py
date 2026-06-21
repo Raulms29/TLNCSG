@@ -188,7 +188,7 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
                 bw_adjust=bw_adjust,
                 alpha=0.3,
                 warn_singular=False,
-                cut=0,  # Evita que la KDE se extienda más allá de los datos
+                cut=0,  # Prevents KDE from extending beyond the data bounds
             )
 
         ax.set_title(f"KDE for Criterion: {criterion}", fontsize=12)
@@ -281,7 +281,7 @@ def plot_cumulative_kde_per_criterion(df_runs_top, bw_adjust=0.5):
                 bw_adjust=bw_adjust,
                 alpha=0.3,
                 warn_singular=True,
-                cut=0,  # Evita que la KDE se extienda más allá de los datos
+                cut=0,  # Prevents KDE from extending beyond the data bounds
             )
 
         ax.set_title(f"Cumulative KDE: {criterion}", fontsize=12)
@@ -311,7 +311,7 @@ def plot_overall_kde(df_runs_top, bw_adjust=0.5):
             bw_adjust=bw_adjust,
             alpha=0.3,
             warn_singular=False,
-            cut=0,  # Evita que la KDE se extienda más allá de los datos
+            cut=0,  # Prevents KDE from extending beyond the data bounds
         )
     plt.title("Overall General KDE (All Criteria Aggregated)", fontsize=14)
     plt.xlabel("Evaluation Score")
@@ -365,11 +365,11 @@ def plot_overall_cumulative_histogram(df_runs_top, bins=50):
         hue="Model_Variant",
         element="step",
         fill=True,
-        stat="proportion",  # Cambiado a proporción para ir de 0 a 1
-        cumulative=True,  # ¡Clave para que se acumule!
+        stat="proportion",  # Scaled to proportion to range from 0 to 1
+        cumulative=True,  # Key for cumulative aggregation!
         common_norm=False,
         alpha=0.3,
-        bins=bins,  # Controla la suavidad del escalón
+        bins=bins,  # Controls the smoothness of the step
     )
 
     plt.title("Overall Cumulative Distribution (All Criteria Aggregated)", fontsize=14)
@@ -388,7 +388,7 @@ def plot_cumulative_histogram_per_criterion(df_runs_top, bins=50):
     """Plots the Cumulative Histogram (CDF equivalent) for each unique Criterion without KDE."""
     sns.set_theme(style="whitegrid")
 
-    # Obtener criterios únicos, ordenados por el orden predefinido
+    # Get unique criteria, ordered by predefined order
     criteria = df_runs_top["Criterion"].unique()
     criteria = sorted(
         criteria,
@@ -409,14 +409,14 @@ def plot_cumulative_histogram_per_criterion(df_runs_top, bins=50):
             data=data,
             x="Eval Score",
             hue="Model_Variant",
-            element="step",  # Dibuja la línea de contorno sin barras internas
-            fill=True,  # Rellena el área bajo la curva
-            stat="proportion",  # Escala el eje Y de 0 a 1 (100% de los datos)
-            cumulative=True,  # Suma los datos de izquierda a derecha
-            common_norm=False,  # Calcula la proporción por cada modelo de forma independiente
+            element="step",  # Draws the outline without internal bars
+            fill=True,  # Fills the area under the curve
+            stat="proportion",  # Scales the Y axis from 0 to 1 (100% of data)
+            cumulative=True,  # Sums the data from left to right
+            common_norm=False,  # Calculates the proportion independently for each model
             alpha=0.3,
             bins=bins,
-            ax=ax,  # Asigna el gráfico al subplot correspondiente
+            ax=ax,  # Assigns the plot to the corresponding subplot
         )
 
         ax.set_title(f"Cumulative Histogram: {criterion}", fontsize=12)
@@ -424,7 +424,7 @@ def plot_cumulative_histogram_per_criterion(df_runs_top, bins=50):
         ax.set_ylabel("Cumulative Probability")
         ax.set_xlim(-0.025, 1.025)
 
-    # Eliminar subgráficos vacíos si el número de criterios es impar
+    # Remove empty subplots if the number of criteria is odd
     for j in range(len(criteria), len(axes)):
         fig.delaxes(axes[j])
 

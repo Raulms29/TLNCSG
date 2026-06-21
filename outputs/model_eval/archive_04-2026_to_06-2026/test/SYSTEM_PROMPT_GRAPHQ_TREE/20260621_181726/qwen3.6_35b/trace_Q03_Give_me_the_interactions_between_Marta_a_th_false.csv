@@ -1,0 +1,247 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q03,Give me the interactions between Marta and any person who is not Spanish.,qwen3.6:35b,False,0.025,19.223773,True,stop,3134,0.472167,1614,18.56874,86.9203,"<thinking>
+Representation 1: what is <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> and <R> participant </R> backward to <ES> <C> person </C> whose <A> nationality </A> is not <V> Spanish </V> </ES> </ES>
+
+Let's break down the logic:
+1. We want ""interactions"". So root is `EntityQuery` with Concept `interaction`.
+2. The interaction must involve Marta. This implies a relation from Interaction to Marta. Let's assume the relation is `participant`. Since we are looking for interactions *involving* Marta, and usually relations go from Event/Interaction to Person, it would be `participant forward to <E> Marta </E>`.
+3. The interaction must also involve another person who is not Spanish. This implies a relation from Interaction to this other person. So `participant backward to ...`? No, if the relation is `participant` (Interaction -> Person), then to find the *other* person connected to the same interaction, we traverse the relation forward from the interaction.
+   Wait, let's look at the structure of EntitySets with constraints.
+   
+   We need an EntitySet of Interactions.
+   Constraint 1: The interaction has a participant Marta.
+   Constraint 2: The interaction has a participant who is a Person and whose nationality is not Spanish.
+
+   Let's refine the directionality.
+   If `participant` is a relation from `Interaction` to `Person`:
+   - To find interactions involving Marta: `<ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES>`
+   
+   Now we need to intersect this with interactions involving non-Spanish people.
+   We can use the `and` logical operator inside the EntitySet.
+   
+   `<ES> 
+      <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES>
+      and
+      <ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> Spanish </V> </ES> </ES>
+   </ES>`
+
+   Let's check the grammar for nested EntitySets.
+   `EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+   
+   So:
+   `<ES> 
+      <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES>
+      and
+      <ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> Spanish </V> </ES> </ES>
+   </ES>`
+
+   Is ""Spanish"" a value? Yes, `<V> Spanish </V>`. The type isn't strictly specified but usually strings or nationalities are treated as string values in this context unless a specific `nationality` VTYPE exists. I'll use `string`.
+
+   Let's re-verify the ""not Spanish"" part.
+   `whose <A> nationality </A> is not <V> Spanish </V>`
+   
+   So the second branch of the AND is:
+   `<ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> string ""Spanish"" </V> </ES> </ES>`
+
+   Combining them:
+   `what is <ES> <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES> and <ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> string ""Spanish"" </V> </ES> </ES> </ES>`
+
+   Wait, the prompt asks for ""interactions"". It doesn't ask for properties of them. So `EntityQuery` returning the entities (interactions) themselves is correct.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""interaction""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""participant""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Marta""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── ""and""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""interaction""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""participant""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""forward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           ├── ""<ES>""
+            │           ├── EntitySet
+            │           │   └── Concept
+            │           │       ├── ""<C>""
+            │           │       ├── ""person""
+            │           │       └── ""</C>""
+            │           ├── Constraint
+            │           │   └── AttributeConstraint
+            │           │       ├── ""whose""
+            │           │       ├── Attribute
+            │           │       │   ├── ""<A>""
+            │           │       │   ├── ""nationality""
+            │           │       │   └── ""</A>""
+            │           │       ├── COP
+            │           │       │   └── ""is not""
+            │           │       └── Value
+            │           │           ├── VTYPE
+            │           │           │   └── ""string""
+            │           │           ├── ""<V>""
+            │           │           ├── ""Spanish""
+            │           │           └── ""</V>""
+            │           └── ""</ES>""
+            └── ""</ES>""
+        └── ""</ES>""
+```"
+2,Q03,Give me the interactions between Marta and any person who is not Spanish.,qwen3.6:35b,False,0.025,18.831546,True,stop,3134,0.079771,1614,18.560284,86.9599,"<thinking>
+Representation 1: what is <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> and <R> participant </R> backward to <ES> <C> person </C> whose <A> nationality </A> is not <V> Spanish </V> </ES> </ES>
+
+Let's break down the logic:
+1. We want ""interactions"". So root is `EntityQuery` with Concept `interaction`.
+2. The interaction must involve Marta. This implies a relation from Interaction to Marta. Let's assume the relation is `participant`. Since we are looking for interactions *involving* Marta, and usually relations go from Event/Interaction to Person, it would be `participant forward to <E> Marta </E>`.
+3. The interaction must also involve another person who is not Spanish. This implies a relation from Interaction to this other person. So `participant backward to ...`? No, if the relation is `participant` (Interaction -> Person), then to find the *other* person connected to the same interaction, we traverse the relation forward from the interaction.
+   Wait, let's look at the structure of EntitySets with constraints.
+   
+   We need an EntitySet of Interactions.
+   Constraint 1: The interaction has a participant Marta.
+   Constraint 2: The interaction has a participant who is a Person and whose nationality is not Spanish.
+
+   Let's refine the directionality.
+   If `participant` is a relation from `Interaction` to `Person`:
+   - To find interactions involving Marta: `<ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES>`
+   
+   Now we need to intersect this with interactions involving non-Spanish people.
+   We can use the `and` logical operator inside the EntitySet.
+   
+   `<ES> 
+      <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES>
+      and
+      <ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> Spanish </V> </ES> </ES>
+   </ES>`
+
+   Let's check the grammar for nested EntitySets.
+   `EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+   
+   So:
+   `<ES> 
+      <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES>
+      and
+      <ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> Spanish </V> </ES> </ES>
+   </ES>`
+
+   Is ""Spanish"" a value? Yes, `<V> Spanish </V>`. The type isn't strictly specified but usually strings or nationalities are treated as string values in this context unless a specific `nationality` VTYPE exists. I'll use `string`.
+
+   Let's re-verify the ""not Spanish"" part.
+   `whose <A> nationality </A> is not <V> Spanish </V>`
+   
+   So the second branch of the AND is:
+   `<ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> string ""Spanish"" </V> </ES> </ES>`
+
+   Combining them:
+   `what is <ES> <ES> <C> interaction </C> that <R> participant </R> forward to <E> Marta </E> </ES> and <ES> <C> interaction </C> that <R> participant </R> forward to <ES> <C> person </C> whose <A> nationality </A> is not <V> string ""Spanish"" </V> </ES> </ES> </ES>`
+
+   Wait, the prompt asks for ""interactions"". It doesn't ask for properties of them. So `EntityQuery` returning the entities (interactions) themselves is correct.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""interaction""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""participant""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Marta""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── ""and""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""interaction""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""participant""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""forward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           ├── ""<ES>""
+            │           ├── EntitySet
+            │           │   └── Concept
+            │           │       ├── ""<C>""
+            │           │       ├── ""person""
+            │           │       └── ""</C>""
+            │           ├── Constraint
+            │           │   └── AttributeConstraint
+            │           │       ├── ""whose""
+            │           │       ├── Attribute
+            │           │       │   ├── ""<A>""
+            │           │       │   ├── ""nationality""
+            │           │       │   └── ""</A>""
+            │           │       ├── COP
+            │           │       │   └── ""is not""
+            │           │       └── Value
+            │           │           ├── VTYPE
+            │           │           │   └── ""string""
+            │           │           ├── ""<V>""
+            │           │           ├── ""Spanish""
+            │           │           └── ""</V>""
+            │           └── ""</ES>""
+            └── ""</ES>""
+        └── ""</ES>""
+```"

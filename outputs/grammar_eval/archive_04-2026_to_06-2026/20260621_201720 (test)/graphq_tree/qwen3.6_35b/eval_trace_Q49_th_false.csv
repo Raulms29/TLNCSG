@@ -1,0 +1,669 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b,False,0.025,46.76102,True,length,3140,1.350237,3072,45.213508,67.9443,"<thinking>
+1.  **Identify the Core Intent**: The user wants to find a set of `movies`.
+2.  **Analyze the Condition**: The condition is ""in which all the lead actors earn more money than the highest-paid Argentine actor"".
+    *   This is a complex query involving:
+        *   Finding the ""highest-paid Argentine actor"" (a specific value/entity).
+        *   Comparing the earnings of ""lead actors"" in candidate movies against this value.
+        *   The ""all"" quantifier implies that for a movie to be selected, *every* lead actor in it must satisfy the condition. However, standard GraphQ IR often handles this by finding movies where the *minimum* lead actor salary is greater than the threshold, or by listing movies and filtering. Given the structure of `SelectQuery` (superlatives) and `AttributeQuery`, let's look at the options.
+    *   Actually, a simpler interpretation for GraphQ IR often involves finding the movies and then applying a constraint on the actors. But ""all"" is tricky. Let's break it down:
+        *   Step A: Find the highest salary of an Argentine actor. Let's call this `MaxSalaryArg`.
+        *   Step B: Find movies where every lead actor has `salary > MaxSalaryArg`.
+    *   Alternatively, we can frame it as: ""Give me the movies such that for all lead actors in them, their salary is greater than the maximum salary of any Argentine actor.""
+
+    Let's refine the query structure. The output should be a list of movies. This suggests an `EntityQuery` or `SelectQuery`. Since there isn't a single superlative on the movie itself (like ""most profitable""), but rather a filter based on actors, `EntityQuery` is appropriate.
+
+    *   **Root**: `what is <ES> <C> movie </C> ... </ES>`
+    *   **Constraint**: The constraint involves the lead actors.
+    *   **Sub-query 1 (Threshold)**: ""highest-paid Argentine actor"".
+        *   EntitySet: `<C> actor </C>` that `<R> nationality </R>` forward to `<E> Argentina </E>`.
+        *   Attribute: `<A> salary </A>`.
+        *   Aggregation: `maximum` of `<A> salary </A>`.
+    *   **Sub-query 2 (Main Filter)**: Movies where lead actors earn more than this threshold.
+        *   This requires a nested constraint or a specific logical structure.
+        *   ""Movies that have lead actors who all earn > Threshold"".
+        *   In GraphQ IR, handling ""all"" usually implies checking the minimum of the set against the threshold, or explicitly stating the relation.
+        *   Let's try to express: ""Movies where the minimum salary of their lead actors is larger than the maximum salary of Argentine actors.""
+
+    Let's construct the Sequence representation:
+    `what is <ES> <C> movie </C> that have <R> lead actor </R> forward ones whose <A> salary </A> is larger than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>`
+
+    Wait, the ""all"" condition is semantically ""for all lead actors"". If I just say ""movies that have lead actors whose salary > X"", it might imply *some* lead actors. To enforce *all*, we typically look for the minimum.
+    However, GraphQ IR doesn't always support complex universal quantification directly in the sequence syntax easily without specific operators. Let's look at the grammar again.
+    
+    If I use `SelectQuery`, I could ask ""Which movie has the highest minimum lead actor salary..."" but that's not what is asked. It asks for *all* movies satisfying the condition.
+
+    Let's stick to `EntityQuery` with a constraint on the relation to actors.
+    Constraint: `that <R> lead actor </R> forward ones whose <A> salary </A> is larger than [Threshold]`.
+    
+    How to define [Threshold]?
+    `[Threshold]` = `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+
+    So the sequence is:
+    `what is <ES> <C> movie </C> that have <R> lead actor </R> forward ones whose <A> salary </A> is larger than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>`
+
+    Does this capture ""all""? In many KG query languages, `movies that have lead actors whose salary > X` is interpreted as the set of movies where *there exists* a lead actor with salary > X. This is incorrect for ""all"".
+    
+    To capture ""all"", we need to ensure *no* lead actor has salary <= Threshold. Or, the minimum salary > Threshold.
+    
+    Let's try to express it via the minimum:
+    `what is <ES> <C> movie </C> whose <A> minimum lead actor salary </A> is larger than ...` -> This requires a derived attribute which might not exist.
+
+    Let's look at the ""all"" constraint again.
+    Maybe we can define the set of movies as those where *every* connected lead actor satisfies the condition.
+    
+    If the system supports universal quantification implicitly in `Constraint`, it might be tricky. However, often ""Give me X that have Y with property Z"" is ambiguous.
+    
+    Let's assume a standard interpretation where we filter the movies based on the properties of their actors.
+    
+    Let's refine the threshold part first:
+    Threshold Value: `<V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+
+    Now, how to attach this to the movie?
+    `what is <ES> <C> movie </C> that have <R> lead actor </R> forward ones whose <A> salary </A> is larger than [Threshold]`
+    
+    If I cannot express ""all"" explicitly with a universal quantifier operator in the provided grammar (which lacks explicit `for all`), I must rely on the semantic interpretation or use a `SelectQuery` if applicable. But `SelectQuery` is for superlatives.
+    
+    Actually, there is a way to handle ""all"" in some IRs by negating the existence of a counter-example: ""Movies that do NOT have any lead actor whose salary is smaller than or equal to Threshold"".
+    
+    Sequence:
+    `what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than or equal to [Threshold]`
+    
+    Grammar check for ""smaller than or equal to"": The grammar has `smaller than`. It doesn't explicitly have `<=`. I will use `smaller than` and assume strict inequality or approximate. Or use `is not larger than`.
+    
+    Let's try the positive constraint with a note on ambiguity, or the negative constraint for precision. The negative constraint is safer for ""all"".
+    
+    Threshold: `<V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+    
+    Constraint on Movie: `that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than [Threshold]`
+    
+    Wait, ""smaller than"" the *maximum* Argentine salary.
+    If an Argentine actor earns 100 (max), and a US actor earns 90.
+    We want movies where ALL actors earn > 100.
+    So we exclude movies that have ANY actor earning <= 100.
+    
+    So: `what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than [Threshold]`
+    
+    Let's construct the AST for this logic.
+
+    1.  **Root**: EntityQuery
+    2.  **EntitySet**: `<C> movie </C>`
+    3.  **Constraint**: RelationConstraint (Negative)
+        *   `that not have <R> lead actor </R> forward ones`
+        *   **Qualifier/Attribute Constraint on the Actor**:
+            *   `whose <A> salary </A> is smaller than [Threshold]`
+    4.  **Threshold Value**:
+        *   `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+
+    Let's verify the ""ones"" usage. `ones` is used for anonymous entities in a relation chain.
+    `<R> lead actor </R> forward ones` -> This creates a set of actors connected to the movie.
+    Then we constrain those actors.
+
+    Representation 1:
+    what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>
+
+    Let's double check the ""highest-paid"" part.
+    `maximum of <A> salary </A>` is correct for highest-paid.
+    `of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>` correctly scopes Argentine actors.
+
+    One detail: The grammar for Value allows `VOP ""of"" Value`.
+    So `<V> maximum of <A> salary </A> of ... </V>` is valid.
+
+    Final check on ""smaller than"". If the threshold is 100, we want salaries > 100.
+    The negation is: NOT (salary <= 100).
+    Since `<=` isn't explicitly in COP, I will use `is not larger than`? No, `larger than` is in COP.
+    `is not larger than` means `<=`.
+    So: `whose <A> salary </A> is not larger than [Threshold]`.
+    
+    Let's adjust the sequence to use `is not larger than` for precision if possible, or stick to `smaller than` if we assume strict inequality covers the gap. Usually ""higher than"" means `>`. So ""not higher than"" means `<=`.
+    
+    Revised Sequence:
+    what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is not larger than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>
+
+    This looks robust.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""movie""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── ""not""
+        │       ├── ""have""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""lead actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""ones""
+        │       └── Constraint
+        │           └── AttributeConstraint
+        │               ├── ""whose""
+        │               ├── Attribute
+        │               │   ├── ""<A>""
+        │               │   ├── ""salary""
+        │               │   └── ""</A>""
+        │               ├── COP
+        │               │   └── ""is not larger than""
+        │               └── Value
+        │                   ├── VOP
+        │                   │   └── ""maximum""
+        │                   ├── ""of""
+        │                   └── Value
+        │                       ├── Attribute
+        │                       │   ├── ""<A>""
+        │                       │   ├── ""salary""
+        │                       │   └── ""</A>""
+        │                       ├── ""of""
+        │                       └── EntitySet
+        │                           ├── ""<ES>""
+        │                           ├── EntitySet
+        │                           │   └── Concept
+        │                           │       ├── ""<C>""
+        │                           │       ├── ""actor""
+        │                           │       └── ""</C>""
+        │                           ├── Constraint
+        │                           │   └── RelationConstraint
+        │                           │       ├── ""that""
+        │                           │       ├── Relation
+        │                           │       │   ├── ""<R>""
+        │                           │       │   ├── ""nationality""
+        │                           │       │   └── ""</R>""
+        │                           │       ├── DIR
+        │                           │       │   └── ""forward""
+        │                           │       ├── ""to""
+        │                           │       └── EntitySet
+        │                           │           └── Entity
+        │                           │               ├── ""<E>""
+        │                           │               ├──",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"<thinking>
+1.  **Identify the Core Intent**: The user wants to find a set of `movies`.
+2.  **Analyze the Condition**: The condition is ""in which all the lead actors earn more money than the highest-paid Argentine actor"".
+    *   This is a complex query involving:
+        *   Finding the ""highest-paid Argentine actor"" (a specific value/entity).
+        *   Comparing the earnings of ""lead actors"" in candidate movies against this value.
+        *   The ""all"" quantifier implies that for a movie to be selected, *every* lead actor in it must satisfy the condition. However, standard GraphQ IR often handles this by finding movies where the *minimum* lead actor salary is greater than the threshold, or by listing movies and filtering. Given the structure of `SelectQuery` (superlatives) and `AttributeQuery`, let's look at the options.
+    *   Actually, a simpler interpretation for GraphQ IR often involves finding the movies and then applying a constraint on the actors. But ""all"" is tricky. Let's break it down:
+        *   Step A: Find the highest salary of an Argentine actor. Let's call this `MaxSalaryArg`.
+        *   Step B: Find movies where every lead actor has `salary > MaxSalaryArg`.
+    *   Alternatively, we can frame it as: ""Give me the movies such that for all lead actors in them, their salary is greater than the maximum salary of any Argentine actor.""
+
+    Let's refine the query structure. The output should be a list of movies. This suggests an `EntityQuery` or `SelectQuery`. Since there isn't a single superlative on the movie itself (like ""most profitable""), but rather a filter based on actors, `EntityQuery` is appropriate.
+
+    *   **Root**: `what is <ES> <C> movie </C> ... </ES>`
+    *   **Constraint**: The constraint involves the lead actors.
+    *   **Sub-query 1 (Threshold)**: ""highest-paid Argentine actor"".
+        *   EntitySet: `<C> actor </C>` that `<R> nationality </R>` forward to `<E> Argentina </E>`.
+        *   Attribute: `<A> salary </A>`.
+        *   Aggregation: `maximum` of `<A> salary </A>`.
+    *   **Sub-query 2 (Main Filter)**: Movies where lead actors earn more than this threshold.
+        *   This requires a nested constraint or a specific logical structure.
+        *   ""Movies that have lead actors who all earn > Threshold"".
+        *   In GraphQ IR, handling ""all"" usually implies checking the minimum of the set against the threshold, or explicitly stating the relation.
+        *   Let's try to express: ""Movies where the minimum salary of their lead actors is larger than the maximum salary of Argentine actors.""
+
+    Let's construct the Sequence representation:
+    `what is <ES> <C> movie </C> that have <R> lead actor </R> forward ones whose <A> salary </A> is larger than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>`
+
+    Wait, the ""all"" condition is semantically ""for all lead actors"". If I just say ""movies that have lead actors whose salary > X"", it might imply *some* lead actors. To enforce *all*, we typically look for the minimum.
+    However, GraphQ IR doesn't always support complex universal quantification directly in the sequence syntax easily without specific operators. Let's look at the grammar again.
+    
+    If I use `SelectQuery`, I could ask ""Which movie has the highest minimum lead actor salary..."" but that's not what is asked. It asks for *all* movies satisfying the condition.
+
+    Let's stick to `EntityQuery` with a constraint on the relation to actors.
+    Constraint: `that <R> lead actor </R> forward ones whose <A> salary </A> is larger than [Threshold]`.
+    
+    How to define [Threshold]?
+    `[Threshold]` = `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+
+    So the sequence is:
+    `what is <ES> <C> movie </C> that have <R> lead actor </R> forward ones whose <A> salary </A> is larger than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>`
+
+    Does this capture ""all""? In many KG query languages, `movies that have lead actors whose salary > X` is interpreted as the set of movies where *there exists* a lead actor with salary > X. This is incorrect for ""all"".
+    
+    To capture ""all"", we need to ensure *no* lead actor has salary <= Threshold. Or, the minimum salary > Threshold.
+    
+    Let's try to express it via the minimum:
+    `what is <ES> <C> movie </C> whose <A> minimum lead actor salary </A> is larger than ...` -> This requires a derived attribute which might not exist.
+
+    Let's look at the ""all"" constraint again.
+    Maybe we can define the set of movies as those where *every* connected lead actor satisfies the condition.
+    
+    If the system supports universal quantification implicitly in `Constraint`, it might be tricky. However, often ""Give me X that have Y with property Z"" is ambiguous.
+    
+    Let's assume a standard interpretation where we filter the movies based on the properties of their actors.
+    
+    Let's refine the threshold part first:
+    Threshold Value: `<V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+
+    Now, how to attach this to the movie?
+    `what is <ES> <C> movie </C> that have <R> lead actor </R> forward ones whose <A> salary </A> is larger than [Threshold]`
+    
+    If I cannot express ""all"" explicitly with a universal quantifier operator in the provided grammar (which lacks explicit `for all`), I must rely on the semantic interpretation or use a `SelectQuery` if applicable. But `SelectQuery` is for superlatives.
+    
+    Actually, there is a way to handle ""all"" in some IRs by negating the existence of a counter-example: ""Movies that do NOT have any lead actor whose salary is smaller than or equal to Threshold"".
+    
+    Sequence:
+    `what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than or equal to [Threshold]`
+    
+    Grammar check for ""smaller than or equal to"": The grammar has `smaller than`. It doesn't explicitly have `<=`. I will use `smaller than` and assume strict inequality or approximate. Or use `is not larger than`.
+    
+    Let's try the positive constraint with a note on ambiguity, or the negative constraint for precision. The negative constraint is safer for ""all"".
+    
+    Threshold: `<V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+    
+    Constraint on Movie: `that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than [Threshold]`
+    
+    Wait, ""smaller than"" the *maximum* Argentine salary.
+    If an Argentine actor earns 100 (max), and a US actor earns 90.
+    We want movies where ALL actors earn > 100.
+    So we exclude movies that have ANY actor earning <= 100.
+    
+    So: `what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than [Threshold]`
+    
+    Let's construct the AST for this logic.
+
+    1.  **Root**: EntityQuery
+    2.  **EntitySet**: `<C> movie </C>`
+    3.  **Constraint**: RelationConstraint (Negative)
+        *   `that not have <R> lead actor </R> forward ones`
+        *   **Qualifier/Attribute Constraint on the Actor**:
+            *   `whose <A> salary </A> is smaller than [Threshold]`
+    4.  **Threshold Value**:
+        *   `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+
+    Let's verify the ""ones"" usage. `ones` is used for anonymous entities in a relation chain.
+    `<R> lead actor </R> forward ones` -> This creates a set of actors connected to the movie.
+    Then we constrain those actors.
+
+    Representation 1:
+    what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is smaller than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>
+
+    Let's double check the ""highest-paid"" part.
+    `maximum of <A> salary </A>` is correct for highest-paid.
+    `of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>` correctly scopes Argentine actors.
+
+    One detail: The grammar for Value allows `VOP ""of"" Value`.
+    So `<V> maximum of <A> salary </A> of ... </V>` is valid.
+
+    Final check on ""smaller than"". If the threshold is 100, we want salaries > 100.
+    The negation is: NOT (salary <= 100).
+    Since `<=` isn't explicitly in COP, I will use `is not larger than`? No, `larger than` is in COP.
+    `is not larger than` means `<=`.
+    So: `whose <A> salary </A> is not larger than [Threshold]`.
+    
+    Let's adjust the sequence to use `is not larger than` for precision if possible, or stick to `smaller than` if we assume strict inequality covers the gap. Usually ""higher than"" means `>`. So ""not higher than"" means `<=`.
+    
+    Revised Sequence:
+    what is <ES> <C> movie </C> that not have <R> lead actor </R> forward ones whose <A> salary </A> is not larger than <V> maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES> </ES>
+
+    This looks robust.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""movie""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── ""not""
+        │       ├── ""have""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""lead actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""ones""
+        │       └── Constraint
+        │           └── AttributeConstraint
+        │               ├── ""whose""
+        │               ├── Attribute
+        │               │   ├── ""<A>""
+        │               │   ├── ""salary""
+        │               │   └── ""</A>""
+        │               ├── COP
+        │               │   └── ""is not larger than""
+        │               └── Value
+        │                   ├── VOP
+        │                   │   └── ""maximum""
+        │                   ├── ""of""
+        │                   └── Value
+        │                       ├── Attribute
+        │                       │   ├── ""<A>""
+        │                       │   ├── ""salary""
+        │                       │   └── ""</A>""
+        │                       ├── ""of""
+        │                       └── EntitySet
+        │                           ├── ""<ES>""
+        │                           ├── EntitySet
+        │                           │   └── Concept
+        │                           │       ├── ""<C>""
+        │                           │       ├── ""actor""
+        │                           │       └── ""</C>""
+        │                           ├── Constraint
+        │                           │   └── RelationConstraint
+        │                           │       ├── ""that""
+        │                           │       ├── Relation
+        │                           │       │   ├── ""<R>""
+        │                           │       │   ├── ""nationality""
+        │                           │       │   └── ""</R>""
+        │                           │       ├── DIR
+        │                           │       │   └── ""forward""
+        │                           │       ├── ""to""
+        │                           │       └── EntitySet
+        │                           │           └── Entity
+        │                           │               ├── ""<E>""
+        │                           │               ├──",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q49_Give_me_the_movies_in_which_all_the_lead_th_false.csv
+graphq_tree,2,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,qwen3.6:35b,False,0.025,46.860344,True,length,3140,0.088977,3072,46.585686,65.943,"<thinking>
+1.  **Identify the Core Intent**: The user wants to find a set of `movies`.
+2.  **Analyze the Condition**: The condition is ""in which all the lead actors earn more money than the highest-paid Argentine actor"".
+    *   This is a complex query involving:
+        *   Finding the ""highest-paid Argentine actor"" (a specific value/entity).
+        *   Comparing the earnings of ""lead actors"" in candidate movies against this value.
+        *   The ""all"" quantifier implies that for a movie to be selected, *every* lead actor in it must satisfy the condition. However, standard GraphQ IR often handles this by finding movies where the *minimum* lead actor salary is greater than the threshold, or by filtering entities based on a property comparison.
+    *   Let's break down the ""highest-paid Argentine actor"":
+        *   Entity: `Argentine` (Nationality/Concept) -> Actor (Concept).
+        *   Attribute: `salary` (or `earnings`).
+        *   Aggregation: `maximum`.
+    *   Let's break down the target movies:
+        *   Root: `<C> movie </C>`.
+        *   Constraint: The lead actors in this movie must have salaries > max(Argentine actor salary).
+3.  **Determine Query Type**: Since we are returning entities (movies) based on a superlative comparison, `SelectQuery` is appropriate if we were asking ""which movie"". However, the prompt asks for ""the movies"" (plural), which might suggest an `EntityQuery` with a filter. But looking at the grammar, `SelectQuery` handles ""largest/smallest"" and comparisons well.
+    *   Actually, usually ""Give me X where Y > Z"" is an `EntityQuery` with a constraint involving a value query or a comparison.
+    *   Let's look at the structure: `what is <ES> <C> movie </C> ...`.
+    *   The constraint needs to check if the lead actors' salaries are greater than the max salary of Argentine actors.
+    *   Since GraphQ IR doesn't have a direct ""all"" operator in the basic grammar provided, we often model ""all X satisfy Y"" as finding entities where the minimum of X's property is > Threshold, or simply filtering based on the existence of such actors if the semantics allow. However, strict ""all"" usually requires checking the set of lead actors.
+    *   Let's simplify to a standard pattern: Find movies where the *minimum* salary of lead actors is greater than the *maximum* salary of Argentine actors. Or, more simply in many KG contexts, find movies where the lead actors are paid well.
+    *   Let's try to construct the value for the threshold first: `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E>`.
+    *   Then apply this as a constraint on the movie's lead actors.
+    *   Constraint structure: `whose minimum of <A> salary </A> of <ES> <C> lead actor </C> that <R> star </R> forward to <ES> ... </ES> is larger than [Threshold Value]`.
+    *   Wait, the grammar for `AttributeConstraint` is `whose Attribute COP Value`. It doesn't explicitly support aggregations inside the constraint's attribute side easily in the simple form.
+    *   Let's look at `SelectQuery`: ""Which one has the largest..."". This fits superlatives.
+    *   Let's look at `EntityQuery`: ""what is <ES> ..."".
+    *   If I use `EntityQuery`, I can define the EntitySet as movies that have a specific property relation to the threshold.
+    *   Let's refine the ""highest-paid Argentine actor"" part. It returns a Value (a number).
+    *   Let's refine the ""lead actors earn more"" part. This is a comparison.
+    *   Since the grammar allows `Value` to be an aggregation, I can define the threshold value.
+    *   However, comparing a set of values (salaries of lead actors in a movie) to a single value requires an aggregation on the left side too (e.g., min salary > max salary).
+    *   Let's assume the question implies: Find movies where the *minimum* salary among its lead actors is greater than the *maximum* salary among all Argentine actors.
+
+    **Step 1: Define the Threshold Value**
+    `V_max_arg` = `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E>`
+
+    **Step 2: Define the Target EntitySet with Constraint**
+    We want `<C> movie </C>`.
+    Constraint: The lead actors in this movie must have salaries > `V_max_arg`.
+    To ensure ""all"" lead actors earn more, we check if the *minimum* salary of the lead actors is greater than `V_max_arg`.
+
+    Representation 1 Draft:
+    what is <ES> <C> movie </C> whose minimum of <A> salary </A> of <ES> <C> lead actor </C> that <R> star </R> forward to <ES> ... </ES> is larger than maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+
+    Let's check the grammar for `AttributeConstraint`:
+    `AttributeConstraint := ""whose"" Attribute COP Value`
+    Here, the ""Attribute"" part is complex: `minimum of <A> salary </A> of ...`. This looks like a `Value` node in the grammar (`VOP ""of"" Value`).
+    So, `Attribute` in the constraint position can be replaced by a `Value` that evaluates to a number?
+    The grammar says: `Constraint := AttributeConstraint ... | RelationConstraint ...`
+    `AttributeConstraint := ""whose"" Attribute COP Value`.
+    Strictly speaking, `Attribute` is `<A> name </A>`. It doesn't allow aggregations directly in the `Attribute` slot according to the terminal definition.
+    However, `Value` allows `VOP ""of"" Value`.
+    If the grammar strictly enforces `Attribute` as a leaf node `<A>`, then we cannot put an aggregation on the left side of the comparison easily within `AttributeConstraint`.
+
+    Alternative approach: Use `SelectQuery`? No, that's for finding the *one* with the max/min.
+    
+    Let's re-read the grammar carefully.
+    `Value := VTYPE ""<V>"" Literal ""</V>"" | VOP ""of"" Value | Attribute ""of"" EntitySet`.
+    
+    If I cannot put an aggregation on the left side of `whose`, how do I express ""all actors earn more""?
+    Perhaps the question implies a simpler relation: Find movies where the lead actors are *not* among the lowest paid? No, it says ""more than"".
+    
+    Maybe I can use a `RelationConstraint` combined with a value check?
+    Or maybe I can treat the ""minimum salary"" as an attribute of the movie? (i.e., `min_lead_salary`). If such an attribute exists, it would be `<A> min_lead_salary </A>`. But we shouldn't assume schema.
+
+    Let's look at the example: ""Tell me the total budget of games developed by Valve."" -> ValueQuery with sum.
+    
+    Let's try to construct the query using `EntityQuery` and see if we can fit the logic.
+    If the grammar is strict about `Attribute` being a leaf, then `whose <A> salary ...` is not valid for aggregations.
+    
+    However, often in these parsers, `Value` can be used in place of `Attribute` if the context allows, or the `AttributeConstraint` definition might be interpreted loosely. But I must follow the grammar strictly.
+    
+    Let's look at `SelectQuery`: `which one has the largest <A> area </A> among <C> city </C>`. This finds the entity with the max attribute.
+    
+    What if we break it down?
+    1. Find the max salary of Argentine actors.
+    2. Find movies where the lead actors' salaries are all greater than that.
+    
+    Since I cannot easily nest aggregations in the `Attribute` slot of `AttributeConstraint` per the strict grammar (`Attribute := ""<A>"" [name] ""</A>`), I might need to assume a derived attribute or use a different structure.
+    
+    Actually, let's look at `ValueQuery`. It returns a value.
+    Let's look at `EntityQuery`. It returns entities.
+    
+    Is there a way to express ""All X have property Y > Z""?
+    In many KG query languages, this is `Filter(Movie) where Min(Salary(LeadActor)) > Max(Salary(ArgentineActor))`.
+    
+    If I am forced to use the provided grammar:
+    Maybe I can define the threshold as a separate step? No, it's one output.
+    
+    Let's reconsider the `Attribute` definition. Is it possible that `Attribute` in `AttributeConstraint` refers to the *concept* of the attribute, and the value is compared?
+    
+    Let's try a different interpretation: The user wants movies where the lead actors are high earners.
+    Maybe I can use `RelationConstraint`?
+    ""that <R> has_lead_actor_with_salary_greater_than ...""? No, relations don't usually carry values like that directly in this schema.
+    
+    Let's assume the standard workaround for ""All"" in these simplified IRs is to check if the *minimum* of the set satisfies the condition. If the grammar doesn't support `min` on the LHS, I might have to approximate or use a specific attribute name if one existed (e.g., `<A> min_lead_salary </A>`). Without schema, I must use generic concepts.
+    
+    Let's look at the `Value` definition again: `Value := ... | Attribute ""of"" EntitySet`.
+    So `Attribute ""of"" EntitySet` is a Value.
+    Can `AttributeConstraint` take a `Value` on the LHS?
+    Grammar: `AttributeConstraint := ""whose"" Attribute COP Value`.
+    It explicitly says `Attribute`, not `Value`.
+    
+    However, in many practical implementations of such IRs, if an aggregation is needed on the left, it's often treated as a virtual attribute or the grammar is extended. Given the constraints, I will assume that if a direct aggregation isn't supported on the LHS, I should describe the logic as clearly as possible using the available nodes, potentially treating the aggregated value as the target of comparison in a `ValueQuery` context? No, we need to return movies.
+    
+    Let's try to map ""lead actors earn more"" to a relation if possible? No.
+    
+    Let's assume there is an implicit attribute `<A> min_lead_salary </A>` for movies? Unlikely.
+    
+    Let's look at the `SelectQuery` example again. It uses `SOP` (Superlative Operator).
+    Maybe I can use `SelectQuery` to find the movie with the *highest* minimum salary, and then filter? No, that doesn't solve the ""all > threshold"" logic directly.
+    
+    Let's step back. Is there a simpler interpretation?
+    ""Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.""
+    
+    Perhaps I can formulate the threshold value first inside the constraint?
+    
+    Let's try to construct the `EntitySet` for the threshold:
+    `<ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+    Value: `maximum of <A> salary </A> of [Threshold EntitySet]`
+    
+    Now, how to compare?
+    If I cannot put aggregation on LHS, I might have to output the query in a way that highlights the comparison.
+    
+    Actually, looking at similar tasks in this domain, often ""All X"" is handled by checking if the *count* of X satisfying the condition equals the *total count* of X. But `CountQuery` returns a number.
+    
+    Let's try to use `EntityQuery` and assume the parser can handle `Value` on the LHS or that I should define a virtual attribute. Or, more likely, I should use the `Attribute` node for the *concept* of salary, but that doesn't work for ""all"".
+    
+    Wait, look at `Value` again: `VOP ""of"" Value`.
+    And `AttributeConstraint`: `""whose"" Attribute COP Value`.
+    
+    If I strictly follow the grammar, I cannot write `whose minimum of ...`.
+    
+    However, there is another possibility. Maybe the question implies finding movies where the *lead actors* are a specific set? No.
+    
+    Let's assume the prompt allows for a slightly more flexible interpretation of `Attribute` in the constraint if it represents an aggregated value, OR I should use a `RelationConstraint` that links to the threshold?
+    
+    Let's try this structure:
+    Query: What are the movies?
+    Constraint: The minimum salary of their lead actors is larger than the maximum salary of Argentine actors.
+    
+    If I must stick to the grammar, I will define the threshold value clearly.
+    
+    Representation 1:
+    what is <ES> <C> movie </C> whose <A> min_lead_salary </A> is larger than maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+    
+    But `<A> min_lead_salary </A>` is a hallucinated attribute.
+    
+    Let's try to use the `Attribute` `<A> salary </A>` and see if I can force it? No, that would mean ""whose salary"" (singular",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"<thinking>
+1.  **Identify the Core Intent**: The user wants to find a set of `movies`.
+2.  **Analyze the Condition**: The condition is ""in which all the lead actors earn more money than the highest-paid Argentine actor"".
+    *   This is a complex query involving:
+        *   Finding the ""highest-paid Argentine actor"" (a specific value/entity).
+        *   Comparing the earnings of ""lead actors"" in candidate movies against this value.
+        *   The ""all"" quantifier implies that for a movie to be selected, *every* lead actor in it must satisfy the condition. However, standard GraphQ IR often handles this by finding movies where the *minimum* lead actor salary is greater than the threshold, or by filtering entities based on a property comparison.
+    *   Let's break down the ""highest-paid Argentine actor"":
+        *   Entity: `Argentine` (Nationality/Concept) -> Actor (Concept).
+        *   Attribute: `salary` (or `earnings`).
+        *   Aggregation: `maximum`.
+    *   Let's break down the target movies:
+        *   Root: `<C> movie </C>`.
+        *   Constraint: The lead actors in this movie must have salaries > max(Argentine actor salary).
+3.  **Determine Query Type**: Since we are returning entities (movies) based on a superlative comparison, `SelectQuery` is appropriate if we were asking ""which movie"". However, the prompt asks for ""the movies"" (plural), which might suggest an `EntityQuery` with a filter. But looking at the grammar, `SelectQuery` handles ""largest/smallest"" and comparisons well.
+    *   Actually, usually ""Give me X where Y > Z"" is an `EntityQuery` with a constraint involving a value query or a comparison.
+    *   Let's look at the structure: `what is <ES> <C> movie </C> ...`.
+    *   The constraint needs to check if the lead actors' salaries are greater than the max salary of Argentine actors.
+    *   Since GraphQ IR doesn't have a direct ""all"" operator in the basic grammar provided, we often model ""all X satisfy Y"" as finding entities where the minimum of X's property is > Threshold, or simply filtering based on the existence of such actors if the semantics allow. However, strict ""all"" usually requires checking the set of lead actors.
+    *   Let's simplify to a standard pattern: Find movies where the *minimum* salary of lead actors is greater than the *maximum* salary of Argentine actors. Or, more simply in many KG contexts, find movies where the lead actors are paid well.
+    *   Let's try to construct the value for the threshold first: `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E>`.
+    *   Then apply this as a constraint on the movie's lead actors.
+    *   Constraint structure: `whose minimum of <A> salary </A> of <ES> <C> lead actor </C> that <R> star </R> forward to <ES> ... </ES> is larger than [Threshold Value]`.
+    *   Wait, the grammar for `AttributeConstraint` is `whose Attribute COP Value`. It doesn't explicitly support aggregations inside the constraint's attribute side easily in the simple form.
+    *   Let's look at `SelectQuery`: ""Which one has the largest..."". This fits superlatives.
+    *   Let's look at `EntityQuery`: ""what is <ES> ..."".
+    *   If I use `EntityQuery`, I can define the EntitySet as movies that have a specific property relation to the threshold.
+    *   Let's refine the ""highest-paid Argentine actor"" part. It returns a Value (a number).
+    *   Let's refine the ""lead actors earn more"" part. This is a comparison.
+    *   Since the grammar allows `Value` to be an aggregation, I can define the threshold value.
+    *   However, comparing a set of values (salaries of lead actors in a movie) to a single value requires an aggregation on the left side too (e.g., min salary > max salary).
+    *   Let's assume the question implies: Find movies where the *minimum* salary among its lead actors is greater than the *maximum* salary among all Argentine actors.
+
+    **Step 1: Define the Threshold Value**
+    `V_max_arg` = `maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E>`
+
+    **Step 2: Define the Target EntitySet with Constraint**
+    We want `<C> movie </C>`.
+    Constraint: The lead actors in this movie must have salaries > `V_max_arg`.
+    To ensure ""all"" lead actors earn more, we check if the *minimum* salary of the lead actors is greater than `V_max_arg`.
+
+    Representation 1 Draft:
+    what is <ES> <C> movie </C> whose minimum of <A> salary </A> of <ES> <C> lead actor </C> that <R> star </R> forward to <ES> ... </ES> is larger than maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+
+    Let's check the grammar for `AttributeConstraint`:
+    `AttributeConstraint := ""whose"" Attribute COP Value`
+    Here, the ""Attribute"" part is complex: `minimum of <A> salary </A> of ...`. This looks like a `Value` node in the grammar (`VOP ""of"" Value`).
+    So, `Attribute` in the constraint position can be replaced by a `Value` that evaluates to a number?
+    The grammar says: `Constraint := AttributeConstraint ... | RelationConstraint ...`
+    `AttributeConstraint := ""whose"" Attribute COP Value`.
+    Strictly speaking, `Attribute` is `<A> name </A>`. It doesn't allow aggregations directly in the `Attribute` slot according to the terminal definition.
+    However, `Value` allows `VOP ""of"" Value`.
+    If the grammar strictly enforces `Attribute` as a leaf node `<A>`, then we cannot put an aggregation on the left side of the comparison easily within `AttributeConstraint`.
+
+    Alternative approach: Use `SelectQuery`? No, that's for finding the *one* with the max/min.
+    
+    Let's re-read the grammar carefully.
+    `Value := VTYPE ""<V>"" Literal ""</V>"" | VOP ""of"" Value | Attribute ""of"" EntitySet`.
+    
+    If I cannot put an aggregation on the left side of `whose`, how do I express ""all actors earn more""?
+    Perhaps the question implies a simpler relation: Find movies where the lead actors are *not* among the lowest paid? No, it says ""more than"".
+    
+    Maybe I can use a `RelationConstraint` combined with a value check?
+    Or maybe I can treat the ""minimum salary"" as an attribute of the movie? (i.e., `min_lead_salary`). If such an attribute exists, it would be `<A> min_lead_salary </A>`. But we shouldn't assume schema.
+
+    Let's look at the example: ""Tell me the total budget of games developed by Valve."" -> ValueQuery with sum.
+    
+    Let's try to construct the query using `EntityQuery` and see if we can fit the logic.
+    If the grammar is strict about `Attribute` being a leaf, then `whose <A> salary ...` is not valid for aggregations.
+    
+    However, often in these parsers, `Value` can be used in place of `Attribute` if the context allows, or the `AttributeConstraint` definition might be interpreted loosely. But I must follow the grammar strictly.
+    
+    Let's look at `SelectQuery`: `which one has the largest <A> area </A> among <C> city </C>`. This finds the entity with the max attribute.
+    
+    What if we break it down?
+    1. Find the max salary of Argentine actors.
+    2. Find movies where the lead actors' salaries are all greater than that.
+    
+    Since I cannot easily nest aggregations in the `Attribute` slot of `AttributeConstraint` per the strict grammar (`Attribute := ""<A>"" [name] ""</A>`), I might need to assume a derived attribute or use a different structure.
+    
+    Actually, let's look at `ValueQuery`. It returns a value.
+    Let's look at `EntityQuery`. It returns entities.
+    
+    Is there a way to express ""All X have property Y > Z""?
+    In many KG query languages, this is `Filter(Movie) where Min(Salary(LeadActor)) > Max(Salary(ArgentineActor))`.
+    
+    If I am forced to use the provided grammar:
+    Maybe I can define the threshold as a separate step? No, it's one output.
+    
+    Let's reconsider the `Attribute` definition. Is it possible that `Attribute` in `AttributeConstraint` refers to the *concept* of the attribute, and the value is compared?
+    
+    Let's try a different interpretation: The user wants movies where the lead actors are high earners.
+    Maybe I can use `RelationConstraint`?
+    ""that <R> has_lead_actor_with_salary_greater_than ...""? No, relations don't usually carry values like that directly in this schema.
+    
+    Let's assume the standard workaround for ""All"" in these simplified IRs is to check if the *minimum* of the set satisfies the condition. If the grammar doesn't support `min` on the LHS, I might have to approximate or use a specific attribute name if one existed (e.g., `<A> min_lead_salary </A>`). Without schema, I must use generic concepts.
+    
+    Let's look at the `Value` definition again: `Value := ... | Attribute ""of"" EntitySet`.
+    So `Attribute ""of"" EntitySet` is a Value.
+    Can `AttributeConstraint` take a `Value` on the LHS?
+    Grammar: `AttributeConstraint := ""whose"" Attribute COP Value`.
+    It explicitly says `Attribute`, not `Value`.
+    
+    However, in many practical implementations of such IRs, if an aggregation is needed on the left, it's often treated as a virtual attribute or the grammar is extended. Given the constraints, I will assume that if a direct aggregation isn't supported on the LHS, I should describe the logic as clearly as possible using the available nodes, potentially treating the aggregated value as the target of comparison in a `ValueQuery` context? No, we need to return movies.
+    
+    Let's try to map ""lead actors earn more"" to a relation if possible? No.
+    
+    Let's assume there is an implicit attribute `<A> min_lead_salary </A>` for movies? Unlikely.
+    
+    Let's look at the `SelectQuery` example again. It uses `SOP` (Superlative Operator).
+    Maybe I can use `SelectQuery` to find the movie with the *highest* minimum salary, and then filter? No, that doesn't solve the ""all > threshold"" logic directly.
+    
+    Let's step back. Is there a simpler interpretation?
+    ""Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.""
+    
+    Perhaps I can formulate the threshold value first inside the constraint?
+    
+    Let's try to construct the `EntitySet` for the threshold:
+    `<ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>`
+    Value: `maximum of <A> salary </A> of [Threshold EntitySet]`
+    
+    Now, how to compare?
+    If I cannot put aggregation on LHS, I might have to output the query in a way that highlights the comparison.
+    
+    Actually, looking at similar tasks in this domain, often ""All X"" is handled by checking if the *count* of X satisfying the condition equals the *total count* of X. But `CountQuery` returns a number.
+    
+    Let's try to use `EntityQuery` and assume the parser can handle `Value` on the LHS or that I should define a virtual attribute. Or, more likely, I should use the `Attribute` node for the *concept* of salary, but that doesn't work for ""all"".
+    
+    Wait, look at `Value` again: `VOP ""of"" Value`.
+    And `AttributeConstraint`: `""whose"" Attribute COP Value`.
+    
+    If I strictly follow the grammar, I cannot write `whose minimum of ...`.
+    
+    However, there is another possibility. Maybe the question implies finding movies where the *lead actors* are a specific set? No.
+    
+    Let's assume the prompt allows for a slightly more flexible interpretation of `Attribute` in the constraint if it represents an aggregated value, OR I should use a `RelationConstraint` that links to the threshold?
+    
+    Let's try this structure:
+    Query: What are the movies?
+    Constraint: The minimum salary of their lead actors is larger than the maximum salary of Argentine actors.
+    
+    If I must stick to the grammar, I will define the threshold value clearly.
+    
+    Representation 1:
+    what is <ES> <C> movie </C> whose <A> min_lead_salary </A> is larger than maximum of <A> salary </A> of <ES> <C> actor </C> that <R> nationality </R> forward to <E> Argentina </E> </ES>
+    
+    But `<A> min_lead_salary </A>` is a hallucinated attribute.
+    
+    Let's try to use the `Attribute` `<A> salary </A>` and see if I can force it? No, that would mean ""whose salary"" (singular",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q49_Give_me_the_movies_in_which_all_the_lead_th_false.csv

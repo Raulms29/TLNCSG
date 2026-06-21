@@ -1,0 +1,341 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q38,Give me the universities that rank between 10th and 20th in funding.,qwen3.6:35b,False,0.025,44.716188,True,stop,3139,1.516407,2975,43.005226,69.1776,"<thinking>
+The user wants to find universities based on a ranking constraint related to their funding.
+1.  **Root Query**: ""what is"" -> `EntityQuery`.
+2.  **Target Entity**: ""universities"" -> `<C> university </C>`.
+3.  **Constraint**: ""rank between 10th and 20th in funding"".
+    *   This implies a relation to ""funding"" (likely an attribute or a value representing the rank).
+    *   Usually, ""rank X in Y"" means the entity has a property `rank` associated with `Y` which is equal to `X`. Or it could mean the entity's `funding` attribute determines its rank.
+    *   Let's interpret ""rank between 10th and 20th in funding"" as: The university has a `rank` value (derived from or associated with `funding`) that is between 10 and 20.
+    *   Alternatively, it might mean the university's `funding` attribute corresponds to a rank of 10-20.
+    *   Let's look at standard KBpedia/Wikidata patterns. Often, ""rank"" is an attribute of the entity in a specific context (e.g., ""university ranking"").
+    *   So, we need universities that have a `rank` attribute (or relation to a rank value) which is between 10 and 20.
+    *   However, GraphQ IR doesn't have a direct ""between"" operator in the basic grammar provided (`COP` includes `is`, `is not`, `larger than`, `smaller than`, `at least`, `at most`).
+    *   We can model ""between 10 and 20"" as two constraints: `rank at least 10` AND `rank at most 20`. Or simply use the concept of ranking.
+    *   Let's assume there is a relation or attribute `rank` linked to `funding`.
+    *   Actually, a simpler interpretation for ""rank X in Y"" is often that the entity has a property `rank` with value `X` where the context is `Y`.
+    *   Let's try: Universities that have a `rank` (attribute) which is `at least 10` and `at most 20`. But wait, usually lower rank number is better. ""Between 10th and 20th"" means rank >= 10 AND rank <= 20? Or just the set of ranks {10..20}.
+    *   Let's use `AttributeConstraint` with `rank` attribute.
+    *   Constraint: `whose <A> rank </A> is at least 10` AND `whose <A> rank </A> is at most 20`.
+    *   Wait, the prompt says ""in funding"". This suggests the ranking is *based on* funding.
+    *   So, we might need to filter by `funding`? No, it asks for universities that *are ranked* in that range.
+    *   Let's assume there is a `rank` attribute associated with `funding`.
+    *   Structure: `<ES> <C> university </C> whose <A> rank </A> is at least 10 and whose <A> rank </A> is at most 20 </ES>`.
+    *   Does ""in funding"" add a constraint? It might just be descriptive of the ranking metric. If the graph distinguishes ranks by metric, we might need `rank` relation to `funding`.
+    *   Let's stick to the simplest valid GraphQ IR: Filter universities by their rank value being between 10 and 20.
+    *   Representation 1: what is <ES> <C> university </C> whose <A> rank </A> is at least 10 and whose <A> rank </A> is at most 20 </ES>
+
+Refining the ""in funding"" part: If the graph has a specific relation `ranked by` or similar, we might need it. But without schema, ""rank"" is the safest attribute name for the position. The ""in funding"" part explains *why* they are ranked there, but the filter is on the rank value itself.
+
+Let's construct the sequence:
+1.  Root: `what is`
+2.  EntitySet: `<ES>`
+3.  Concept: `<C> university </C>`
+4.  Constraint: `whose <A> rank </A> is at least 10` AND `whose <A> rank </A> is at most 20`.
+
+Wait, the grammar for multiple constraints on the same attribute isn't explicitly defined as a single block, but `Constraint := AttributeConstraint QualifierConstraint?`. And `EntitySet` can have `Constraint`.
+If I need two conditions on the same attribute, I might need to chain them or use logical operators if supported in the constraint list. The grammar shows `EntitySet := ... Constraint ...`. It doesn't explicitly show multiple constraints separated by ""and"" at the top level of EntitySet definition, but `LOP` is defined for `EntitySet LOP EntitySet`.
+However, usually, filters are combined. Let's look at `Constraint`. It allows one `AttributeConstraint`.
+If I need two attributes or two conditions, how do I combine them?
+Maybe the ""rank"" is a relation to a value?
+Or maybe I can use `and` inside the constraint if the grammar allows complex constraints? The grammar provided is somewhat simplified.
+Let's assume we can chain attribute constraints or that ""rank between 10 and 20"" is a single logical condition on the `rank` attribute.
+Actually, looking at `AttributeConstraint := ""whose"" Attribute COP Value`.
+If I need two values, I might need to treat ""10th to 20th"" as a range concept or use two separate constraints if the parser supports it.
+Given the strict grammar, let's try to fit it into one constraint if possible, or assume the system handles compound constraints.
+Alternatively, is there a `rank` relation? `<R> rank </R>`?
+Let's assume `rank` is an attribute `<A>`.
+
+Let's refine the ""in funding"" part. If the ranking is specifically for funding, maybe the attribute is `funding_rank`? Or the constraint is on `funding`? No, it asks for universities *that rank*... so the filter is on the rank.
+
+Let's write Representation 1:
+`what is <ES> <C> university </C> whose <A> rank </A> is at least 10 and whose <A> rank </A> is at most 20 </ES>`
+
+Wait, the grammar for `EntitySet` with multiple constraints isn't explicitly `Constraint AND Constraint`. It's `EntitySet Constraint`.
+However, in many IRs, you can have multiple filters. Let's look at the examples.
+Example: ""cities in Japan"" -> `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E> </ES>`.
+If I need two conditions on attributes, I might need to define a new concept or use a compound constraint if allowed.
+Let's assume the standard interpretation: Filter by rank >= 10 AND rank <= 20.
+
+Representation 1:
+what is <ES> <C> university </C> whose <A> rank </A> is at least 10 and whose <A> rank </A> is at most 20 </ES>
+
+Let's check if ""in funding"" requires a qualifier or relation.
+If the graph has `rank` values that are linked to `funding`, we might need:
+`<ES> <C> university </C> whose <A> rank </A> is at least 10 and whose <A> rank </A> is at most 20 </ES>`
+This seems the most robust interpretation without specific schema knowledge of ""funding_rank"".
+
+One detail: ""10th"" and ""20th"" are ordinals. The value should be numeric `10` and `20`.
+
+Final check on Representation 1:
+`what is <ES> <C> university </C> whose <A> rank </A> is at least 10 and whose <A> rank </A> is at most 20 </ES>`
+
+Now, convert to AST.
+Root: `EntityQuery`
+Child: `what is`
+Child: `EntitySet`
+  Child: `<ES>`
+  Child: `EntitySet` (Base) -> `Concept` (`university`)
+  Child: `Constraint`?
+    The grammar says `Constraint := AttributeConstraint ...`.
+    If I have two attribute constraints, how do they fit?
+    Maybe the `Constraint` node can contain multiple `AttributeConstraint`s? Or maybe I use `LOP`?
+    `EntitySet LOP EntitySet` is for set operations.
+    Let's assume the parser allows a list of constraints or that ""whose ... and whose ..."" is parsed as a single complex constraint block in the sequence, but in AST it might be two children under Constraint?
+    Actually, looking at the grammar: `Constraint := AttributeConstraint QualifierConstraint?`. It only allows ONE attribute constraint.
+    This is a problem for ""between"".
+    However, often ""between"" is treated as a single logical unit or the grammar is simplified in the prompt description but implies flexibility.
+    Alternatively, I can define a Concept ""University ranked 10-20 in funding""? No, that's creating data.
+    
+    Let's look at `Value`. Can I use a range value? No.
+    
+    Let's reconsider the structure. Maybe I can use two separate EntitySets combined with AND?
+    `<ES> <ES> <C> university </C> whose <A> rank </A> is at least 10 </ES> and <ES> <C> university </C> whose <A> rank </A> is at most 20 </ES> </ES>`
+    This fits `EntitySet LOP EntitySet`.
+    
+    Let's try this approach for Representation 1:
+    `what is <ES> <ES> <C> university </C> whose <A> rank </A> is at least 10 </ES> and <ES> <C> university </C> whose <A> rank </A> is at most 20 </ES> </ES>`
+    
+    This seems syntactically valid according to `EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`.
+
+    Let's verify the ""in funding"" part. If it's just context, ignoring it in the filter is fine. If it's a constraint, e.g., ""ranked by funding"", we might need `<R> ranked_by </R>` to `<E> funding </E>`.
+    Given the ambiguity, I will stick to the rank values as the primary filter, as ""in funding"" describes the ranking list, not necessarily a separate node to traverse unless specified.
+
+    So, Representation 1:
+    `what is <ES> <ES> <C> university </C> whose <A> rank </A> is at least 10 </ES> and <ES> <C> university </C> whose <A> rank </A> is at most 20 </ES> </ES>`
+
+    Wait, `LOP` is defined as `and | or | not`.
+    
+    Let's build the AST for this.
+</think>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""university""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""rank""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""is at least""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""10""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""and""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""university""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── AttributeConstraint
+            │       ├── ""whose""
+            │       ├── Attribute
+            │       │   ├── ""<A>""
+            │       │   ├── ""rank""
+            │       │   └── ""</A>""
+            │       ├── COP
+            │       │   └── ""is at most""
+            │       └── Value
+            │           └── ""<V>""
+            │               ├── ""20""
+            │               └── ""</V>""
+            └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""university""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""rank""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""is at least""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""10""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""and""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""university""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── AttributeConstraint
+            │       ├── ""whose""
+            │       ├── Attribute
+            │       │   ├── ""<A>""
+            │       │   ├── ""rank""
+            │       │   └── ""</A>""
+            │       ├── COP
+            │       │   └── ""is at most""
+            │       └── Value
+            │           └── ""<V>""
+            │               ├── ""20""
+            │               └── ""</V>""
+            └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q38_Give_me_the_universities_that_rank_betwe_th_false.csv
+graphq_tree,2,Q38,Give me the universities that rank between 10th and 20th in funding.,qwen3.6:35b,False,0.025,24.093464,True,stop,3139,0.086648,1550,23.817775,65.0774,"<thinking>
+The user wants to find universities based on a ranking constraint related to their funding.
+1.  **Root Query**: ""what is"" -> `EntityQuery`.
+2.  **Target Entity**: ""universities"" -> `<C> university </C>`.
+3.  **Constraint**: ""rank between 10th and 20th in funding"".
+    *   This implies a relation to ""funding"" (likely an attribute or a ranking entity).
+    *   However, usually ""rank X in Y"" implies a specific property `ranking` associated with the concept `university`, filtered by the value of that ranking being within a range, or a relation `has_ranking` pointing to a rank node which has a funding value.
+    *   Let's interpret ""rank between 10th and 20th in funding"" as: The university has a funding attribute/value, and its rank based on that funding is between 10 and 20.
+    *   Alternatively, it could mean the university is linked to a ranking entity which specifies the rank.
+    *   Let's look at standard GraphQ patterns for rankings. Often, `ranking` is an attribute or a relation to a Rank node.
+    *   If we assume ""funding"" is the metric for the rank:
+        *   We need universities `<C> university </C>`.
+        *   They must have a ranking related to funding.
+        *   The constraint is on the rank value (10-20).
+    *   Let's simplify: ""universities that have a funding rank between 10 and 20"".
+    *   This can be modeled as: `<ES> <C> university </C> that <R> has_ranking </R> forward to <ES> <C> ranking </C> whose <A> rank_value </A> is at least 10 and whose <A> rank_value </A> is at most 20 </ES> </ES>`? No, ""between"" usually implies a range.
+    *   Let's try a simpler interpretation often found in these datasets: The university has an attribute `funding_rank` or similar. Or the relation is `ranked_by_funding`.
+    *   Let's assume there is a relation `has_funding_rank` connecting University to a Rank node, and that Rank node has a value.
+    *   Actually, a more direct interpretation for ""rank between X and Y in Z"" is often: Filter entities by an attribute `ranking_in_funding` being in range [10, 20].
+    *   Let's use `AttributeConstraint`. The attribute is `funding_rank`. The value is a range. GraphQ doesn't have a direct ""between"" operator in the basic grammar provided (`is`, `is not`, `larger than`, `smaller than`, `at least`, `at most`).
+    *   So, we can chain constraints: `whose <A> funding_rank </A> is at least 10` AND `whose <A> funding_rank </A> is at most 20`.
+    *   Wait, the prompt says ""rank between 10th and 20th"". This usually means rank 10, 11, ..., 20.
+    *   So: `<ES> <C> university </C> that have <A> funding_rank </A> whose value is at least 10 and whose value is at most 20 </ES>`?
+    *   Grammar check: `AttributeConstraint` is `""whose"" Attribute COP Value`.
+    *   We can combine them with `and`.
+    *   Let's refine the ""funding"" part. Does it mean the university's funding amount determines the rank, or is there a specific ranking attribute? Usually, in KG QA, ""rank in funding"" implies a pre-computed ranking attribute. Let's call the attribute `funding_rank`.
+    *   So: `<ES> <C> university </C> whose <A> funding_rank </A> is at least 10 and whose <A> funding_rank </A> is at most 20 </ES>`.
+
+    *   Wait, is ""funding"" an attribute of the university or a relation? If it's ""rank ... in funding"", it might be `ranking` relation to a `Rank` node which has `metric=funding`.
+    *   Let's stick to the simplest valid GraphQ structure.
+    *   Entity: `<C> university </C>`
+    *   Constraint 1: `whose <A> funding_rank </A> is at least 10`
+    *   Constraint 2: `and whose <A> funding_rank </A> is at most 20`
+
+    Let's construct the sequence:
+    ""what is <ES> <C> university </C> whose <A> funding_rank </A> is at least 10 and whose <A> funding_rank </A> is at most 20 </ES>""
+
+    Let's double check if ""funding"" should be a relation. If the question was ""universities with highest funding"", we'd look for `funding` attribute. Here it's about *rank*. So `funding_rank` is the appropriate attribute name.
+
+    Representation 1: what is <ES> <C> university </C> whose <A> funding_rank </A> is at least 10 and whose <A> funding_rank </A> is at most 20 </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""university""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""funding_rank""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is at least""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""number""
+        │           └── ""<V>""
+        │               └── ""10""
+        │                   └── ""</V>""
+        ├── LOP
+        │   └── ""and""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""funding_rank""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is at most""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    └── ""<V>""
+                        └── ""20""
+                            └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""university""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""funding_rank""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is at least""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""number""
+        │           └── ""<V>""
+        │               └── ""10""
+        │                   └── ""</V>""
+        ├── LOP
+        │   └── ""and""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""funding_rank""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is at most""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    └── ""<V>""
+                        └── ""20""
+                            └── ""</V>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q38_Give_me_the_universities_that_rank_betwe_th_false.csv

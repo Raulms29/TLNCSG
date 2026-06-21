@@ -1,0 +1,349 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,ministral-3:14b,False,0.025,7.059956,False,stop,7058,0.021218,555,6.881995,80.6452,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" }, // Father of the actor (assumed to be a Person entity)
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e4"" }, // Placeholder for director role (adjust if needed)
+      { ""id"": ""r3"", ""role"": ""earns"", ""from"": ""e2"", ""to"": ""e5"" }, // Placeholder for wealth attribute
+      { ""id"": ""r4"", ""role"": ""earns"", ""from"": ""e3"", ""to"": ""e6"" }  // Placeholder for director earnings
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e5"" }
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": {
+              ""list"": {
+                ""rels_of"": { ""id"": ""p1"", ""roles"": [""earns""] }, // Path to extract top 5 highest-paid directors
+                ""rel_id"": ""r4""
+              },
+              ""filter"": {
+                ""left"": { ""attribute_name"": ""net_worth"", ""of"": ""e6"" },
+                ""operator"": "">"",
+                ""right"": 0
+              }
+            },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e6"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5,
+            ""map_expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e6"" }
+          }
+        }
+      }
+    },
+    ""paths"": [
+      {
+        ""id"": ""p1"",
+        ""start"": ""e3"",
+        ""end"": ""e4"",
+        ""roles"": [""is_director""]
+      }
+    ]
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.2,0.2,Q48,"The Candidate contains several severe errors: 1. ID Name Leaking/Hallucination: It references entities 'e4', 'e5', and 'e6' which are never declared in the 'entities' block. 2. Structural/Grammar Violations: The 'right' side of the comparison uses a highly malformed structure for aggregation, including an invalid 'rels_of' usage with a nested object instead of an ID. 3. Topology Bypass: It attempts to model wealth via relationships ('earns') rather than attributes on existing entities, which deviates from the standard graph modeling seen in the Ground Truth. 4. Logic Errors: The constraint logic is incoherent and does not correctly implement the 'sum of top 5' requirement.",,"```json
+{
+  ""rationale"": ""The Candidate contains several severe errors: 1. ID Name Leaking/Hallucination: It references entities 'e4', 'e5', and 'e6' which are never declared in the 'entities' block. 2. Structural/Grammar Violations: The 'right' side of the comparison uses a highly malformed structure for aggregation, including an invalid 'rels_of' usage with a nested object instead of an ID. 3. Topology Bypass: It attempts to model wealth via relationships ('earns') rather than attributes on existing entities, which deviates from the standard graph modeling seen in the Ground Truth. 4. Logic Errors: The constraint logic is incoherent and does not correctly implement the 'sum of top 5' requirement."",
+  ""score"": 0.2
+}
+```","[
+  {
+    ""target"": [
+      ""e1""
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Person""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Director""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""has_father"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""money"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]","[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" }, // Father of the actor (assumed to be a Person entity)
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e4"" }, // Placeholder for director role (adjust if needed)
+      { ""id"": ""r3"", ""role"": ""earns"", ""from"": ""e2"", ""to"": ""e5"" }, // Placeholder for wealth attribute
+      { ""id"": ""r4"", ""role"": ""earns"", ""from"": ""e3"", ""to"": ""e6"" }  // Placeholder for director earnings
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e5"" }
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": {
+              ""list"": {
+                ""rels_of"": { ""id"": ""p1"", ""roles"": [""earns""] }, // Path to extract top 5 highest-paid directors
+                ""rel_id"": ""r4""
+              },
+              ""filter"": {
+                ""left"": { ""attribute_name"": ""net_worth"", ""of"": ""e6"" },
+                ""operator"": "">"",
+                ""right"": 0
+              }
+            },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e6"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5,
+            ""map_expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e6"" }
+          }
+        }
+      }
+    },
+    ""paths"": [
+      {
+        ""id"": ""p1"",
+        ""start"": ""e3"",
+        ""end"": ""e4"",
+        ""roles"": [""is_director""]
+      }
+    ]
+  }
+]",outputs\model_eval\generator\20260621_191509\ministral-3_14b\trace_Q48_Give_me_the_actors_whose_father_has_more_th_false.csv
+semgir,2,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,ministral-3:14b,False,0.025,5.895747,False,stop,7058,0.014843,474,5.726195,82.7775,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" }, // Father of the actor (assumed to be a Person)
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e4"" }, // e4 is a placeholder for the entity representing directorial work (Movie/Project)
+      { ""id"": ""r3"", ""role"": ""earns_from"", ""from"": ""e3"", ""to"": ""e5"" }  // e5 represents income source (simplified; assume attribute on Director)
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""net_worth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""filter"": {
+            ""and_conditions"": [
+              { ""not_condition"": {} } // Placeholder for filtering top 5 directors (handled via order_by/limit)
+            ]
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""total_income"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""map_expression"": { ""attribute_name"": ""total_income"", ""of"": ""e3"" }
+        }
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e2"" },
+        ""direction"": ""DESC""
+      }
+    ]
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,0.3,Q48,"The Candidate contains several significant errors. First, it introduces 'hallucinated' entities (e4, e5) that are not declared in the 'entities' block, violating reference consistency. Second, it uses a broken/placeholder logic for filtering ('not_condition': {}) which is semantically meaningless. Third, the structure of the SCALAR_AGGREGATE inside the 'right' operand is malformed according to the grammar (it nests an aggregate within an aggregate). Finally, while it captures the core comparison intent, the introduction of unlinked entities and invalid syntax makes the query uninterpretable.",,"```json
+{
+  ""rationale"": ""The Candidate contains several significant errors. First, it introduces 'hallucinated' entities (e4, e5) that are not declared in the 'entities' block, violating reference consistency. Second, it uses a broken/placeholder logic for filtering ('not_condition': {}) which is semantically meaningless. Third, the structure of the SCALAR_AGGREGATE inside the 'right' operand is malformed according to the grammar (it nests an aggregate within an aggregate). Finally, while it captures the core comparison intent, the introduction of unlinked entities and invalid syntax makes the query uninterpretable."",
+  ""score"": 0.3
+}
+```","[
+  {
+    ""target"": [
+      ""e1""
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Person""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Director""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""has_father"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""money"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]","[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" }, // Father of the actor (assumed to be a Person)
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e4"" }, // e4 is a placeholder for the entity representing directorial work (Movie/Project)
+      { ""id"": ""r3"", ""role"": ""earns_from"", ""from"": ""e3"", ""to"": ""e5"" }  // e5 represents income source (simplified; assume attribute on Director)
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""net_worth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""filter"": {
+            ""and_conditions"": [
+              { ""not_condition"": {} } // Placeholder for filtering top 5 directors (handled via order_by/limit)
+            ]
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""total_income"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""map_expression"": { ""attribute_name"": ""total_income"", ""of"": ""e3"" }
+        }
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""net_worth"", ""of"": ""e2"" },
+        ""direction"": ""DESC""
+      }
+    ]
+  }
+]",outputs\model_eval\generator\20260621_191509\ministral-3_14b\trace_Q48_Give_me_the_actors_whose_father_has_more_th_false.csv

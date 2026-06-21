@@ -1,0 +1,499 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,ministral-3:14b,False,0.025,4.301488,True,stop,7060,0.021943,340,4.125267,82.4189,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""appears_in"", ""from"": ""e3"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""list"": {
+              ""list_elements"": ""e2""
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e2"" },
+            ""aggregate_kind"": ""MIN""
+          },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": {
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentina""
+                },
+                ""list_elements"": ""e3""
+              },
+              ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          }
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.5,0.5,Q49,"The Candidate attempts a clever optimization by using MIN(salary) of lead actors to represent 'all actors earn more than X', which is logically equivalent to checking if the minimum salary exceeds the threshold. However, it fails on several structural and semantic fronts: 1) It uses an invalid structure for the first part of the AND condition; the grammar defines QUANTIFIER_PREDICATE (ALL/EXISTS) or COMPARISON, but the Candidate places a SCALAR_AGGREGATE directly inside an 'and_conditions' list as if it were a standalone condition, which is not supported by the grammar. 2) It introduces an extra relationship 'appears_in' for e3 that is not required and lacks a logical connection to the Argentine constraint. 3) The nationality filter is placed inside a LIST element rather than using a proper FILTER block within the list. While the core logic of comparing MIN to MAX is clever, the grammar violations regarding how aggregates and filters are nested make it invalid.",,"```json
+{
+  ""rationale"": ""The Candidate attempts a clever optimization by using MIN(salary) of lead actors to represent 'all actors earn more than X', which is logically equivalent to checking if the minimum salary exceeds the threshold. However, it fails on several structural and semantic fronts: 1) It uses an invalid structure for the first part of the AND condition; the grammar defines QUANTIFIER_PREDICATE (ALL/EXISTS) or COMPARISON, but the Candidate places a SCALAR_AGGREGATE directly inside an 'and_conditions' list as if it were a standalone condition, which is not supported by the grammar. 2) It introduces an extra relationship 'appears_in' for e3 that is not required and lacks a logical connection to the Argentine constraint. 3) The nationality filter is placed inside a LIST element rather than using a proper FILTER block within the list. While the core logic of comparing MIN to MAX is clever, the grammar violations regarding how aggregates and filters are nested make it invalid."",
+  ""score"": 0.5
+}
+```","[
+  {
+    ""target"": [
+      ""e1""
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""lead_actor_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": {
+          ""list_elements"": ""e2""
+        }
+      },
+      ""condition"": {
+        ""left"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e2""
+        },
+        ""operator"": "">"",
+        ""right"": {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""filter"": {
+              ""left"": {
+                ""attribute_name"": ""nationality"",
+                ""of"": ""e3""
+              },
+              ""operator"": ""="",
+              ""right"": ""Argentine""
+            }
+          },
+          ""map_expression"": {
+            ""attribute_name"": ""salary"",
+            ""of"": ""e3""
+          },
+          ""aggregate_kind"": ""MAX""
+        }
+      },
+      ""quantifier_kind"": ""ALL""
+    }
+  },
+  {
+    ""target"": [
+      ""e1""
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e4"",
+        ""type"": ""Country""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""lead_actor_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""from_country"",
+        ""from"": ""e3"",
+        ""to"": ""e4""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e4""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentina""
+        },
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e2""
+            }
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e2""
+            },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": {
+                  ""list_elements"": ""e3""
+                }
+              },
+              ""map_expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]","[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""appears_in"", ""from"": ""e3"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""list"": {
+              ""list_elements"": ""e2""
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e2"" },
+            ""aggregate_kind"": ""MIN""
+          },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": {
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentina""
+                },
+                ""list_elements"": ""e3""
+              },
+              ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          }
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]",outputs\model_eval\generator\20260621_191509\ministral-3_14b\trace_Q49_Give_me_the_movies_in_which_all_the_lead_th_false.csv
+semgir,2,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,ministral-3:14b,False,0.025,5.849079,True,stop,7060,0.014879,477,5.678608,83.9995,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""stars_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_lead_actor_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+              ""operator"": ""="",
+              ""right"": ""Argentina""
+            }
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""MAX""
+        },
+        {
+          ""left"": {
+            ""list"": {
+              ""list_elements"": ""e2"",
+              ""filter"": {
+                ""and_conditions"": [
+                  { ""not_condition"": { ""relationship_id"": ""r1"" } },
+                  { ""relationship_id"": ""r2"" }
+                ]
+              }
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e2"" },
+            ""aggregate_kind"": ""MIN""
+          },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+              ""operator"": ""="",
+              ""right"": ""Argentina""
+            }
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""MAX""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.3,0.3,Q49,"The Candidate fails significantly on both structural and semantic levels. First, it introduces a major grammar violation: it attempts to use 'relationship_id' inside a 'filter' block of a LIST, which is not supported by the grammar (filters should be conditions over attributes or quantifiers). Second, it uses an incorrect logic for the 'ALL' quantifier by attempting to replace it with a MIN/MAX comparison on a list, and it introduces redundant relationships ('stars_in' vs 'is_lead_actor_of') that create logical confusion. Third, the top-level constraint structure is invalid; it places an aggregate expression (the MAX salary of Argentine actors) directly as an element in 'and_conditions', which requires a COMPARISON or logic operator, not just a naked aggregate. The Candidate's attempt to model the 'all lead actors' requirement via complex list filtering and relationship negation is semantically incoherent compared to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate fails significantly on both structural and semantic levels. First, it introduces a major grammar violation: it attempts to use 'relationship_id' inside a 'filter' block of a LIST, which is not supported by the grammar (filters should be conditions over attributes or quantifiers). Second, it uses an incorrect logic for the 'ALL' quantifier by attempting to replace it with a MIN/MAX comparison on a list, and it introduces redundant relationships ('stars_in' vs 'is_lead_actor_of') that create logical confusion. Third, the top-level constraint structure is invalid; it places an aggregate expression (the MAX salary of Argentine actors) directly as an element in 'and_conditions', which requires a COMPARISON or logic operator, not just a naked aggregate. The Candidate's attempt to model the 'all lead actors' requirement via complex list filtering and relationship negation is semantically incoherent compared to the Ground Truth."",
+  ""score"": 0.3
+}
+```","[
+  {
+    ""target"": [
+      ""e1""
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""lead_actor_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": {
+          ""list_elements"": ""e2""
+        }
+      },
+      ""condition"": {
+        ""left"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e2""
+        },
+        ""operator"": "">"",
+        ""right"": {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""filter"": {
+              ""left"": {
+                ""attribute_name"": ""nationality"",
+                ""of"": ""e3""
+              },
+              ""operator"": ""="",
+              ""right"": ""Argentine""
+            }
+          },
+          ""map_expression"": {
+            ""attribute_name"": ""salary"",
+            ""of"": ""e3""
+          },
+          ""aggregate_kind"": ""MAX""
+        }
+      },
+      ""quantifier_kind"": ""ALL""
+    }
+  },
+  {
+    ""target"": [
+      ""e1""
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Actor""
+      },
+      {
+        ""id"": ""e4"",
+        ""type"": ""Country""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""lead_actor_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""from_country"",
+        ""from"": ""e3"",
+        ""to"": ""e4""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e4""
+          },
+          ""operator"": ""="",
+          ""right"": ""Argentina""
+        },
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e2""
+            }
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e2""
+            },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": {
+                  ""list_elements"": ""e3""
+                }
+              },
+              ""map_expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]","[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""stars_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_lead_actor_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+              ""operator"": ""="",
+              ""right"": ""Argentina""
+            }
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""MAX""
+        },
+        {
+          ""left"": {
+            ""list"": {
+              ""list_elements"": ""e2"",
+              ""filter"": {
+                ""and_conditions"": [
+                  { ""not_condition"": { ""relationship_id"": ""r1"" } },
+                  { ""relationship_id"": ""r2"" }
+                ]
+              }
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e2"" },
+            ""aggregate_kind"": ""MIN""
+          },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+              ""operator"": ""="",
+              ""right"": ""Argentina""
+            }
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""MAX""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]",outputs\model_eval\generator\20260621_191509\ministral-3_14b\trace_Q49_Give_me_the_movies_in_which_all_the_lead_th_false.csv

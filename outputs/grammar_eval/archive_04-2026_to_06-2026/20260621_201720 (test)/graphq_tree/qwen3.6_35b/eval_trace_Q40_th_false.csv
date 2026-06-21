@@ -1,0 +1,450 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q40,Tell me the scientists who were students of Planck in 1907.,qwen3.6:35b,False,0.025,48.822934,True,length,3137,1.695375,3072,46.946392,65.4363,"<thinking>
+Representation 1: what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> and whose <Q> time </Q> ""is"" <V> year 1907 </V> </ES>
+
+Breakdown:
+1. Root Query: `EntityQuery` (""what is"")
+2. Target EntitySet: Scientists (`<C> scientist </C>`)
+3. Constraint 1 (Relation): They were students of Planck. Relation `<R> student </R>` from Scientist to Planck. Direction is `forward`.
+4. Constraint 2 (Qualifier/Attribute): The relationship or event happened in 1907. This implies a temporal qualifier on the relation or an attribute of the scientist at that time. Given ""students of Planck *in* 1907"", it usually refers to the period of study. In GraphQ, relations often have qualifiers. So we add a QualifierConstraint for the time.
+   - Qualifier: `<Q> time </Q>` (or similar temporal qualifier)
+   - Value: `year 1907`
+
+Let's refine the structure based on the grammar:
+`what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> and whose <Q> time </Q> ""is"" <V> year 1907 </V> </ES>`
+
+Wait, the grammar for Constraint allows `AttributeConstraint QualifierConstraint?`.
+`AttributeConstraint`: ""whose"" Attribute COP Value.
+`QualifierConstraint`: Qualifier COP Value.
+
+If the qualifier applies to the relation instance (the student relationship), it should be part of the RelationConstraint or a separate constraint on the EntitySet?
+Usually, ""students of X in Y"" means the set of people who have a 'student' relation to X where the time qualifier is Y.
+So:
+`<ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> and whose <Q> time </Q> ""is"" <V> year 1907 </V> </ES>`
+
+Let's check the grammar for `Constraint`:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+
+If I use `RelationConstraint`, it can have a `QualifierConstraint`.
+`RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet | ""that"" Relation DIR ""to"" SOP EntitySet`
+It doesn't explicitly allow a qualifier *inside* the relation constraint in the simple form, but `Constraint` allows `QualifierConstraint` after `AttributeConstraint`.
+
+However, often temporal constraints on relations are handled by qualifying the entity set if the graph supports it, or more accurately, the grammar provided says:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+
+This implies a QualifierConstraint can follow an AttributeConstraint. It does *not* explicitly allow a QualifierConstraint to follow a RelationConstraint directly in the top-level Constraint definition unless we interpret ""AttributeConstraint"" loosely or if there's a missing rule.
+Actually, looking at `Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`, it seems a Qualifier can only attach to an Attribute constraint? That seems restrictive for temporal relations.
+
+Let's look at the example: ""cities in Japan"".
+`<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E> </ES>` -> This is just a RelationConstraint.
+
+If I need to filter by time, and the grammar only allows `QualifierConstraint` after `AttributeConstraint`, maybe I should treat ""time"" as an attribute of the scientist? ""Scientists who have attribute time = 1907""? No, that's weird.
+
+Let's re-read carefully:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+This syntax `A B?` means A followed by optional B.
+So `RelationConstraint QualifierConstraint?` IS allowed! My previous reading was slightly off or I missed the `?`.
+Yes, `RelationConstraint QualifierConstraint?` is a valid Constraint.
+
+So:
+1. EntitySet base: `<C> scientist </C>`
+2. Constraint 1: RelationConstraint (`that <R> student </R> forward to <E> Planck </E>`)
+3. Constraint 2 (attached to Constraint 1?): QualifierConstraint (`<Q> time </Q> ""is"" <V> year 1907 </V>`)
+
+Wait, the grammar for `Constraint` is:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+
+This means a single Constraint node can contain a RelationConstraint AND an optional QualifierConstraint.
+But we have two distinct conditions: ""Student of Planck"" AND ""Time is 1907"".
+Are they both part of the *same* relation instance? Yes, being a student in 1907 implies the specific student relationship instance occurred then.
+
+So the EntitySet will look like:
+`<ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> whose <Q> time </Q> ""is"" <V> year 1907 </V> </ES>`
+
+Let's map this to the AST structure.
+The `Constraint` node will contain:
+- `RelationConstraint`: `that <R> student </R> forward to <E> Planck </E>`
+- `QualifierConstraint`: `<Q> time </Q> ""is"" <V> year 1907 </V>`
+
+Wait, the grammar says `Constraint := ... | RelationConstraint QualifierConstraint?`.
+This implies the Qualifier is a child of Constraint.
+
+Let's construct the Sequence:
+`what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> whose <Q> time </Q> ""is"" <V> year 1907 </V> </ES>`
+
+Is `whose` part of the QualifierConstraint?
+Grammar: `QualifierConstraint := Qualifier COP Value`.
+It does not have `whose`.
+`AttributeConstraint := ""whose"" Attribute COP Value`.
+
+So if I use `whose`, it must be an AttributeConstraint.
+If I don't use `whose`, it's just `Qualifier COP Value`.
+
+Can a Constraint have both a RelationConstraint and a QualifierConstraint?
+Yes: `RelationConstraint QualifierConstraint?`
+
+So the sequence for the constraint part is:
+`that <R> student </R> forward to <E> Planck </E>` (RelationConstraint)
+followed by
+`<Q> time </Q> ""is"" <V> year 1907 </V>` (QualifierConstraint)
+
+Does the sequence need a connector like `and` or `whose` between them?
+The grammar for `Constraint` is just concatenation of the components.
+However, in natural language representation (Rep 1), we usually need some glue words if they are distinct clauses. But looking at the examples:
+""cities in Japan"" -> `that <R> capital </R> backward to <E> Japan </E>`
+""How many awards did Marie Curie win?"" -> `that <R> win </R> backward to <E> Marie Curie </E>`
+
+If I have multiple constraints on the same EntitySet, do I use `and`?
+The grammar for `EntitySet` allows:
+`<ES> EntitySet LOP EntitySet </ES>` (Logical op between sets)
+`<ES> EntitySet Constraint </ES>` (A set filtered by a constraint)
+
+It does *not* explicitly define how to chain multiple constraints on the same base entity in the sequence representation, other than implying they are part of the `Constraint` block.
+However, standard GraphQ often uses `and` between constraints if they are separate, or just lists them.
+Let's look at `Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`.
+This suggests a single Constraint node can hold one Relation and one Qualifier.
+
+So the sequence would be:
+`what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> <Q> time </Q> ""is"" <V> year 1907 </V> </ES>`
+
+This looks syntactically valid according to `Constraint := RelationConstraint QualifierConstraint?`.
+RelationConstraint: `that <R> student </R> forward to <E> Planck </E>`
+QualifierConstraint: `<Q> time </Q> ""is"" <V> year 1907 </V>`
+
+Let's verify the types.
+`<C> scientist </C>`
+`<R> student </R>`
+`<E> Planck </E>`
+`<Q> time </Q>`
+`<V> year 1907 </V>` (Prefixed with VTYPE `year`)
+
+Final Sequence:
+`what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> <Q> time </Q> ""is"" <V> year 1907 </V> </ES>`
+
+One detail: `Planck` is an entity. `scientist` is a concept.
+Direction: Scientist -> (student) -> Planck.
+Query asks for Scientists. So we start with Scientists. The relation goes from Scientist to Planck. So direction is `forward`.
+
+Let's double check if ""students of Planck"" implies the relation is `student` or `advisor`?
+Usually, if A is a student of B, the edge might be `student` (A -> B) or `advisor` (B -> A).
+If the edge is `student`, it goes from Student to Advisor. So `forward`.
+If the edge is `advisor`, it goes from Advisor to Student. So `backward`.
+The prompt says ""students of Planck"". I will assume a relation named `student` exists from student to teacher, or use `student` as the relation name in the forward direction.
+
+AST Construction:
+Root: EntityQuery
+Child: ""what is""
+Child: EntitySet
+  Child: ""<ES>""
+  Child: EntitySet (Base)
+    Child: Concept
+      Child: ""<C>""
+      Child: ""scientist""
+      Child: ""</C>""
+  Child: Constraint
+    Child: RelationConstraint
+      Child: ""that""
+      Child: Relation
+        Child: ""<R>""
+        Child: ""student""
+        Child: ""</R>""
+      Child: DIR
+        Child: ""forward""
+      Child: ""to""
+      Child: EntitySet
+        Child: Entity
+          Child: ""<E>""
+          Child: ""Planck""
+          Child: ""</E>""
+    Child: QualifierConstraint
+      Child: Qualifier
+        Child: ""<Q>""
+        Child: ""time""
+        Child: ""</Q>""
+      Child: COP
+        Child: ""is""
+      Child: Value
+        Child: VTYPE
+          Child: ""year""
+        Child: Literal
+          Child: ""1907""
+  Child: ""</ES>""
+
+Wait, the `Value` node structure in the grammar:
+`Value := VTYPE ""<V>"" Literal ""</V>""`
+In the AST example for ValueQuery:
+```
+        ├── Value
+        │   ├── VOP
+        │   │   └── ""sum""
+        │   ├── ""of""
+        │   └── Value
+        │       ├── Attribute
+        ...
+```
+For a literal value with type:
+`Value := VTYPE ""<V>"" Literal ""</V>""`
+So the children of `Value` are `VTYPE`, `""of""` (if aggregation), or just the components?
+Actually, looking at the grammar:
+`Value := VTYPE ""<V>"" Literal ""</V>""`
+This implies the node `Value` has children: `VTYPE`, `""<V>""`, `Literal`, `""</V>""`? No, XML tags are structural.
+The example shows:
+```
+        ├── Value
+        │   ├── Attribute
+        ...
+```
+If it's a literal:
+```
+        ├── Value
+        │   ├── VTYPE
+        │   │   └── ""year""
+        │   ├── ""<V>""
+        │   ├── Literal
+        │   │   └── ""1907""
+        │   └── ""</V>""
+```
+Wait, the grammar says `Value := VTYPE ""<V>"" Literal ""</V>""`.
+In the AST representation, tags are nodes.
+So `Value` node contains:
+- `VTYPE` node (with child ""year"")
+- `""<V>""` node (literal string tag)
+- `Literal` node (with child ""1907"")
+- `""</V>""` node (literal string tag)
+
+Let's check the example for `ValueQuery`:
+```
+        ├── Value
+        │   ├── VOP
+        ...
+```
+It doesn't show a literal value example. But based on `Value := VTYPE ""<V>"" Literal ""</V>""`, it seems `Value` is the parent of these four items.
+
+Let's refine the AST for the QualifierConstraint part.
+`QualifierConstraint := Qualifier COP Value`
+Children:
+- Qualifier node
+- COP node (""is"")
+- Value node
+
+Value node children:
+- VTYPE node (""year"")
+- ""<V>"" node
+- Literal node (""1907"")
+- ""</V>"" node
+
+This seems consistent.
+
+One final check on `Constraint` structure in AST.
+`Constraint := RelationConstraint QualifierConstraint?`
+So `Constraint` node has children:
+- RelationConstraint node
+- (Optional) Qualifier",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,0.0,Q40,"The Candidate is severely malformed. It does not follow the required AST structure, lacks a root node (S), fails to provide any valid query type, and contains fragmented, incomplete branches that do not represent the original query's logic or the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate is severely malformed. It does not follow the required AST structure, lacks a root node (S), fails to provide any valid query type, and contains fragmented, incomplete branches that do not represent the original query's logic or the Ground Truth."",
+  ""score"": 0.0
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""scientist""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""student""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""forward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Planck""
+        │   │           └── ""</E>""
+        │   └── QualifierConstraint
+        │       ├── Qualifier
+        │       │   ├── ""<Q>""
+        │       │   ├── ""time""
+        │       │   └── ""</Q>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""year""
+        │           ├── ""<V>""
+        │           ├── ""1907""
+        │           └── ""</V>""
+        └── ""</ES>""","├── Value
+        │   ├── VOP
+        ...",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q40_Tell_me_the_scientists_who_were_students_th_false.csv
+graphq_tree,2,Q40,Tell me the scientists who were students of Planck in 1907.,qwen3.6:35b,False,0.025,19.779064,True,stop,3137,0.092295,1246,19.478804,63.967,"<thinking>
+Representation 1: what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> and whose <Q> date </Q> is ""1907"" </ES>
+(Note: The query asks for scientists who were students of Planck *in 1907*. This implies a temporal constraint on the relationship or the event. In GraphQ IR, we can attach a Qualifier to the EntitySet if it constrains the nodes themselves based on a property, or more accurately, constrain the relation. However, the grammar for `QualifierConstraint` is attached to `RelationConstraint`. Let's look at the structure: ""scientists who were students of Planck in 1907"". This usually means the student-teacher relationship was established or active in 1907. 
+
+Let's refine the constraint. We need scientists (Concept) that have a relation 'student' forward to Planck (Entity). Additionally, this relationship or the scientist has a qualifier 'date' equal to 1907. 
+The grammar allows `QualifierConstraint` inside `RelationConstraint`.
+So: `<ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> whose <Q> date </Q> is ""1907"" </ES>`? 
+Wait, the grammar says:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+`RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet | ""that"" Relation DIR ""to"" SOP EntitySet`
+It doesn't explicitly show how to attach a qualifier to the *relation* in the sequence representation easily without ambiguity, but looking at `QualifierQuery`, qualifiers are often attached to entities or relations. 
+
+Let's look at the example: ""cities in Japan"". This is `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E> </ES>`.
+If we want to filter by time, e.g., ""scientists who studied under Planck in 1907"", it implies the *event* of studying happened in 1907. 
+In many KG schemas, relations have temporal qualifiers. 
+Sequence: `what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> whose <Q> date </Q> is ""1907"" </ES>`
+Actually, the grammar for `Constraint` allows a `QualifierConstraint` at the end of a `RelationConstraint`.
+`RelationConstraint QualifierConstraint?`
+So: `that <R> student </R> forward to <E> Planck </E> whose <Q> date </Q> is ""1907""`.
+
+Let's verify the direction. ""Scientists who were students of Planck"".
+Relation: `student`.
+From Scientist to Planck? Or Planck to Scientist?
+Usually, `student` relation goes from Student -> Teacher. So `Scientist <R> student </R> forward to Planck`.
+Direction is `forward` from the set being queried (Scientists) to the target (Planck).
+
+So:
+1. Root: EntityQuery
+2. EntitySet containing Concept ""scientist""
+3. Constraint: RelationConstraint
+   - Relation: ""student""
+   - DIR: ""forward""
+   - To: Entity ""Planck""
+4. QualifierConstraint on the relation? Or on the scientist?
+   The prompt says ""in 1907"". This likely qualifies the relationship instance.
+   Grammar: `QualifierConstraint := Qualifier COP Value`.
+   So we append `whose <Q> date </Q> is ""1907""` to the constraint block.
+
+Sequence: `what is <ES> <C> scientist </C> that <R> student </R> forward to <E> Planck </E> whose <Q> date </Q> is ""1907"" </ES>`
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""scientist""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""student""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""forward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Planck""
+        │   │           └── ""</E>""
+        │   └── QualifierConstraint
+        │       ├── Qualifier
+        │       │   ├── ""<Q>""
+        │       │   ├── ""date""
+        │       │   └── ""</Q>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           └── VTYPE
+        │               └── ""year""
+        │           ├── ""<V>""
+        │           ├── ""1907""
+        │           └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q40,"The Candidate is semantically very strong and captures all components of the query, including the complex nested constraint with a qualifier. It correctly identifies the EntityQuery type, the relation, and the temporal constraint. There is a minor discrepancy in the Qualifier name ('date' vs 'time'), but this is a semantic variation that does not impact the graph traversal logic. The structure adheres to the required AST grammar.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically very strong and captures all components of the query, including the complex nested constraint with a qualifier. It correctly identifies the EntityQuery type, the relation, and the temporal constraint. There is a minor discrepancy in the Qualifier name ('date' vs 'time'), but this is a semantic variation that does not impact the graph traversal logic. The structure adheres to the required AST grammar."",
+  ""score"": 1.0
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""scientist""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""student""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""forward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Planck""
+        │   │           └── ""</E>""
+        │   └── QualifierConstraint
+        │       ├── Qualifier
+        │       │   ├── ""<Q>""
+        │       │   ├── ""time""
+        │       │   └── ""</Q>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""year""
+        │           ├── ""<V>""
+        │           ├── ""1907""
+        │           └── ""</V>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""scientist""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""student""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""forward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Planck""
+        │   │           └── ""</E>""
+        │   └── QualifierConstraint
+        │       ├── Qualifier
+        │       │   ├── ""<Q>""
+        │       │   ├── ""date""
+        │       │   └── ""</Q>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           └── VTYPE
+        │               └── ""year""
+        │           ├── ""<V>""
+        │           ├── ""1907""
+        │           └── ""</V>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q40_Tell_me_the_scientists_who_were_students_th_false.csv

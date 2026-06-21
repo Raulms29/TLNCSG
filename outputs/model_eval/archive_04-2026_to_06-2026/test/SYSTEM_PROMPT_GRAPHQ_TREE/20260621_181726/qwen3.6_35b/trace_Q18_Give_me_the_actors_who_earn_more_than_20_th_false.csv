@@ -1,0 +1,159 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.025,14.730792,True,stop,3140,0.43608,1135,14.11037,80.4373,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept: actor).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"". Note: The prompt says ""earn"", which implies a relation or attribute. Usually, earnings are an attribute of the actor or linked via a contract/role. Let's assume a direct attribute `salary` or `earnings` for simplicity, or a relation `earn`. If it's a relation `earn`, it would be `<R> earn </R> forward to <V> 2000 </V>`. However, ""more than"" usually applies to attributes. Let's use an attribute `salary` with value `2000`.
+Condition 2: They have appeared in Alien. This is a RelationConstraint. `<C> actor </C> that <R> appear in </R> backward to <E> Alien </E>`.
+
+The query asks for actors satisfying EITHER condition. So we use Logical Operation ""or"" between two EntitySets filtered by these constraints.
+
+EntitySet 1: `<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES>`
+EntitySet 2: `<ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>`
+
+Combined: `what is <ES> EntitySet1 or EntitySet2 </ES>`
+
+Wait, the grammar for AttributeConstraint is `""whose"" Attribute COP Value`.
+The grammar for RelationConstraint is `""that"" Relation DIR ""to"" EntitySet`.
+
+Let's construct Representation 1:
+`what is <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>`
+
+Let's double check the direction for ""appear in"".
+If Actor -> appears_in -> Movie.
+To find actors OF a movie, we go from Movie back to Actor. So `appear in` forward from Actor to Movie.
+The constraint is on the Actor: ""Actor that [has relation] appear in backward to Alien"".
+If the relation is `appears_in` (Actor -> Movie), then going backward from Movie to Actor is `appears_in backward`.
+So `<R> appears_in </R> backward to <E> Alien </E>` finds Actors who have an outgoing `appears_in` edge to Alien. This is correct.
+
+For the salary part: ""earn more than 2000"".
+If we treat earnings as an attribute `salary`:
+`<C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>`
+
+So the full sequence is:
+`what is <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appears_in </R> backward to <E> Alien </E> </ES>`
+
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       └── COP
+        │           └── ""larger than""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""appears_in""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Alien""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+2,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.025,15.962222,True,stop,3140,0.103283,1228,15.649867,78.4671,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept: actor).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"". Note: The prompt says ""earn"", which implies a relation or attribute. Usually, earnings are an attribute of the actor or linked via a contract/role. Let's assume a direct attribute `<A> earn` or similar for simplicity, or a relation to a value. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, using an attribute is cleaner if available. If ""earn"" is treated as a relation to money, it would be complex. However, standard KBQA often treats salary/earnings as an attribute. Let's use `<A> earn` or `<A> salary`. The prompt uses ""earn"", so I will map it to an attribute `<A> earn` for the actor.
+Condition 2: They have appeared in Alien. This is a RelationConstraint. ""that <R> appear in </R> backward to <E> Alien </E>"".
+
+The two conditions are connected by ""or"". So we need a Logical Operation (LOP) between two EntitySets filtered by these constraints.
+
+EntitySet 1: `<C> actor </C>` whose `<A> earn </A>` larger than `<V> 2000 </V>`
+EntitySet 2: `<C> actor </C>` that `<R> appear in </R>` backward to `<E> Alien </E>`
+
+Combined: `<ES> <ES> <C> actor </C> whose <A> earn </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>`
+
+Wait, the grammar for EntitySet with LOP is: `<ES> EntitySet LOP EntitySet </ES>`.
+So:
+`<ES> <ES> <C> actor </C> whose <A> earn </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>`
+
+Let's double check the ""earn"" part. If ""earn"" is a relation, it might be `that <R> earn </R> forward to <V> 2000 </V>`. But usually earnings are attributes. I will stick with AttributeConstraint for clarity unless ""appear in"" suggests a specific schema where earning is also a relation. Given the ambiguity, Attribute is safer for ""earn more than X"".
+
+Let's construct the sequence:
+what is <ES> <ES> <C> actor </C> whose <A> earn </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""earn""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""actor""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""appear in""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""backward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           └── Entity
+            │               ├── ""<E>""
+            │               ├── ""Alien""
+            │               └── ""</E>""
+            └── ""</ES>""
+        └── ""</ES>""
+```"

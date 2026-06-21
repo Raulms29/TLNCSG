@@ -1,0 +1,403 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q15,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,qwen3.6:35b,False,0.025,18.450398,True,stop,3137,0.466421,1549,17.800326,87.0209,"<thinking>
+Representation 1: what is <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> and <R> end </R> forward to <E> Barcelona </E> and not <R> pass through </R> forward to <E> Huesca </E> </ES>
+
+Let's break down the logic:
+1. We are looking for entities of type `<C> route </C>`.
+2. Constraint 1: The route starts in Madrid. Relation `start` goes from Route to City (forward). So, `<R> start </R> forward to <E> Madrid </E>`.
+3. Constraint 2: The route ends in Barcelona. Relation `end` goes from Route to City (forward). So, `<R> end </R> forward to <E> Barcelona </E>`.
+4. Constraint 3: The route does NOT pass through Huesca. Relation `pass through` goes from Route to City (forward). We need to exclude routes that have this relation to Huesca. This is a negation of a relation constraint.
+
+So the EntitySet structure is:
+<ES>
+  <C> route </C>
+  Constraint (LOP and)
+    Constraint 1: RelationConstraint (<R> start </R> forward to <E> Madrid </E>)
+    Constraint 2: RelationConstraint (<R> end </R> forward to <E> Barcelona </E>)
+    Constraint 3: NOT RelationConstraint (<R> pass through </R> forward to <E> Huesca </E>)
+</ES>
+
+Wait, the grammar for LOP inside EntitySet is `<ES> EntitySet LOP EntitySet </ES>`. This implies we are combining sets.
+Let's refine the sequence:
+""what is <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES> and <ES> ones that <R> end </R> forward to <E> Barcelona </E> </ES> and not <ES> ones that <R> pass through </R> forward to <E> Huesca </E> </ES>""
+
+Actually, a cleaner way often used in these parsers for multiple constraints on the same base concept is:
+""what is <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> and <R> end </R> forward to <E> Barcelona </E> and not <R> pass through </R> forward to <E> Huesca </E> </ES>""
+
+However, the grammar `<ES> EntitySet LOP EntitySet </ES>` suggests combining two distinct sets.
+Let's try:
+Base Set 1: Routes starting in Madrid. `<ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES>`
+Base Set 2: Routes ending in Barcelona. `<ES> ones that <R> end </R> forward to <E> Barcelona </E> </ES>`
+Intersection: Set 1 and Set 2.
+Exclusion: Result minus (Routes passing through Huesca).
+
+Sequence:
+what is <ES> <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES> and <ES> ones that <R> end </R> forward to <E> Barcelona </E> </ES> </ES> and not <ES> ones that <R> pass through </R> forward to <E> Huesca </E> </ES>
+
+Let's verify the ""ones"" usage. ""ones"" refers to the previously mentioned entity type or a blank node. Here it acts as a placeholder for ""routes"".
+
+Representation 1: what is <ES> <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES> and <ES> ones that <R> end </R> forward to <E> Barcelona </E> </ES> </ES> and not <ES> ones that <R> pass through </R> forward to <E> Huesca </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""route""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""start""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Madrid""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        │   ├── LOP
+        │   │   └── ""and""
+        │   └── EntitySet
+        │       └── Constraint
+        │           └── RelationConstraint
+        │               ├── ""that""
+        │               ├── Relation
+        │               │   ├── ""<R>""
+        │               │   ├── ""end""
+        │               │   └── ""</R>""
+        │               ├── DIR
+        │               │   └── ""forward""
+        │               ├── ""to""
+        │               └── EntitySet
+        │                   └── Entity
+        │                       ├── ""<E>""
+        │                       ├── ""Barcelona""
+        │                       └── ""</E>""
+        ├── LOP
+        │   └── ""and""
+        └── Constraint
+            └── NOT
+                └── EntitySet
+                    ├── ""<ES>""
+                    ├── Constraint
+                    │   └── RelationConstraint
+                    │       ├── ""that""
+                    │       ├── Relation
+                    │       │   ├── ""<R>""
+                    │       │   ├── ""pass through""
+                    │       │   └── ""</R>""
+                    │       ├── DIR
+                    │       │   └── ""forward""
+                    │       ├── ""to""
+                    │       └── EntitySet
+                    │           └── Entity
+                    │               ├── ""<E>""
+                    │               ├── ""Huesca""
+                    │               └── ""</E>""
+                    └── ""</ES>""
+        └── ""</ES>""
+```"
+2,Q15,Give me the routes from Madrid to Barcelona that do not pass through Huesca.,qwen3.6:35b,False,0.025,37.347643,True,stop,3137,0.082334,3028,37.078435,81.6647,"<thinking>
+Representation 1: what is <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> and <R> end </R> forward to <E> Barcelona </E> and not <R> pass through </R> forward to <E> Huesca </E> </ES>
+
+Let's break down the logic:
+1. We are looking for entities of type `<C> route </C>`.
+2. Constraint 1: The route starts in Madrid. Relation `start` goes from Route to City (forward). So, `<R> start </R> forward to <E> Madrid </E>`.
+3. Constraint 2: The route ends in Barcelona. Relation `end` goes from Route to City (forward). So, `<R> end </R> forward to <E> Barcelona </E>`.
+4. Constraint 3: The route does NOT pass through Huesca. Relation `pass through` goes from Route to City (forward). We need to exclude routes that have this relation to Huesca. This is a negation of a relation constraint.
+
+So the EntitySet structure is:
+<ES>
+  <C> route </C>
+  Constraint (LOP and)
+    Constraint 1 (RelationConstraint): start forward to Madrid
+    Constraint 2 (LOP and)
+      Constraint 3 (RelationConstraint): end forward to Barcelona
+      Constraint 4 (LOP not)
+        Constraint 5 (RelationConstraint): pass through forward to Huesca
+</ES>
+
+Wait, the grammar for LOP is `EntitySet LOP EntitySet`.
+So:
+<ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES>
+AND
+<ES> <C> route </C> that <R> end </R> forward to <E> Barcelona </E> </ES>
+AND
+NOT
+<ES> <C> route </C> that <R> pass through </R> forward to <E> Huesca </E> </ES>
+
+Actually, it's cleaner to define the base set as ""routes"" and apply multiple constraints.
+Base: <C> route </C>
+Constraint 1: that <R> start </R> forward to <E> Madrid </E>
+Constraint 2: AND that <R> end </R> forward to <E> Barcelona </E>
+Constraint 3: AND NOT that <R> pass through </R> forward to <E> Huesca </E>
+
+Let's refine the sequence representation based on the grammar rules for constraints.
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>"" | ""<ES>"" EntitySet Constraint ""</ES>"" | ...`
+
+Sequence:
+what is <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> and that <R> end </R> forward to <E> Barcelona </E> and not that <R> pass through </R> forward to <E> Huesca </E> </ES>
+
+Let's map this to the AST structure.
+Root: EntityQuery
+  ""what is""
+  EntitySet
+    ""<ES>""
+    EntitySet (Base Concept)
+      Concept
+        ""<C>""
+        ""route""
+        ""</C>""
+    Constraint (Start Madrid)
+      RelationConstraint
+        ""that""
+        Relation
+          ""<R>""
+          ""start""
+          ""</R>""
+        DIR
+          ""forward""
+        ""to""
+        EntitySet
+          Entity
+            ""<E>""
+            ""Madrid""
+            ""</E>""
+    LOP
+      ""and""
+    Constraint (End Barcelona)
+      RelationConstraint
+        ""that""
+        Relation
+          ""<R>""
+          ""end""
+          ""</R>""
+        DIR
+          ""forward""
+        ""to""
+        EntitySet
+          Entity
+            ""<E>""
+            ""Barcelona""
+            ""</E>""
+    LOP
+      ""and""
+    Constraint (Not Pass Through Huesca)
+      RelationConstraint
+        ""that""
+        Relation
+          ""<R>""
+          ""pass through""
+          ""</R>""
+        DIR
+          ""forward""
+        ""to""
+        EntitySet
+          Entity
+            ""<E>""
+            ""Huesca""
+            ""</E>""
+    (Note: The grammar doesn't explicitly show how 'not' is applied to a constraint in the `Constraint` definition, but `LOP` can be 'not'. However, usually negation is on the set or relation. Let's look at `Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`. It doesn't have a boolean operator inside Constraint.
+    The `EntitySet` rule allows `EntitySet LOP EntitySet`.
+    So:
+    Set1: <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES>
+    Set2: <ES> <C> route </C> that <R> end </R> forward to <E> Barcelona </E> </ES>
+    Set3: <ES> <C> route </C> that <R> pass through </R> forward to <E> Huesca </E> </ES>
+    
+    Result = (Set1 AND Set2) AND (NOT Set3)
+    
+    Sequence: what is <ES> <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> </ES> and <ES> <C> route </C> that <R> end </R> forward to <E> Barcelona </E> </ES> </ES> and not <ES> <C> route </C> that <R> pass through </R> forward to <E> Huesca </E> </ES> </ES>
+    
+    This seems overly nested. Let's try to keep the base concept at the top level if possible, but the grammar forces LOP between EntitySets.
+    
+    Alternative interpretation:
+    what is <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> and <R> end </R> forward to <E> Barcelona </E> and not <R> pass through </R> forward to <E> Huesca </E> </ES>
+    
+    If I treat the constraints as part of a single EntitySet with multiple filters, the grammar `EntitySet Constraint` only allows one constraint. So I must use LOPs.
+    
+    Let's construct the tree carefully.
+    
+    Root: EntityQuery
+      ""what is""
+      EntitySet (Top Level)
+        ""<ES>""
+        EntitySet (Left Side of AND)
+          ""<ES>""
+          EntitySet (Intersection of Start and End)
+            ""<ES>""
+            EntitySet (Start Madrid)
+              ""<ES>""
+              Concept
+                ""<C>""
+                ""route""
+                ""</C>""
+              Constraint
+                RelationConstraint
+                  ""that""
+                  Relation
+                    ""<R>""
+                    ""start""
+                    ""</R>""
+                  DIR
+                    ""forward""
+                  ""to""
+                  EntitySet
+                    Entity
+                      ""<E>""
+                      ""Madrid""
+                      ""</E>""
+              ""</ES>""
+            LOP
+              ""and""
+            EntitySet (End Barcelona)
+              ""<ES>""
+              Concept
+                ""<C>""
+                ""route""
+                ""</C>""
+              Constraint
+                RelationConstraint
+                  ""that""
+                  Relation
+                    ""<R>""
+                    ""end""
+                    ""</R>""
+                  DIR
+                    ""forward""
+                  ""to""
+                  EntitySet
+                    Entity
+                      ""<E>""
+                      ""Barcelona""
+                      ""</E>""
+              ""</ES>""
+          ""</ES>""
+        LOP
+          ""and""
+        EntitySet (Right Side of AND - Negated)
+          ""<ES>""
+          Constraint
+            RelationConstraint
+              ""that""
+              Relation
+                ""<R>""
+                ""pass through""
+                ""</R>""
+              DIR
+                ""forward""
+              ""to""
+              EntitySet
+                Entity
+                  ""<E>""
+                  ""Huesca""
+                  ""</E>""
+          ""</ES>""
+        LOP
+          ""not""
+        (Wait, `LOP` is between two EntitySets. So it's `(A and B) and (not C)`? No, `not` is a unary operator in logic but here `LOP` is binary. The grammar says `LOP := ""and"" | ""or"" | ""not""`. This implies `not` can be used as a binary operator? Or does it mean the left operand is negated? Usually `A not B` isn't standard. Let's assume `not` applies to the following EntitySet in a sequence or is a prefix.
+        
+        Looking at the grammar: `EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`.
+        If LOP is ""not"", it likely means `EntitySet not EntitySet` -> Set1 - Set2.
+        
+        So:
+        Top Level: <ES> (Intersection of Start/End) and (Not PassThrough Huesca) </ES>
+        
+        Sequence: what is <ES> <ES> <C> route </C> that <R> start </R> forward to <E> Madrid </E> and <C> route </C> that <R> end </R> forward to <E> Barcelona </E> </ES> and not <ES> <C> route </C> that <R> pass through </R> forward to <E> Huesca </E> </ES> </ES>
+        
+        This looks correct structurally.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   ├── ""<ES>""
+        │   │   ├── EntitySet
+        │   │   │   └── Concept
+        │   │   │       ├── ""<C>""
+        │   │   │       ├── ""route""
+        │   │   │       └── ""</C>""
+        │   │   ├── Constraint
+        │   │   │   └── RelationConstraint
+        │   │   │       ├── ""that""
+        │   │   │       ├── Relation
+        │   │   │       │   ├── ""<R>""
+        │   │   │       │   ├── ""start""
+        │   │   │       │   └── ""</R>""
+        │   │   │       ├── DIR
+        │   │   │       │   └── ""forward""
+        │   │   │       ├── ""to""
+        │   │   │       └── EntitySet
+        │   │   │           └── Entity
+        │   │   │               ├── ""<E>""
+        │   │   │               ├── ""Madrid""
+        │   │   │               └── ""</E>""
+        │   │   └── ""</ES>""
+        │   ├── LOP
+        │   │   └── ""and""
+        │   ├── EntitySet
+        │   │   ├── ""<ES>""
+        │   │   ├── EntitySet
+        │   │   │   └── Concept
+        │   │   │       ├── ""<C>""
+        │   │   │       ├── ""route""
+        │   │   │       └── ""</C>""
+        │   │   ├── Constraint
+        │   │   │   └── RelationConstraint
+        │   │   │       ├── ""that""
+        │   │   │       ├── Relation
+        │   │   │       │   ├── ""<R>""
+        │   │   │       │   ├── ""end""
+        │   │   │       │   └── ""</R>""
+        │   │   │       ├── DIR
+        │   │   │       │   └── ""forward""
+        │   │   │       ├── ""to""
+        │   │   │       └── EntitySet
+        │   │   │           └── Entity
+        │   │   │               ├── ""<E>""
+        │   │   │               ├── ""Barcelona""
+        │   │   │               └── ""</E>""
+        │   │   └── ""</ES>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""and""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""pass through""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Huesca""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""not""
+        └── ""</ES>""
+```"

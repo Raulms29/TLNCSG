@@ -1,0 +1,370 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q21,Give me the movies in which all the actors are American.,qwen3.6:35b,False,0.025,31.944321,True,stop,3132,0.436081,2564,31.302724,81.9098,"<thinking>
+Representation 1: what is <ES> <C> movie </C> such that for all <C> actor </C> that <R> actor </R> forward to <E> ones </E>, <A> nationality </A> of <E> ones </E> is <V> string ""American"" </V> </ES>
+
+Wait, the grammar doesn't explicitly support universal quantification (""for all"") or complex nested constraints with blank nodes in a simple way like that. Let's look at the standard patterns.
+Usually, ""all X are Y"" implies filtering a set of movies where the set of actors associated with them satisfies a condition.
+However, GraphQ IR as defined here seems to focus on extraction and verification rather than complex logical quantifiers like ""for all"".
+Let's re-read the prompt's capabilities. It supports `VerifyQuery` for boolean checks. But the user asks ""Give me the movies"", which is an `EntityQuery`.
+
+If I cannot express ""all actors are American"" directly as a single constraint in the provided grammar (which lacks explicit universal quantifiers), I might need to interpret this as finding movies where *every* actor has the attribute nationality=American.
+Since the grammar doesn't have a specific ""forall"" operator, I will assume the standard interpretation of filtering entities based on a property of their related entities.
+Often, in these simplified IRs, ""all actors are American"" might be approximated by checking if there exists an actor who is NOT American (negation) or simply listing movies and assuming the constraint applies to the set.
+However, looking at the examples, `VerifyQuery` is for Yes/No. `EntityQuery` returns entities.
+
+Let's look at the structure:
+""Give me the movies..."" -> `what is <ES> <C> movie </C> ...`
+""...in which all the actors are American.""
+This implies a constraint on the Movie entity. The constraint involves its actors.
+Constraint: ""that have no actor whose nationality is not American""? Or ""whose every actor has nationality American""?
+
+Given the strict grammar provided:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+`RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet | ""that"" Relation DIR ""to"" SOP EntitySet`
+
+There is no explicit ""forall"" or ""every"" keyword.
+However, often in these tasks, if a universal quantifier isn't supported, we might look for a simpler interpretation or assume the system handles it via negation of existence (i.e., movies that do NOT have any non-American actor). But I don't see a `not` inside constraints easily, only as LOP between EntitySets.
+
+Let's reconsider the prompt's examples.
+""Give me the actors of the movie Inception."" -> `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`
+
+If I must stick strictly to the grammar:
+Maybe the question implies a simpler check? No, ""all"" is specific.
+Is it possible the user wants movies where the *set* of actors is exclusively American?
+Without a universal quantifier, this is tricky. Let's look at `VerifyQuery`.
+""whether <E> Movie </E> has only American actors?"" -> This would be a boolean check for a specific movie.
+
+But the query asks for the movies themselves.
+Let's assume the IR allows filtering by a relation to a constrained set, and perhaps the ""all"" is handled by the semantic intent of the constraint if we treat it as ""movies whose actors are all American"".
+Actually, looking at the grammar again:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>"" | ...`
+We can combine sets.
+
+Let's try to model ""Movies that do not have any actor who is NOT American"".
+1. Set of Non-American Actors: `<ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES>`
+2. Movies connected to these actors: `<ES> <C> movie </C> that <R> actor </R> forward to <ES> ... </ES> </ES>` (These are movies with at least one non-American actor).
+3. All Movies: `<ES> <C> movie </C> </ES>`
+4. Result: `All Movies` AND NOT `Movies_with_non_American_actors`.
+
+So:
+`what is <ES> <ES> <C> movie </C> </ES> and not <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES> </ES>`
+
+This seems the most robust way to handle ""all"" using the available `not` logical operator and standard constraints.
+
+Let's refine Representation 1:
+what is <ES> <ES> <C> movie </C> </ES> and not <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES>
+
+Let's double check the `AttributeConstraint` syntax:
+`AttributeConstraint := ""whose"" Attribute COP Value`
+`COP := ""is"" | ""is not"" ...`
+So `whose <A> nationality </A> is not <V> string ""American"" </V>` is valid.
+
+Let's double check `RelationConstraint`:
+`that <R> actor </R> forward to <ES> ... </ES>`
+The inner ES is `<ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES>`.
+
+So the full structure:
+Root: EntityQuery
+  ""what is""
+  EntitySet (Result)
+    ""<ES>""
+    EntitySet (All Movies)
+      ""<ES>""
+      Concept (""movie"")
+      ""</ES>""
+    LOP (""and"")
+    EntitySet (Movies with non-American actors)
+      ""<ES>""
+      EntitySet (Base: Movies)
+        ""<ES>""
+        Concept (""movie"")
+        ""</ES>""
+      Constraint (Relation to non-American actors)
+        RelationConstraint
+          ""that""
+          Relation (""actor"")
+          DIR (""forward"")
+          ""to""
+          EntitySet (Non-American Actors)
+            ""<ES>""
+            EntitySet (Base: Actors)
+              ""<ES>""
+              Concept (""actor"")
+              ""</ES>""
+            Constraint (Nationality != American)
+              AttributeConstraint
+                ""whose""
+                Attribute (""nationality"")
+                COP (""is not"")
+                Value (""American"")
+                  VTYPE (""string"")
+                  Literal (""American"")
+            ""</ES>""
+      ""</ES>""
+    LOP (""not"") -- Wait, the grammar says `LOP := ""and"" | ""or"" | ""not""`. It connects two EntitySets.
+    
+    Structure: `<ES> A and not B </ES>`?
+    Grammar: `EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+    So yes, `A and not B` works if `B` is an EntitySet.
+
+    Let's write it out linearly for Rep 1:
+    what is <ES> <ES> <C> movie </C> </ES> and not <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES> </ES>
+
+    Wait, `not` usually negates the following set in natural language logic within these parsers (Set A minus Set B).
+    
+    Let's verify the Value syntax: `<V> string ""American"" </V>`?
+    Grammar: `Value := VTYPE ""<V>"" Literal ""</V>""`.
+    So `string <V> ""American"" </V>`.
+
+    Final Rep 1:
+    what is <ES> <ES> <C> movie </C> </ES> and not <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not string <V> ""American"" </V> </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── Concept
+        │       │   ├── ""<C>""
+        │       │   ├── ""movie""
+        │       │   └── ""</C>""
+        │       └── ""</ES>""
+        ├── LOP
+        │   └── ""and""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   ├── ""<ES>""
+        │   │   ├── Concept
+        │   │   │   ├── ""<C>""
+        │   │   │   ├── ""movie""
+        │   │   │   └── ""</C>""
+        │   │   └── ""</ES>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""actor""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           ├── ""<ES>""
+        │   │           ├── EntitySet
+        │   │           │   ├── ""<ES>""
+        │   │           │   ├── Concept
+        │   │           │   │   ├── ""<C>""
+        │   │           │   │   ├── ""actor""
+        │   │           │   │   └── ""</C>""
+        │   │           │   └── ""</ES>""
+        │   │           ├── Constraint
+        │   │           │   └── AttributeConstraint
+        │   │           │       ├── ""whose""
+        │   │           │       ├── Attribute
+        │   │           │       │   ├── ""<A>""
+        │   │           │       │   ├── ""nationality""
+        │   │           │       │   └── ""</A>""
+        │   │           │       ├── COP
+        │   │           │       │   └── ""is not""
+        │   │           │       └── Value
+        │   │           │           ├── VTYPE
+        │   │           │           │   └── ""string""
+        │   │           │           ├── ""<V>""
+        │   │           │           ├── Literal
+        │   │           │           │   └── ""American""
+        │   │           │           └── ""</V>""
+        │   │           └── ""</ES>""
+        │   └── ""</ES>""
+        └── LOP
+            └── ""not""
+        └── ""</ES>""
+```"
+2,Q21,Give me the movies in which all the actors are American.,qwen3.6:35b,False,0.025,36.466289,True,stop,3132,0.099301,2963,36.174475,81.9086,"<thinking>
+Representation 1: what is <ES> <C> movie </C> such that for all <C> actor </C> that <R> actor </R> forward to <E> ones </E>, <A> nationality </A> of <E> ones </E> is <V> string ""American"" </V> </ES>
+
+Wait, the grammar doesn't explicitly support universal quantification (""for all"") or complex nested constraints with blank nodes in a simple way like that. Let's look at the standard patterns.
+Usually, ""all X are Y"" implies filtering a set of movies where the set of actors associated with them satisfies a condition.
+However, GraphQ IR as defined here seems to focus on extraction and verification rather than complex logical quantifiers like ""for all"".
+Let's re-read the prompt's capabilities. It supports `VerifyQuery` for boolean checks. But the user asks ""Give me the movies"", which is an `EntityQuery`.
+
+If I cannot express ""all actors are American"" directly as a single constraint in the provided grammar (which lacks explicit universal quantifiers), I might need to interpret this as finding movies where *every* actor has the attribute nationality=American.
+Since the grammar doesn't have a specific ""forall"" operator, I will assume the standard interpretation of filtering entities based on a property of their related entities.
+Often, in these simplified IRs, ""all actors are American"" might be approximated by checking if there exists an actor who is NOT American (negation) or simply listing movies and assuming the constraint applies to the set.
+
+However, looking at the examples, `VerifyQuery` is for Yes/No. `EntityQuery` returns entities.
+Let's look at the structure: `<ES> <C> movie </C> that ... </ES>`.
+The constraint needs to filter movies.
+Constraint: ""whose actors are all American"".
+This is tricky with the provided grammar which uses `AttributeConstraint` and `RelationConstraint`.
+
+Let's try to map it to a Relation Constraint on the Movie node? No, ""actors"" is a relation from Movie to Actor.
+Maybe: `<ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is <V> string ""American"" </V> </ES> </ES>`?
+This would mean ""Movies that have actors who are American"". This is an intersection (AND), not necessarily ""ALL"".
+But without a universal quantifier, this is the closest standard representation for ""movies with American actors"".
+
+Let's re-read carefully: ""Give me the movies in which **all** the actors are American.""
+If the system doesn't support `forall`, it might be impossible to strictly represent. However, often in these tasks, if a specific logical operator isn't available, we might have to assume a simplified view or use a `VerifyQuery` structure if the question was ""Are all actors..."". But it asks for the movies.
+
+Let's look at the grammar again.
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+`RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet`
+
+If I write:
+`what is <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is <V> string ""American"" </V> </ES> </ES>`
+This translates to: Find movies such that there exists an actor connected by 'actor' who is American. This is ""Movies with at least one American actor"".
+
+To express ""All"", we usually need: ""There does not exist an actor who is NOT American"".
+`what is <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES>`? No, that finds movies with non-American actors.
+
+Given the constraints of the provided grammar which seems to lack explicit logical negation inside EntitySets or universal quantifiers, I will provide the representation for ""Movies where the connected actors have the nationality American"". In many knowledge graph query languages, if you filter by a relation to a constrained set, it implies the relationship holds. If the question strictly requires ""all"", and the grammar doesn't support it, I must stick to the most logical interpretation allowed by the grammar.
+
+Actually, let's look at `VerifyQuery`.
+""whether <ES> <C> movie </C> ..."" returns a boolean. The user wants the movies.
+
+Let's assume the question implies filtering the set of actors for each movie.
+If I cannot express ""all"", I will express the constraint on the actor relation.
+However, there is a possibility that ""all"" is handled by the context of the dataset or a specific operator not explicitly detailed but implied by ""Constraint"". But looking at `COP` and `SOP`, there is no universal quantifier.
+
+Let's try to interpret ""Give me the movies in which all the actors are American"" as finding movies where the set of actors satisfies the condition.
+If I must use the provided grammar, I will construct the EntitySet for Movies constrained by the Relation to Actors who are American. While semantically this is ""exists"", it is the standard way to link these nodes in this IR format unless `forall` is supported.
+
+Let's refine the Representation 1:
+`what is <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is <V> string ""American"" </V> </ES> </ES>`
+
+Wait, if I want to be precise about the grammar's `AttributeConstraint`:
+`AttributeConstraint := ""whose"" Attribute COP Value`
+So `<ES> <C> actor </C> whose <A> nationality </A> is <V> string ""American"" </V> </ES>` is valid.
+
+And `RelationConstraint`:
+`""that"" Relation DIR ""to"" EntitySet`
+So `that <R> actor </R> forward to <ES> ... </ES>` is valid.
+
+So the full sequence:
+`what is <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is <V> string ""American"" </V> </ES> </ES>`
+
+This finds movies that have at least one American actor. If the prompt strictly demands ""all"", and the grammar doesn't support it, this is the best approximation available in the defined syntax. However, sometimes ""all"" questions are mapped to `VerifyQuery` if the intent is to check a specific movie, but here it asks for *the* movies (plural).
+
+Let's consider if there is a way to use `not`.
+`LOP := ""and"" | ""or"" | ""not""`
+Can I do: `what is <ES> <C> movie </C> not that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES>`?
+This would mean ""Movies that do NOT have an actor who is NOT American"". This logically equals ""All actors are American"".
+Does the grammar allow `not` in `LOP` between EntitySets or as a prefix to a Constraint?
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+This allows `A and B`, `A or B`, `A not B`.
+So, `<ES> <C> movie </C> not that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES>`?
+Wait, the second part `that ...` is a Constraint, not an EntitySet directly in the LOP definition.
+The grammar says: `EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`.
+So both sides of LOP must be EntitySets.
+Is `that <R> ...` an EntitySet? No, it's a Constraint attached to a Concept/Entity.
+So `<ES> <C> movie </C>` is an EntitySet.
+Can I do `<ES> <ES> <C> movie </C> </ES> not <ES> <C> movie </C> that ... </ES> </ES>`?
+This would be ""Movies that are in the set of all movies AND NOT in the set of movies with non-American actors"".
+This effectively finds movies where no actor is non-American (i.e., all actors are American, or there are no actors).
+
+Let's construct this:
+1. Set A: All Movies `<ES> <C> movie </C> </ES>`
+2. Set B: Movies with at least one non-American actor `<ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES>`
+3. Result: Set A `not` Set B.
+
+Representation 1:
+`what is <ES> <ES> <C> movie </C> </ES> not <ES> <C> movie </C> that <R> actor </R> forward to <ES> <C> actor </C> whose <A> nationality </A> is not <V> string ""American"" </V> </ES> </ES> </ES>`
+
+This seems the most logically accurate way to express ""All"" using the provided `LOP` and constraint rules.
+
+Let's double check the `AttributeConstraint` for ""not American"".
+`COP := ""is"" | ""is not"" ...`
+So `whose <A> nationality </A> is not <V> string ""American"" </V>` is valid.
+
+Final check of the tree structure for Set B:
+`<ES>`
+  `<C> movie </C>`
+  `Constraint`
+    `RelationConstraint`
+      `""that""`
+      `<R> actor </R>`
+      `""forward""`
+      `""to""`
+      `<ES>` (The Actor Set)
+        `<C> actor </C>`
+        `Constraint`
+          `AttributeConstraint`
+            `""whose""`
+            `<A> nationality </A>`
+            `""is not""`
+            `<V> string ""American"" </V>`
+        `</ES>`
+  `</ES>`
+
+And the final combination:
+`<ES>`
+  `<ES> <C> movie </C> </ES>`
+  `""not""`
+  `<ES> ... (Set B) ... </ES>`
+`</ES>`
+
+This looks correct according to the grammar.
+</think>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── EntitySet
+        │       └── Concept
+        │           ├── ""<C>""
+        │           ├── ""movie""
+        │           └── ""</C>""
+        ├── LOP
+        │   └── ""not""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""movie""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""actor""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           ├── ""<ES>""
+        │   │           ├── EntitySet
+        │   │           │   └── Concept
+        │   │           │       ├── ""<C>""
+        │   │           │       ├── ""actor""
+        │   │           │       └── ""</C>""
+        │   │           ├── Constraint
+        │   │           │   └── AttributeConstraint
+        │   │           │       ├── ""whose""
+        │   │           │       ├── Attribute
+        │   │           │       │   ├── ""<A>""
+        │   │           │       │   ├── ""nationality""
+        │   │           │       │   └── ""</A>""
+        │   │           │       ├── COP
+        │   │           │       │   └── ""is not""
+        │   │           │       └── Value
+        │   │           │           ├── VTYPE
+        │   │           │           │   └── ""string""
+        │   │           │           └── ""<V>""
+        │   │           │               └── ""American""
+        │   │           └── ""</ES>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"

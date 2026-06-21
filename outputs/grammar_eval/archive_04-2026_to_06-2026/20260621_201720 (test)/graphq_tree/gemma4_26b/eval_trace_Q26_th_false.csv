@@ -1,0 +1,152 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q26,Give me all the users whose identifier starts with 'ax' and ends with '9'.,gemma4:26b,False,0.025,11.090405,True,stop,2977,0.161206,539,10.671701,50.5074,"<thinking>
+Representation 1: what is <ES> <C> user </C> that <A> identifier </A> starts with string <V> ax </V> and <A> identifier </A> ends with string <V> 9 </V> </ES>
+
+Wait, the grammar for AttributeConstraint only supports ""whose [Attribute] [COP] [Value]"" or ""that have [SOP] [Attribute]"". The prompt implies a complex filter on an attribute. Since I must follow the grammar:
+The grammar allows `AttributeConstraint := ""whose"" Attribute COP Value`. 
+However, ""starts with"" and ""ends with"" are not explicitly in the `COP` list (`is`, `is not`, `larger than`, etc.). 
+But looking at the prompt's intent, I will treat the identifier constraint as an attribute comparison. Since the grammar is strict, I will represent the filter on the identifier using the available structure.
+
+Actually, a more accurate mapping to the provided grammar for ""whose identifier starts with 'ax' and ends with '9'"" would be:
+what is <ES> <C> user </C> that <A> identifier </A> is <V> ax...9 </V> </ES> 
+But I will try to capture the logic as closely as possible. Since ""starts with"" isn't a COP, I'll use `is`.
+
+Let's refine:
+what is <ES> <C> user </C> that <A> identifier </A> is <V> ax...9 </V> </ES> 
+Actually, the prompt asks for ""all the users"". This is an EntityQuery.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""user""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""identifier""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           ├── string
+        │           ├── ""<V>""
+        │           ├── ""ax...9""
+        │           └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""user""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""identifier""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           ├── string
+        │           ├── ""<V>""
+        │           ├── ""ax...9""
+        │           └── ""</V>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\gemma4_26b\trace_Q26_Give_me_all_the_users_whose_identifier_s_th_false.csv
+graphq_tree,2,Q26,Give me all the users whose identifier starts with 'ax' and ends with '9'.,gemma4:26b,False,0.025,16.661506,True,stop,2977,0.160434,822,16.237308,50.6242,"<thinking>
+Representation 1: what is <ES> <C> user </C> that <A> identifier </A> starts with string <V> ax </V> and <A> identifier </A> ends with string <V> 9 </V> </ES>
+
+Wait, the grammar for AttributeConstraint only supports ""whose [Attribute] [COP] [Value]"" or ""that have [SOP] [Attribute]"". The prompt implies a complex constraint on an attribute. Since I must follow the grammar:
+""whose identifier starts with 'ax' and ends with '9'"" is essentially two constraints. 
+However, looking at the Grammar for Constraint:
+Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+AttributeConstraint := ""whose"" Attribute COP Value | ""that"" ""have"" SOP Attribute
+
+The grammar does not explicitly support ""starts with"" or ""ends with"" as a COP. It only supports `is`, `is not`, `larger than`, `smaller than`, `at least`, `at most`. 
+I will interpret the intent using the closest available structure: `whose identifier is 'ax...'` (though technically imprecise, I must adhere to the provided grammar). 
+
+Actually, looking at the prompt ""Give me all the users..."", this is an EntityQuery.
+The constraint is on the attribute 'identifier'.
+Since the grammar doesn't support string pattern matching (starts with/ends with), I will represent the logical intent as closely as possible using the `AttributeConstraint` structure provided in the grammar.
+
+Let's refine: 
+what is <ES> <C> user </C> that <A> identifier </A> is <V> ax...9 </V> </ES>
+But to be more faithful to the ""and"" logic, I can use the LOP (Logical Operation) in EntitySet.
+
+Representation 1: what is <ES> <ES> <C> user </C> that <A> identifier </A> is <V> string: ax </V> </ES> and <ES> <C> user </C> that <A> identifier </A> is <V> string: 9 </V> </ES>
+Actually, the grammar for EntitySet allows `<ES> EntitySet LOP EntitySet </ES>`.
+
+Let's try to find a way to represent ""starts with"" and ""ends with"". Since I cannot invent new operators, I will treat the identifier as a single value if possible, or use the logical AND of two sets.
+However, the most standard way for this specific grammar is:
+what is <ES> <C> user </C> whose <A> identifier </A> is <V> string: ax...9 </V> </ES> 
+But since I must be a semantic parser, and the prompt has two conditions, I will use the LOP.
+
+Wait, looking at the grammar for AttributeConstraint: `whose Attribute COP Value`.
+I'll represent the identifier constraint as an attribute constraint.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""user""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""identifier""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           ├── string
+        │           ├── ""<V>""
+        │           ├── ""ax...9""
+        │           └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""user""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""identifier""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is""
+        │       └── Value
+        │           ├── string
+        │           ├── ""<V>""
+        │           ├── ""ax...9""
+        │           └── ""</V>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\gemma4_26b\trace_Q26_Give_me_all_the_users_whose_identifier_s_th_false.csv

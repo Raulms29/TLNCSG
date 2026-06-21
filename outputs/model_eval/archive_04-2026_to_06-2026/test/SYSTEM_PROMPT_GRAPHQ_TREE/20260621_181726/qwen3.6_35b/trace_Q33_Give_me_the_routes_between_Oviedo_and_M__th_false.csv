@@ -1,0 +1,220 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q33,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,qwen3.6:35b,False,0.025,24.36201,True,stop,3142,1.274947,1524,22.900559,66.5486,"<thinking>
+The user wants to find ""routes"" (Entities or Concepts) that connect two specific entities: ""Oviedo"" and ""Málaga"".
+The constraint is on the ""total distance"" of these routes, specifically that it must be ""less than 1000 km"".
+
+1.  **Root Query**: We are looking for entities (routes), so `EntityQuery`.
+2.  **Target EntitySet**: `<C> route </C>`.
+3.  **Constraints on the Route**:
+    *   It must connect Oviedo and Málaga. This implies a path or a relation between them. However, usually ""route between A and B"" implies the route is an entity that has endpoints A and B. Let's assume there is a relation `start` or `origin` to Oviedo and `end` or `destination` to Málaga. Or perhaps a single relation `connects`?
+    *   Looking at standard graph schemas for transport, a Route usually has properties like `distance`. It might also have relations to stations/cities. Let's assume relations `start_station` (forward) to Oviedo and `end_station` (forward) to Málaga. Or maybe the route *is* the edge? No, ""routes"" are usually nodes in this context if they have a total distance attribute.
+    *   Let's refine: The query asks for routes *between* Oviedo and Málaga. This suggests the route connects these two cities.
+    *   Constraint 1: The route starts at or goes to Oviedo.
+    *   Constraint 2: The route ends at or goes to Málaga.
+    *   Constraint 3: The attribute `distance` of the route is less than 1000 km.
+
+    Let's structure the EntitySet for ""route"":
+    `<ES> <C> route </C> that <R> start_station </R> forward to <E> Oviedo </E> and that <R> end_station </R> forward to <E> Málaga </E> </ES>`
+
+    Now apply the distance constraint. The grammar allows `AttributeConstraint` inside the EntitySet or as a separate filter.
+    ""whose total distance is less than 1000 km"".
+    Attribute: `<A> distance </A>` (or `total_distance`). Let's use `distance`.
+    Comparison: `smaller than` (since it's ""less than"").
+    Value: `1000` with type `number` or `string`? Usually numbers are just values. The prompt says `VTYPE` can be `numeric`. So `<V> 1000 </V>` with VTYPE `numeric`.
+
+    So the full sequence:
+    ""what is <ES> <C> route </C> that <R> start_station </R> forward to <E> Oviedo </E> and that <R> end_station </R> forward to <E> Málaga </E> whose <A> distance </A> is smaller than <V> 1000 </V> </ES>""
+
+    Wait, the grammar for AttributeConstraint is `whose Attribute COP Value`.
+    The grammar for RelationConstraint is `that Relation DIR to EntitySet`.
+
+    Let's combine them inside the `<ES>`:
+    `<ES> <C> route </C> [RelationConstraint 1] and [RelationConstraint 2] whose <A> distance </A> is smaller than <V> 1000 </V> </ES>`
+
+    Is ""route"" a Concept or Entity? It's a type of thing, so `<C> route </C>`.
+    Are Oviedo and Málaga Entities? Yes, `<E> Oviedo </E>` and `<E> Málaga </E>`.
+
+    Let's check the direction. If `start_station` is a relation from Route to City, then from Route to Oviedo is `forward`.
+    
+    Final Representation 1:
+    what is <ES> <C> route </C> that <R> start_station </R> forward to <E> Oviedo </E> and that <R> end_station </R> forward to <E> Málaga </E> whose <A> distance </A> is smaller than <V> 1000 </V> </ES>
+
+    Let's double check the ""less than"" mapping. `smaller than` is in COP.
+    Value type: `numeric`.
+
+    One detail: The prompt says ""total distance"". I will use attribute name `distance` as it's standard, or `total_distance`. I'll stick to `distance` for simplicity unless specified otherwise, but `total_distance` might be more precise. Given the ambiguity, `distance` is safer as a generic attribute.
+
+    Let's construct the AST.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""route""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""start_station""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Oviedo""
+        │               └── ""</E>""
+        ├── LOP
+        │   └── ""and""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""end_station""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Málaga""
+        │               └── ""</E>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""distance""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""smaller than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""numeric""
+        │           ├── ""<V>""
+        │           ├── ""1000""
+        │           └── ""</V>""
+        └── ""</ES>""
+```"
+2,Q33,Give me the routes between Oviedo and Málaga whose total distance is less than 1000 km.,qwen3.6:35b,False,0.025,24.963704,True,stop,3142,0.087672,1630,24.668592,66.0759,"<thinking>
+The user wants to find ""routes"" (Entities or Concepts) that connect two specific entities: ""Oviedo"" and ""Málaga"".
+The constraint is on the ""total distance"" of these routes, specifically that it must be ""less than 1000 km"".
+
+1.  **Root Query**: We are looking for entities (routes), so `EntityQuery`.
+2.  **Target EntitySet**: `<C> route </C>`.
+3.  **Constraints on the Route**:
+    *   It must connect Oviedo and Málaga. This implies a path or a direct relation. Usually, ""between A and B"" for a route implies the route has endpoints A and B. Let's assume a relation `start` (forward to start point) and `end` (backward from end point) or simply that the route *is* the connection.
+    *   However, standard GraphQ IR often models ""between"" as two constraints on the same entity set: one relating to Oviedo and one to Málaga.
+    *   Let's define the relation from Route to City as `start` (forward) and `end` (backward)? Or perhaps `origin` and `destination`. Without a specific schema, I will use generic relations `start` and `end` or just assume the route connects them. A common pattern for ""between"" is: `<ES> <C> route </C> that <R> start </R> forward to <E> Oviedo </E> AND that <R> end </R> backward to <E> Málaga </E> </ES>`.
+    *   Wait, the prompt asks for ""routes between..."". Let's assume a relation `connects` or similar. If we don't know the schema, we can use generic relations like `origin` and `destination`.
+    *   Let's refine: The route has an origin Oviedo and a destination Málaga.
+        *   Constraint 1: `<R> origin </R>` forward to `<E> Oviedo </E>`.
+        *   Constraint 2: `<R> destination </R>` backward to `<E> Málaga </E>`. (Since the route points TO the destination, going from Route to Destination is forward. Going from Destination to Route is backward. So `destination` forward to Málaga).
+    *   Actually, let's look at the ""distance"" constraint. The distance is an attribute of the route.
+    *   Constraint 3: Attribute `<A> distance </A>` is smaller than Value `<V> 1000 </V>` (with unit km implied or just number).
+
+Let's construct the sequence:
+""what is <ES> <C> route </C> that <R> origin </R> forward to <E> Oviedo </E> and that <R> destination </R> forward to <E> Málaga </E> whose <A> distance </A> is smaller than 1000 </ES>""
+
+Wait, ""between"" might imply an undirected relationship or just existence. Let's stick to the explicit connections.
+Also, the value ""1000 km"". The grammar allows `VTYPE` before `<V>`. So `numeric <V> 1000 </V>`.
+
+Let's re-evaluate the relations. If I say ""Route X connects Oviedo and Málaga"", it usually means:
+- Route X has origin Oviedo.
+- Route X has destination Málaga.
+
+So:
+`<ES>`
+  `<C> route </C>`
+  `Constraint`:
+    `that <R> origin </R> forward to <E> Oviedo </E>`
+    `and`
+    `that <R> destination </R> forward to <E> Málaga </E>`
+  `AttributeConstraint`:
+    `whose <A> distance </A> is smaller than numeric <V> 1000 </V>`
+`</ES>`
+
+Let's check the directionality.
+If Relation is `origin`: Route -> Oviedo. Direction: forward.
+If Relation is `destination`: Route -> Málaga. Direction: forward.
+
+So the sequence is:
+""what is <ES> <C> route </C> that <R> origin </R> forward to <E> Oviedo </E> and that <R> destination </R> forward to <E> Málaga </E> whose <A> distance </A> is smaller than numeric <V> 1000 </V> </ES>""
+
+One detail: ""less than"" maps to `smaller than`.
+
+Let's double check if ""routes between"" implies a single hop or multi-hop. Usually in these datasets (like Wikidata/DBpedia), a route is an entity itself with properties. So treating it as an EntitySet filtered by relations to the cities and an attribute constraint is correct.
+
+Representation 1:
+what is <ES> <C> route </C> that <R> origin </R> forward to <E> Oviedo </E> and that <R> destination </R> forward to <E> Málaga </E> whose <A> distance </A> is smaller than numeric <V> 1000 </V> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""route""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""origin""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""forward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Oviedo""
+        │   │           └── ""</E>""
+        │   ├── LOP
+        │   │   └── ""and""
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""destination""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Málaga""
+        │               └── ""</E>""
+        ├── AttributeConstraint
+        │   ├── ""whose""
+        │   ├── Attribute
+        │   │   ├── ""<A>""
+        │   │   ├── ""distance""
+        │   │   └── ""</A>""
+        │   ├── COP
+        │   │   └── ""smaller than""
+        │   └── Value
+        │       ├── VTYPE
+        │       │   └── ""numeric""
+        │       ├── ""<V>""
+        │       ├── ""1000""
+        │       └── ""</V>""
+        └── ""</ES>""
+```"

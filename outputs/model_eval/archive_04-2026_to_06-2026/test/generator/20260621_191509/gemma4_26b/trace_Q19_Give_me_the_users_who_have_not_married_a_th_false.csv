@@ -1,0 +1,168 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q19,Give me the users who have not married anyone.,gemma4:26b,False,0.025,14.22978,True,stop,7356,0.101403,1260,13.850067,90.9743,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""User"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e1"" },
+        ""condition"": {
+          ""list"": {
+            ""list"": { ""rels_of"": ""p1"", ""rel_id"": ""r1"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""r1"" },
+            ""operator"": ""="",
+            ""right"": ""married_to""
+          },
+          ""quantifier_kind"": ""NONE""
+        }
+      },
+      ""not_condition"": {
+        ""RELATIONSHIP_ID"": ""r1""
+      }
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, looking at the grammar and instructions for existence/negation: ""For simple relational existence or negation (e.g., 'works with', 'not married to anyone'), prefer direct RELATIONSHIP_ID checks combined with logical operators (AND, NOT) in the constraint.""
+
+Let's refine that to be strictly compliant with the provided examples and grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""User"" },
+      { ""id"": ""e2"", ""type"": ""User"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""married_to"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""not_condition"": {
+        ""RELATIONSHIP_ID"": ""r1""
+      }
+    }
+  }
+]
+```
+
+Actually, the instruction says: ""For simple relational existence or negation... prefer direct RELATIONSHIP_ID checks combined with logical operators (AND, NOT) in the constraint."" 
+
+However, a `RELATIONSHIP_ID` as a condition usually implies that specific relationship exists. To say ""not married to anyone"", we need to check if there is *no* relationship of type 'married_to' for the target user.
+
+Let's use the `QUANTIFIER_PREDICATE` approach which is more robust for ""anyone"" (meaning no connection exists).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""User"" },
+      { ""id"": ""e2"", ""type"": ""User"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""married_to"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""RELATIONSHIP_ID"": ""r1""
+      },
+      ""quantifier_kind"": ""NONE""
+    }
+  }
+]
+```
+
+Wait, the `QUANTIFIER_PREDICATE` requires a `list` and a `condition`. The list must be defined. If we are looking for users (`e1`) who have no marriage, the constraint is on `e1`. 
+
+Let's use the most direct interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""User"" },
+      { ""id"": ""e2"", ""type"": ""User"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""married_to"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""RELATIONSHIP_ID"": ""r1""
+      },
+      ""quantifier_kind"": ""NONE""
+    }
+  }
+]
+```
+
+Actually, looking at the `QUANTIFIER_PREDICATE` example in the prompt: 
+`""list"": { ""list"": { ""list_elements"": ""e2"" } }, ""condition"": { ... }, ""quantifier_kind"": ""ALL""`
+The target is `e1`. The constraint checks if the list of people `e2` (connected via `r1`) satisfies a condition. If we want ""no one"", we check if `NONE` of the connections exist.
+
+Final attempt at clean logic:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""User"" },
+      { ""id"": ""e2"", ""type"": ""User"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""married_to"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""RELATIONSHIP_ID"": ""r1""
+      },
+      ""quantifier_kind"": ""NONE""
+    }
+  }
+]
+```"
+2,Q19,Give me the users who have not married anyone.,gemma4:26b,False,0.025,2.45925,True,stop,7356,0.119541,188,2.061069,91.2148,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""User"" },
+      { ""id"": ""e2"", ""type"": ""User"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""married_to"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""not_condition"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e2"" }
+        },
+        ""condition"": {
+          ""relationship_id"": ""r1""
+        },
+        ""quantifier_kind"": ""EXISTS""
+      }
+    }
+  }
+]
+```"

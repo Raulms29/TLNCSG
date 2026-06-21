@@ -1,0 +1,262 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,22.43474,True,stop,3139,0.464709,1885,21.781101,86.5429,"<thinking>
+Representation 1: what is <ES> <C> product </C> that <R> purchase </R> forward to <ES> <E> USR-99 </E> </ES>
+(Note: The query asks for products purchased BY a specific customer. This implies the relation is from Product to Customer (Product was purchased by Customer). Therefore, to find the product given the customer, we look for products that have a 'purchase' relation pointing forward to the customer entity. Wait, let's re-evaluate directionality.
+If Relation is `purchased_by` (Product -> Customer), then ""products purchased by Customer"" means Product --[purchased_by]--> Customer. To find Products given Customer, we traverse `purchased_by` backward? No, usually relations are defined as Source -> Target.
+Let's assume the relation name is `purchase` or `bought`.
+If the graph has edges: Product --[purchased_by]--> Customer.
+Query: Find Products such that there exists a path Product --[purchased_by]--> Customer where Customer == USR-99.
+In GraphQ IR, ""that <R> DIR to EntitySet"" usually constrains the current EntitySet via relation R in direction DIR towards the target EntitySet.
+If I say ""<C> product that <R> purchased_by forward to <E> USR-99 </E>"", it means: Start with Product, follow `purchased_by` forward, arrive at USR-99. This matches the logic.
+So, Relation is `purchased_by` (or similar), Direction is `forward`.
+However, often ""purchased by"" might be modeled as `buyer` (Customer -> Product). If the relation is `buyer`, then Customer --[buyer]--> Product. To find products given customer, we go forward from Customer? No, we are starting with the concept of Product and constraining it.
+Let's stick to the explicit relation name derived from the verb ""purchased"". The edge is likely `purchased_by` (Product -> Customer) or `has_purchase` (Customer -> Product).
+If the edge is `has_purchase` (Customer -> Product), then ""products purchased by customer"" means we want Products that are the target of a `has_purchase` from USR-99.
+Constraint on Product: ""that <R> has_purchase backward to <E> USR-99"".
+Let's use a generic relation name `purchase` which is ambiguous in direction without schema, but standard GraphQ practice for ""X that R to Y"" implies X --[R]--> Y.
+If I assume the relation is `purchased_by` (Product -> Customer), then:
+<Product> that <R> purchased_by forward to <E> USR-99.
+This seems the most direct translation of ""Products ... purchased by ..."".
+
+Let's refine the Relation name. The prompt says ""purchased by"". A common schema edge is `purchased_by` pointing from Item to Buyer.
+So: `<C> product </C> that <R> purchased_by </R> forward to <E> USR-99 </E>`.
+
+Wait, looking at the previous example: ""actors of the movie Inception"".
+Movie --[actor]--> Actor? No, usually Movie has actors. So Movie --[cast/actor]--> Actor.
+Query: Actors OF Movie.
+Rep1: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+Here, the relation `actor` connects Actor to Movie? Or Movie to Actor?
+If `actor` is the edge from Movie to Actor (Movie has_actor Actor), then to find Actors given Movie, you go forward.
+But the example used `backward`. This implies the relation in the graph is defined as `actor` pointing FROM Actor TO Movie (Actor acts_in Movie).
+So, if I have ""Products purchased by Customer"", and I follow the pattern of ""Actors OF Movie"" using `backward`, it implies the relation `purchased_by` points FROM Product TO Customer.
+Therefore: `<C> product </C> that <R> purchased_by </R> forward to <E> USR-99 </E>`?
+No, if the example used `backward` for ""Actors OF Movie"", and the relation was `actor`, it meant Actor --[actor]--> Movie.
+So if I want Products given Customer, and the relation is `purchased_by` (Product --[purchased_by]--> Customer), then to find Products connected to Customer via this edge, I must traverse the edge in the direction of the edge?
+If I start with `<C> product </C>`, and I say ""that <R> purchased_by forward to <E> USR-99"", it means Product --[purchased_by]--> Customer. This is correct.
+
+Let's double check the example logic again.
+""Give me the actors of the movie Inception.""
+Rep1: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`
+This implies: Actor --[actor]--> Movie.
+So the relation `actor` originates at Actor and points to Movie.
+
+My query: ""products that have been purchased by the customer...""
+Relation: `purchased_by`. Originates at Product, points to Customer.
+So: Product --[purchased_by]--> Customer.
+To constrain Product using Customer: `<C> product </C> that <R> purchased_by </R> forward to <E> USR-99 </E>`.
+
+Is there a simpler relation? Maybe `buyer`? Customer --[buyer]--> Product.
+If I use `buyer`, then: `<C> product </C> that <R> buyer </R> backward to <E> USR-99 </E>`.
+Both are valid depending on schema. ""purchased by"" strongly suggests the edge is `purchased_by` (Product -> Customer). I will use `purchased_by` and `forward`.
+
+Actually, let's look at the phrasing ""products that have been purchased"". This is passive. The active voice is ""Customer purchased Product"".
+If the schema has `purchase` (Customer -> Product), then:
+<Product> that <R> purchase backward to <E> USR-99 </E>.
+
+Let's stick to the most literal interpretation of the text provided for the relation name if possible, or a standard one. ""purchased by"" is in the text. I will use `purchased_by` as the relation name and `forward` direction, assuming the edge is Product -> Customer.
+
+Wait, if I look at the example ""actors of the movie"", it used `backward`. Why?
+If the graph was Movie --[actor]--> Actor, then finding Actors given Movie would be `forward`.
+The fact that it used `backward` means the graph was Actor --[actor]--> Movie.
+
+So, for ""products purchased by customer"":
+If the graph is Product --[purchased_by]--> Customer, I use `forward`.
+If the graph is Customer --[purchased_by]--> Product (unlikely naming), I use `backward`.
+Standard ontology: `purchased_by` links Item to Person. So Product -> Customer.
+So I will use `forward`.
+
+One more check: ""customer with ID 'USR-99'"". This is an Entity constraint on the customer? No, it's just identifying the entity.
+So `<E> USR-99 </E>`.
+
+Final Sequence: what is <ES> <C> product </C> that <R> purchased_by </R> forward to <E> USR-99 </E> </ES>
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │       ├── ""purchased_by""
+        │       │       └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q12,"The Candidate is semantically and structurally equivalent to the Ground Truth. It correctly identifies the EntityQuery type, the nested EntitySet hierarchy with XML boundaries, and the directionality of the relation. The minor difference in the relation string ('purchased_by' vs 'purchased by') is a negligible lexical variation that does not affect the graph traversal logic.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. It correctly identifies the EntityQuery type, the nested EntitySet hierarchy with XML boundaries, and the directionality of the relation. The minor difference in the relation string ('purchased_by' vs 'purchased by') is a negligible lexical variation that does not affect the graph traversal logic."",
+  ""score"": 1.0
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased by""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │       ├── ""purchased_by""
+        │       │       └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q12_Give_me_the_products_that_have_been_purc_th_false.csv
+graphq_tree,2,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,11.310135,True,stop,3139,0.082522,960,11.026433,87.0635,"<thinking>
+Representation 1: what is <ES> <C> product </C> that <R> purchase </R> forward to <ES> <E> USR-99 </E> </ES>
+(Note: The query asks for products purchased BY a specific customer. This implies the relation is from Product to Customer (Product was purchased by Customer). Therefore, to find the product given the customer, we look for products that have a 'purchase' relation pointing forward to the customer entity. Wait, let's re-evaluate directionality.
+If Relation is `purchased_by` (Product -> Customer), then ""products purchased by Customer"" means Product --[purchased_by]--> Customer. To find the Product given the Customer, we traverse `purchased_by` backward? No, usually relations are defined as Subject -> Object.
+Let's assume a standard schema: `Customer` has relation `purchases` to `Product`. Or `Product` has relation `purchased_by` to `Customer`.
+If the relation is `purchased_by` (Product -> Customer), then ""products purchased by USR-99"" means we want Products where `purchased_by` points to USR-99. This is a backward traversal from the perspective of finding the source node given the target? No, if I have the target (Customer), and I want the source (Product) via relation `purchased_by`, I traverse `purchased_by` *backward*?
+Let's look at the example: ""actors of Inception"". Relation `actor` (Movie -> Actor). To find actors given movie, we go Movie --[actor]--> Actor. This is forward traversal from Movie to Actor.
+Here: ""products purchased by Customer"".
+Case A: Relation `purchases` (Customer -> Product). Query: Products that are targets of `purchases` from USR-99. Path: USR-99 --[purchases]--> Product. Direction from USR-99 is forward. So we want products connected via `purchases` forward from USR-99.
+Case B: Relation `purchased_by` (Product -> Customer). Query: Products that have `purchased_by` pointing to USR-99. Path: Product --[purchased_by]--> USR-99. To find the Product given USR-99, we traverse `purchased_by` backward.
+
+Standard KBpedia/DBpedia style often uses `purchasedBy` (Product -> Person).
+However, ""products that have been purchased by..."" suggests the action is on the product.
+Let's stick to the most logical graph traversal for ""Give me X that did Y to Z"".
+If I say ""Give me movies directed by Spielberg"", relation is `director` (Movie -> Director). To find movies given director, we traverse `director` backward.
+Here: ""products purchased by customer"". Relation `purchasedBy` (Product -> Customer). To find products given customer, we traverse `purchasedBy` backward.
+
+Let's refine the EntitySet structure.
+Root: Products.
+Constraint: That relation `purchasedBy` points to Entity `USR-99`.
+So: `<ES> <C> product </C> that <R> purchasedBy </R> backward to <E> USR-99 </E> </ES>`
+
+Wait, the prompt says ""customer with ID 'USR-99'"". I should treat 'USR-99' as an Entity.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchasedBy""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.75,0.75,Q12,"The Candidate correctly identifies the query type, entities, and constraints. However, it introduces a directionality error: by using 'backward' with the relation 'purchasedBy', the logic implies the customer was purchased by the product, which is semantically incorrect given the natural language intent. Additionally, it uses camelCase for the relation name instead of the literal string from the query.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the query type, entities, and constraints. However, it introduces a directionality error: by using 'backward' with the relation 'purchasedBy', the logic implies the customer was purchased by the product, which is semantically incorrect given the natural language intent. Additionally, it uses camelCase for the relation name instead of the literal string from the query."",
+  ""score"": 0.75
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased by""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchasedBy""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q12_Give_me_the_products_that_have_been_purc_th_false.csv

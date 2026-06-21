@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import re
 
 import numpy as np
 import pandas as pd
@@ -108,7 +109,7 @@ def evaluate_grammars(
             }
 
     execution_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path(output_root) / execution_id
+    output_dir = Path(output_root).resolve() / execution_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ollama_client = Client(ollama_server)
@@ -158,6 +159,11 @@ def evaluate_grammars(
 
         grammar_output_dir = output_dir / safe_name(grammar_label)
         grammar_output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Partial files for this grammar are stored in a dedicated subfolder
+        # so they do not clutter the final output directory.
+        grammar_partial_dir = grammar_output_dir / "partial"
+        grammar_partial_dir.mkdir(parents=True, exist_ok=True)
 
         per_file_paths: list[str] = []
         grammar_frames: list[pd.DataFrame] = []
@@ -217,7 +223,7 @@ def evaluate_grammars(
             # Persist cumulative partial files after each execution file
             partial_df = pd.concat(grammar_frames, ignore_index=True)
             partial_df.to_csv(
-                grammar_output_dir / "scores_all_evaluations_partial.csv",
+                grammar_partial_dir / "scores_all_evaluations_partial.csv",
                 index=False,
                 encoding="utf-8",
             )
@@ -236,11 +242,11 @@ def evaluate_grammars(
                 ("by_query",                      "scores_by_query_partial"),
             ]:
                 p_aggs[key].to_csv(
-                    grammar_output_dir / f"{stem}.csv",
+                    grammar_partial_dir / f"{stem}.csv",
                     index=False,
                     encoding="utf-8",
                 )
-            print("    Updated partial global summary files.")
+            print(f"    Updated partial files: {grammar_partial_dir}")
 
         if not grammar_frames:
             raise ValueError(
@@ -281,25 +287,16 @@ def evaluate_grammars(
             "by_model_mode_df": aggs["by_model_mode"],
         }
 
-        # Clean up partial files
-        partial_files = [
-            grammar_output_dir / "scores_all_evaluations_partial.csv",
-            grammar_output_dir / "scores_by_model_query_criterion_partial.csv",
-            grammar_output_dir / "scores_by_criterion_partial.csv",
-            grammar_output_dir / "scores_by_query_criterion_partial.csv",
-            grammar_output_dir / "scores_by_model_query_partial.csv",
-            grammar_output_dir / "grammar_scores_by_model_partial.csv",
-            grammar_output_dir / "scores_by_query_partial.csv",
-        ]
-        for pf in partial_files:
-            if pf.exists():
-                pf.unlink()
         all_combined_frames.append(grammar_all_df)
 
         # Persist cumulative combined partial files after each grammar completes
+        # Stored in a dedicated partial/ subfolder to keep the root dir clean.
+        combined_partial_dir = output_dir / "partial"
+        combined_partial_dir.mkdir(parents=True, exist_ok=True)
+
         combined_partial_df = pd.concat(all_combined_frames, ignore_index=True)
         combined_partial_df.to_csv(
-            output_dir / f"combined_all_runs_partial_{execution_id}.csv",
+            combined_partial_dir / "scores_all_evaluations_partial.csv",
             index=False,
             encoding="utf-8",
         )
@@ -310,20 +307,20 @@ def evaluate_grammars(
             confidence_level=confidence_level,
         )
         for key, stem in [
-            ("by_model_mode_query_criterion", "combined_model_mode_query_criterion_partial"),
-            ("by_model_mode_criterion",       "combined_model_mode_criterion_partial"),
-            ("by_query_criterion",            "combined_query_criterion_partial"),
-            ("by_model_mode_query",           "combined_model_mode_query_partial"),
-            ("by_model_mode",                 "combined_model_mode_partial"),
-            ("by_query",                      "combined_query_partial"),
+            ("by_model_mode_query_criterion", "scores_by_model_query_criterion_partial"),
+            ("by_model_mode_criterion",       "scores_by_criterion_partial"),
+            ("by_query_criterion",            "scores_by_query_criterion_partial"),
+            ("by_model_mode_query",           "scores_by_model_query_partial"),
+            ("by_model_mode",                 "scores_by_model_partial"),
+            ("by_query",                      "scores_by_query_partial"),
         ]:
             p_combined_aggs[key].to_csv(
-                output_dir / f"{stem}_{execution_id}.csv",
+                combined_partial_dir / f"{stem}.csv",
                 index=False,
                 encoding="utf-8",
             )
         print(f"Saved grammar output folder: {grammar_output_dir}")
-        print("    Updated partial global summary files.")
+        print(f"    Updated combined partial files: {combined_partial_dir}")
 
 
     # -----------------------------------------------------------------------

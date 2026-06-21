@@ -1,0 +1,443 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q25,"Tell me the kings of Spain who were born before August 3rd, 1492.",qwen3.6:35b,False,0.025,30.000041,True,stop,3141,0.435994,2401,29.344256,81.8218,"<thinking>
+Representation 1: what is <ES> <C> king </C> that <R> born </R> backward to <V> date ""August 3rd, 1492"" </V> and <R> reign </R> forward to <E> Spain </E> </ES>
+
+Wait, the constraint is ""born before August 3rd, 1492"". This implies a temporal qualifier on the birth event or relation.
+Let's refine: We are looking for Kings (Concept) who have a 'born' relation pointing to them (backward from King to Birth Event/Date? Or forward from Birth Event to King?). Usually, ""X was born in Y"" means Relation(X, Y). If we start with King, the relation is ""born"".
+If the graph structure is `King --[born]--> Date`, then to find Kings born *before* a date, we need to filter the Kings by this property.
+
+Let's look at the standard pattern for temporal constraints in GraphQ IR examples.
+Usually: `<ES> <C> king </C> that <R> born </R> backward to <V> date ""1492-08-03"" </V>`? No, that would mean the King is the *destination* of the birth relation from the date? That doesn't make sense.
+Usually: `King --[born]--> Date`. So if we have a King node, the relation `born` goes forward to the Date.
+So: `<ES> <C> king </C> that <R> born </R> forward to <V> date ""August 3rd, 1492"" </V>`?
+But the query is ""born *before*"". This requires a comparison operator `smaller than` or `at most`.
+
+Let's re-read the grammar for Qualifiers.
+`QualifierConstraint := Qualifier COP Value`
+This applies to an EntitySet filtered by a Constraint which has a Qualifier.
+
+So:
+1. Root: `what is <ES> ... </ES>` (EntityQuery)
+2. Inside ES: `<C> king </C>`
+3. Constraint on King:
+   - RelationConstraint? No, we are filtering the King's birth date.
+   - Actually, usually ""born"" is an attribute or a relation to a date entity. Let's assume `born` is a relation from King to Date.
+   - If `born` is a relation, we can constrain it with a qualifier if the relation itself has temporal properties, OR we treat the date as the target of the relation and apply logic there?
+   
+   Let's look at the example: ""cities in Japan"". `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E> </ES>`.
+   
+   For ""Kings born before 1492"":
+   We want Kings.
+   Constraint: Their birth date is smaller than 1492-08-03.
+   
+   How is ""born"" represented?
+   If `King --[born]--> Date`, then to filter Kings, we might say:
+   `<ES> <C> king </C> that <R> born </R> forward to <V> date ""August 3rd, 1492"" </V>` is not quite right because it checks equality or existence.
+   
+   Let's use the Qualifier syntax if `born` is treated as a relation with a temporal value?
+   Or perhaps `born` is an attribute `<A> birth date </A>`?
+   The prompt says ""Tell me the kings..."".
+   
+   Let's assume `born` is a Relation.
+   If we use `QualifierConstraint`, it attaches to the Constraint.
+   Example: `what is the qualifier ... of EntitySet Constraint`.
+   
+   Let's try this structure:
+   `<ES> <C> king </C> that <R> born </R> forward to <V> date ""August 3rd, 1492"" </V>`? No.
+   
+   Let's look at the grammar again:
+   `Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+   `QualifierConstraint := Qualifier COP Value`
+   
+   If we use a RelationConstraint, can it have a Qualifier?
+   ""that <R> born <DIR> to <ES> ... <QualifierConstraint>""?
+   The grammar says: `RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet`.
+   It does NOT explicitly allow a QualifierConstraint on the RelationConstraint itself in the same way AttributeConstraint does.
+   
+   However, often ""born before X"" is modeled as:
+   Find Kings.
+   Filter by: The date they were born is smaller than 1492-08-03.
+   
+   If `born` is an attribute `<A> birth date </A>`:
+   `what is <ES> <C> king </C> whose <A> birth date </A> smaller than <V> date ""August 3rd, 1492"" </V> </ES>`
+   
+   If `born` is a relation `<R> born </R>`:
+   We might need to traverse to the date and check it?
+   But we want the Kings.
+   
+   Let's assume `born` is an attribute for simplicity as it maps directly to ""birth date"".
+   
+   Representation 1: what is <ES> <C> king </C> whose <A> birth date </A> smaller than <V> date ""August 3rd, 1492"" </V> </ES>
+
+   Wait, the prompt asks for ""kings of Spain"".
+   So we also need to constrain that they reigned in Spain.
+   
+   Representation 1: what is <ES> <C> king </C> whose <A> birth date </A> smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>
+
+   Let's check the direction of `reign`.
+   King --[reign]--> Country? Or Country --[has king]--> King?
+   Usually ""King of Spain"" implies a relation between King and Spain.
+   If we start with King, and want to filter by Spain:
+   `<ES> <C> king </C> that <R> reign </R> forward to <E> Spain </E>` (King reigns in Spain).
+
+   So the combined constraint is:
+   1. Attribute Constraint: `whose <A> birth date </A> smaller than <V> ...`
+   2. Relation Constraint: `that <R> reign </R> forward to <E> Spain </E>`
+   
+   Combined in ES:
+   `<ES> <C> king </C> whose <A> birth date </A> smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>`
+
+   Let's verify the ""born before"" part.
+   If `born` is a relation, can we do:
+   `<ES> <C> king </C> that <R> born </R> backward to <V> date ""August 3rd, 1492"" </V>`?
+   No, that would mean the Date points to the King.
+   
+   If `born` is a relation from King to Date:
+   We can't easily compare the *target* of a relation in this simple IR unless we use a Qualifier on the relation?
+   The grammar allows `QualifierConstraint` on `AttributeConstraint` and `RelationConstraint`.
+   
+   Let's try using `born` as a Relation with a Qualifier.
+   Constraint: `that <R> born </R> forward to <ES> ... </ES>`? No.
+   
+   Actually, looking at the grammar:
+   `RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet`
+   It doesn't support Qualifiers directly on the relation constraint in the standard way shown in examples for temporal filtering of the *edge*.
+   
+   However, if we treat `birth date` as an Attribute, it is much cleaner.
+   
+   Let's stick to:
+   1. Concept: King
+   2. Constraint 1 (Attribute): Birth date < 1492-08-03
+   3. Constraint 2 (Relation): Reigns in Spain
+   
+   Sequence:
+   what is <ES> <C> king </C> whose <A> birth date </A> smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>
+
+   One detail: ""August 3rd, 1492"".
+   Value type: `date`.
+   
+   Final check on logic:
+   - Root: EntityQuery (""what is"")
+   - EntitySet contains Concept ""king""
+   - Constraint 1: AttributeConstraint (`whose <A> birth date </A> smaller than <V> ...`)
+   - LOP: `and`
+   - Constraint 2: RelationConstraint (`that <R> reign </R> forward to <E> Spain </E>`)
+
+   This looks correct and robust.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""king""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""birth date""
+        │       │   └── ""</A>""
+        │       └── COP
+        │           └── ""smaller than""
+        ├── LOP
+        │   └── ""and""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""reign""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Spain""
+        │               └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.4,0.4,Q25,"The Candidate fails on several structural levels. First, it attempts to use a logical operator 'and' (LOP) as a sibling to constraints within an EntitySet, which violates the grammar where constraints must be nested or part of the EntitySet definition. Second, it omits the actual Value for the AttributeConstraint (the date), leaving the comparison incomplete. Third, while it captures the entities and relations, the structural breakdown of the EntitySet hierarchy is malformed compared to the required AST structure.",,"```json
+{
+  ""rationale"": ""The Candidate fails on several structural levels. First, it attempts to use a logical operator 'and' (LOP) as a sibling to constraints within an EntitySet, which violates the grammar where constraints must be nested or part of the EntitySet definition. Second, it omits the actual Value for the AttributeConstraint (the date), leaving the comparison incomplete. Third, while it captures the entities and relations, the structural breakdown of the EntitySet hierarchy is malformed compared to the required AST structure."",
+  ""score"": 0.4
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""king""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""kingdom""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Spain""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""birth date""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""smaller than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""date""
+        │           ├── ""<V>""
+        │           ├── ""1492-08-03""
+        │           └── ""</V>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""king""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""birth date""
+        │       │   └── ""</A>""
+        │       └── COP
+        │           └── ""smaller than""
+        ├── LOP
+        │   └── ""and""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""reign""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Spain""
+        │               └── ""</E>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q25_Tell_me_the_kings_of_Spain_who_were_born_th_false.csv
+graphq_tree,2,Q25,"Tell me the kings of Spain who were born before August 3rd, 1492.",qwen3.6:35b,False,0.025,22.996646,True,stop,3141,0.086147,1546,22.713,68.0667,"<thinking>
+Representation 1: what is <ES> <C> king </C> that <R> born </R> backward to <V> date ""August 3rd, 1492"" </V> and <R> reign </R> forward to <E> Spain </E> </ES>
+
+Wait, the constraint is ""born before August 3rd, 1492"". This implies a temporal qualifier on the birth event or relation.
+Let's refine: We are looking for Kings (Concept) who have a 'born' relation pointing to them (backward from King to Birth Event/Date? Or forward from Birth Event to King?). Usually, ""King born in Date"" means there is a relation `born` from King to Date/Event. If the date is the target, it's `born forward`.
+However, standard KBpedia/Wikidata modeling often has `born` as a property of the person pointing to the date/place. So `King --[born]--> Date`.
+The query asks for Kings who were born *before* a specific date.
+So: Find Kings such that their birth date is earlier than August 3rd, 1492 AND they reigned in Spain.
+
+Let's break down the relations:
+1. King is an Entity/Concept.
+2. Relation `born` connects King to Date (or Birth Event). Direction: King -> Date is forward.
+3. Constraint on `born`: The value (Date) must be ""smaller than"" (earlier than) August 3rd, 1492.
+4. Relation `reign` or `monarch_of` connects King to Spain. Direction: King -> Spain is forward.
+
+So the EntitySet is: `<C> king </C>` constrained by:
+- A relation constraint for `born`: that `born` forward to a Value which is ""smaller than"" August 3rd, 1492.
+- A relation constraint for `reign`: that `reign` forward to <E> Spain </E>.
+
+Let's construct the sequence:
+what is <ES> <C> king </C> that <R> born </R> forward to a Value smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>
+
+Refining the ""born before"" part. The grammar allows `QualifierConstraint` inside a `RelationConstraint`?
+Grammar:
+`RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet | ""that"" Relation DIR ""to"" SOP EntitySet`
+It doesn't explicitly show how to attach a qualifier constraint to the *target* of a relation in the sequence syntax easily without nesting.
+However, looking at `Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`.
+This suggests qualifiers apply to the *subject* of the constraint (the King), not necessarily the object of the relation directly in this simple grammar structure unless we treat the date as an EntitySet or use a specific value comparison.
+
+Actually, often ""born before X"" is modeled as:
+King --[born]--> DateEvent. DateEvent --[date]--> Value.
+Or simply King --[born_date]--> DateValue.
+
+If we assume `born` points to the date directly:
+`that <R> born </R> forward to <V> date ""August 3rd, 1492"" </V>` is an equality check.
+To do ""before"", we need a comparison. The grammar has `COP` (Comparison Operator).
+`AttributeConstraint := ""whose"" Attribute COP Value`. This applies to the King's attributes.
+If `born_date` is an attribute of King:
+`what is <ES> <C> king </C> whose <A> born_date </A> smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>`
+
+This seems cleaner and fits the `AttributeConstraint` definition better.
+
+Let's verify the ""reign"" part.
+`that <R> reign </R> forward to <E> Spain </E>`. This is a `RelationConstraint`.
+
+So the structure is:
+EntitySet (King)
+  Constraint:
+    AttributeConstraint: whose born_date smaller than date Aug 3 1492
+    AND
+    RelationConstraint: that reign forward to Spain
+
+Sequence:
+what is <ES> <C> king </C> whose <A> born_date </A> smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>
+
+Let's double check the direction of `reign`.
+If King is the subject, and Spain is the object, `reign` goes from King to Spain. So `forward`.
+
+Final Sequence:
+what is <ES> <C> king </C> whose <A> born_date </A> smaller than <V> date ""August 3rd, 1492"" </V> and that <R> reign </R> forward to <E> Spain </E> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""king""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── AttributeConstraint
+        │   │   ├── ""whose""
+        │   │   ├── Attribute
+        │   │   │   ├── ""<A>""
+        │   │   │   ├── ""born_date""
+        │   │   │   └── ""</A>""
+        │   │   ├── COP
+        │   │   │   └── ""smaller than""
+        │   │   └── Value
+        │   │       ├── VTYPE
+        │   │       │   └── ""date""
+        │   │       ├── ""<V>""
+        │   │       ├── ""August 3rd, 1492""
+        │   │       └── ""</V>""
+        │   └── RelationConstraint
+        │       ├── ""and""
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""reign""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Spain""
+        │               └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.5,0.5,Q25,"The Candidate fails to correctly structure the hierarchy of constraints. It attempts to place both an AttributeConstraint and a RelationConstraint under a single Constraint node using an 'and' operator, which is not supported by the grammar (the grammar uses LOP for EntitySet composition, not within a Constraint). Additionally, it introduces a hallucinated relation 'reign' instead of following the Ground Truth's use of 'kingdom', and uses a non-standard date string format in the Value node.",,"```json
+{
+  ""rationale"": ""The Candidate fails to correctly structure the hierarchy of constraints. It attempts to place both an AttributeConstraint and a RelationConstraint under a single Constraint node using an 'and' operator, which is not supported by the grammar (the grammar uses LOP for EntitySet composition, not within a Constraint). Additionally, it introduces a hallucinated relation 'reign' instead of following the Ground Truth's use of 'kingdom', and uses a non-standard date string format in the Value node."",
+  ""score"": 0.5
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""king""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""kingdom""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""forward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Spain""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""birth date""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""smaller than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""date""
+        │           ├── ""<V>""
+        │           ├── ""1492-08-03""
+        │           └── ""</V>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""king""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── AttributeConstraint
+        │   │   ├── ""whose""
+        │   │   ├── Attribute
+        │   │   │   ├── ""<A>""
+        │   │   │   ├── ""born_date""
+        │   │   │   └── ""</A>""
+        │   │   ├── COP
+        │   │   │   └── ""smaller than""
+        │   │   └── Value
+        │   │       ├── VTYPE
+        │   │       │   └── ""date""
+        │   │       ├── ""<V>""
+        │   │       ├── ""August 3rd, 1492""
+        │   │       └── ""</V>""
+        │   └── RelationConstraint
+        │       ├── ""and""
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""reign""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Spain""
+        │               └── ""</E>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q25_Tell_me_the_kings_of_Spain_who_were_born_th_false.csv

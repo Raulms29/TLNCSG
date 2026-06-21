@@ -869,8 +869,11 @@ def run_models_summary(
     query_file_paths: list[str] = []
     execution_file_paths: list[str] = []
     model_comparison_rows: list[dict] = []
-    partial_summary_file = output_path / "performance_all_data_partial.csv"
-    partial_model_comparison_file = output_path / "performance_by_model_partial.csv"
+    
+    partial_dir = output_path / "partial"
+    partial_dir.mkdir(parents=True, exist_ok=True)
+    partial_summary_file = partial_dir / "performance_all_data_partial.csv"
+    partial_model_comparison_file = partial_dir / "performance_by_model_partial.csv"
 
     enabled_models = [
         (name, cfg) for name, cfg in models.items() if cfg.get("enabled", True)
@@ -1032,11 +1035,11 @@ def run_models_summary(
     model_comparison_file = output_path / "performance_by_model.csv"
     model_comparison_df.to_csv(model_comparison_file, index=False, encoding="utf-8")
 
-    # Rename partial files to final names
-    if partial_summary_file.exists():
-        partial_summary_file.rename(all_results_file)
-    if partial_model_comparison_file.exists():
-        partial_model_comparison_file.rename(model_comparison_file)
+    # Keeping partial files intact as per user request for sanity checks
+    # if partial_summary_file.exists():
+    #     partial_summary_file.unlink()
+    # if partial_model_comparison_file.exists():
+    #     partial_model_comparison_file.unlink()
 
     return (
         all_results_df,

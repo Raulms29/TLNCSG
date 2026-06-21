@@ -1,0 +1,339 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q23,Tell me the footballers who earn more than all the players of Rayo Vallecano.,qwen3.6:35b,False,0.025,20.90881,True,stop,3138,0.458937,1717,20.249984,84.7902,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> forward to <E> Rayo Vallecano </E> </ES> </ES>
+
+Breakdown:
+1. Root Query: `EntityQuery` (""what is"")
+2. Target EntitySet: `<ES>` containing `<C> footballer </C>` constrained by a salary comparison.
+3. Constraint on Footballers: ""whose <A> salary </A> is larger than [Value]""
+4. Value to compare against: ""maximum of <A> salary </A>""
+5. Source of the maximum value: EntitySet of players in Rayo Vallecano.
+6. Player EntitySet: `<ES>` containing `<C> player </C>` constrained by relation to Rayo Vallecano.
+7. Relation Constraint for Players: ""that <R> member </R> forward to <E> Rayo Vallecano </E>"" (Assuming 'member' connects Player -> Team).
+
+Let's refine the directionality.
+If `Rayo Vallecano` is a team, and we want players *of* that team.
+Usually, relations are defined as `Team --has member--> Player`.
+So from Team to Player is forward. From Player to Team is backward.
+The query asks for footballers (players) who earn more than the max salary of players *in* Rayo Vallecano.
+So we need the set of players in Rayo Vallecano first.
+`<ES> <C> player </C> that <R> member </R> forward to <E> Rayo Vallecano </E> </ES>`?
+Wait, if the relation is `member`, does it go Team->Player or Player->Team?
+Standard KBpedia/Wikidata: `member of sports team` (P54) usually links Person -> Organization.
+So `Player --member--> Team`.
+Therefore, to find players *of* a team, we look for entities that have the relation `member` pointing *to* the team. This is a ""backward"" traversal from the perspective of finding the source node (Player) given the target node (Team).
+So: `<ES> <C> player </C> that <R> member </R> backward to <E> Rayo Vallecano </E> </ES>`.
+
+Now, for the main query: Footballers who earn more than the max salary of this set.
+`what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of [PlayerSet] </ES>`
+
+Let's construct the sequence carefully.
+1. `what is`
+2. `<ES>`
+3.   `<C> footballer </C>`
+4.   Constraint: `whose <A> salary </A> is larger than ...`
+5.     Value: `maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> backward to <E> Rayo Vallecano </E> </ES>`
+6.   `</ES>`
+
+Wait, the grammar for AttributeConstraint is: `""whose"" Attribute COP Value`.
+The Value can be an aggregation: `VOP ""of"" Attribute ""of"" EntitySet`.
+
+So:
+`what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> backward to <E> Rayo Vallecano </E> </ES> </ES>`
+
+Let's double check the ""footballer"" vs ""player"" concept. The prompt uses ""footballers"" and ""players"". I will use `<C> footballer </C>` for the target and `<C> player </C>` for the reference set, or perhaps they are synonyms. Given the specific phrasing ""footballers... players"", I'll keep them distinct as concepts to be safe, or map 'player' to 'footballer' if implied. However, usually in these schemas, 'footballer' is a subclass of 'person' or 'athlete'. 'Player' might be generic. I will use `<C> footballer </C>` for the result and `<C> player </C>` for the group, assuming the schema distinguishes them or they are interchangeable. To be most precise to the text:
+Target: `<C> footballer </C>`
+Reference Group: `<C> player </C>`
+
+Relation direction:
+""players of Rayo Vallecano"".
+Rayo Vallecano is a team.
+Relation `member` (P54) connects Person -> Team.
+So we want Persons who have relation `member` pointing to Rayo Vallecano.
+From the perspective of the EntitySet `<C> player </C>`, the constraint is that they are connected *to* Rayo Vallecano via `member`.
+In GraphQ IR, `that <R> member </R> backward to <E> Rayo Vallecano </E>` means: Find X such that there is an edge from X to Rayo Vallecano labeled `member`. This matches Person->Team.
+
+Final Sequence:
+`what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> backward to <E> Rayo Vallecano </E> </ES> </ES>`
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is larger than""
+        │       └── Value
+        │           ├── VOP
+        │           │   └── ""maximum""
+        │           ├── ""of""
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""salary""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""player""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""member""
+        │               │       │   └── ""</R>""
+        │               │       ├── DIR
+        │               │       │   └── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+        │               │               ├── ""<E>""
+        │               │               ├── ""Rayo Vallecano""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is larger than""
+        │       └── Value
+        │           ├── VOP
+        │           │   └── ""maximum""
+        │           ├── ""of""
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""salary""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""player""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""member""
+        │               │       │   └── ""</R>""
+        │               │       ├── DIR
+        │               │       │   └── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+        │               │               ├── ""<E>""
+        │               │               ├── ""Rayo Vallecano""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q23_Tell_me_the_footballers_who_earn_more_th_th_false.csv
+graphq_tree,2,Q23,Tell me the footballers who earn more than all the players of Rayo Vallecano.,qwen3.6:35b,False,0.025,20.41245,True,stop,3138,0.08228,1715,20.137743,85.1635,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> forward to <E> Rayo Vallecano </E> </ES> </ES>
+
+Breakdown:
+1. Root Query: `AttributeQuery` (asking for entities, but specifically filtering by a value comparison, usually handled as an EntityQuery with a complex constraint or AttributeQuery if extracting the entity itself. The prompt asks ""Tell me the footballers"", so it's an EntityQuery returning the set of footballers).
+2. Target EntitySet: `<C> footballer </C>` filtered by a constraint.
+3. Constraint: `whose <A> salary </A> is larger than [Value]`.
+4. Value: `maximum of <A> salary </A>` of a specific EntitySet.
+5. Inner EntitySet (for max salary): `<ES> <C> player </C> that <R> member </R> forward to <E> Rayo Vallecano </E> </ES>`.
+
+Let's refine the root query type. ""Tell me the footballers..."" implies returning the entities. So `EntityQuery` is appropriate.
+Structure:
+`what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> forward to <E> Rayo Vallecano </E> </ES> </ES>`
+
+Wait, the grammar for `AttributeConstraint` is `""whose"" Attribute COP Value`.
+The `Value` can be an aggregation: `VOP ""of"" Value`.
+So: `whose <A> salary </A> is larger than maximum of <A> salary </A> of ...`
+
+Let's construct the AST.
+Root: EntityQuery
+Child 1: ""what is""
+Child 2: EntitySet (The footballers)
+   - Tag: ""<ES>""
+   - Content: Concept (""footballer"")
+   - Constraint: AttributeConstraint
+      - ""whose""
+      - Attribute (""salary"")
+      - COP (""is larger than"")
+      - Value (Aggregation)
+         - VOP (""maximum"")
+         - ""of""
+         - Value (Attribute of EntitySet)
+            - Attribute (""salary"")
+            - ""of""
+            - EntitySet (The players of Rayo Vallecano)
+               - Tag: ""<ES>""
+               - Content: Concept (""player"")
+               - Constraint: RelationConstraint
+                  - ""that""
+                  - Relation (""member"")
+                  - DIR (""forward"")
+                  - ""to""
+                  - EntitySet (Entity ""Rayo Vallecano"")
+                     - Entity (""Rayo Vallecano"")
+               - Tag: ""</ES>""
+   - Tag: ""</ES>""
+
+Note on direction: ""players OF Rayo Vallecano"". Usually, a team has players. Relation `member` or `plays_for`. If `member` connects Player -> Team, then from Team to Player is `member backward`. If `plays_for` connects Player -> Team, then from Team to Player is `plays_for backward`. Let's assume a generic relation `member` where Player is the subject and Team is the object (Player member_of Team). To get players OF the team, we go backward from Team.
+However, often in these schemas, ""member"" might be defined as Team has_member Player. Let's look at standard KBpedia/Freebase patterns. Usually `team.players` or `player.team`. If we assume `member` is `Player -> Team`, then `backward` is correct. If `member` is `Team -> Player`, then `forward` is correct.
+Given ""players of Rayo Vallecano"", it's safer to assume the relation originates from the player in many schemas (e.g., `player.team`). But let's look at the example: ""actors of the movie Inception"". Movie has actors. Relation `actor` was used backward from Movie to Actor. This implies `Actor -> Movie`.
+So for ""players of Rayo Vallecano"", if we use relation `member`, and assume `Player -> Team`, then from Team to Player is `backward`.
+Let's stick to the pattern: EntitySet (Team) --[Relation]--> EntitySet (Players). If Relation is `member` (Player member_of Team), direction from Team is `backward`.
+
+Let's re-read the example: ""actors of the movie Inception"".
+Seq: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`
+This implies the relation `actor` goes from Actor to Movie. So `Actor --actor--> Movie`.
+To find Actors given a Movie, we go `backward` along `actor`.
+
+For ""players of Rayo Vallecano"":
+If relation is `member` (Player member_of Team), then `Player --member--> Team`.
+To find Players given Team, we go `backward` along `member`.
+
+So: `<ES> <C> player </C> that <R> member </R> backward to <E> Rayo Vallecano </E> </ES>`
+
+Final Sequence:
+what is <ES> <C> footballer </C> whose <A> salary </A> is larger than maximum of <A> salary </A> of <ES> <C> player </C> that <R> member </R> backward to <E> Rayo Vallecano </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is larger than""
+        │       └── Value
+        │           ├── VOP
+        │           │   └── ""maximum""
+        │           ├── ""of""
+        │           └── Value
+        │               ├── Attribute
+        │               │   ├── ""<A>""
+        │               │   ├── ""salary""
+        │               │   └── ""</A>""
+        │               ├── ""of""
+        │               └── EntitySet
+        │                   ├── ""<ES>""
+        │                   ├── EntitySet
+        │                   │   └── Concept
+        │                   │       ├── ""<C>""
+        │                   │       ├── ""player""
+        │                   │       └── ""</C>""
+        │                   ├── Constraint
+        │                   │   └── RelationConstraint
+        │                   │       ├── ""that""
+        │                   │       ├── Relation
+        │                   │       │   ├── ""<R>""
+        │                   │       │   ├── ""member""
+        │                   │       │   └── ""</R>""
+        │                   │       ├── DIR
+        │                   │       │   └── ""backward""
+        │                   │       ├── ""to""
+        │                   │       └── EntitySet
+        │                   │           └── Entity
+        │                   │               ├── ""<E>""
+        │                   │               ├── ""Rayo Vallecano""
+        │                   │               └── ""</E>""
+        │                   └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.0,,,Skipped evaluation: representation weight is 0.,,,,"S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is larger than""
+        │       └── Value
+        │           ├── VOP
+        │           │   └── ""maximum""
+        │           ├── ""of""
+        │           └── Value
+        │               ├── Attribute
+        │               │   ├── ""<A>""
+        │               │   ├── ""salary""
+        │               │   └── ""</A>""
+        │               ├── ""of""
+        │               └── EntitySet
+        │                   ├── ""<ES>""
+        │                   ├── EntitySet
+        │                   │   └── Concept
+        │                   │       ├── ""<C>""
+        │                   │       ├── ""player""
+        │                   │       └── ""</C>""
+        │                   ├── Constraint
+        │                   │   └── RelationConstraint
+        │                   │       ├── ""that""
+        │                   │       ├── Relation
+        │                   │       │   ├── ""<R>""
+        │                   │       │   ├── ""member""
+        │                   │       │   └── ""</R>""
+        │                   │       ├── DIR
+        │                   │       │   └── ""backward""
+        │                   │       ├── ""to""
+        │                   │       └── EntitySet
+        │                   │           └── Entity
+        │                   │               ├── ""<E>""
+        │                   │               ├── ""Rayo Vallecano""
+        │                   │               └── ""</E>""
+        │                   └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q23_Tell_me_the_footballers_who_earn_more_th_th_false.csv

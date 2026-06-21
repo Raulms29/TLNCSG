@@ -7,6 +7,9 @@ import json
 from ollama import Client
 from config import OLLAMA_SERVER
 
+# ---------------------------------------------------------------------------
+# Source models under evaluation
+# ---------------------------------------------------------------------------
 models = {
     "ministral-3:14b": {
         "enabled": True,
@@ -37,57 +40,86 @@ models = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# System prompts and their associated ground truths
+# ---------------------------------------------------------------------------
+
 SYSTEM_PROMPTS_CONFIG = {
+    # ------------------------------------------------------------------
     # Lambda DCS
+    # ------------------------------------------------------------------
     "prompts/grammars/SYSTEM_PROMPT_LAMBDA_DCS.prompt.md": {
         "ground_truth": "ground_truths/class_a/ground_truth_lambda_dcs.json",
         "use_representation_weights": True,
         "expect_json_response": False,
     },
+    # ------------------------------------------------------------------
     # PCCG CGG Lambda
+    # ------------------------------------------------------------------
     "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LAMBDA.prompt.md": {
         "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
         "use_representation_weights": True,
         "expect_json_response": False,
     },
+    # ------------------------------------------------------------------
     # NSQA
+    # ------------------------------------------------------------------
     "prompts/grammars/SYSTEM_PROMPT_NSQA.prompt.md": {
         "ground_truth": "ground_truths/class_c/ground_truth_nsqa.json",
         "use_representation_weights": True,
         "expect_json_response": False,
     },
+    # ------------------------------------------------------------------
     # Squall
+    # ------------------------------------------------------------------
     "prompts/grammars/SYSTEM_PROMPT_SQUALL.prompt.md": {
         "ground_truth": "ground_truths/class_d/ground_truth_squall.json",
         "use_representation_weights": True,
         "expect_json_response": False,
     },
+    # ------------------------------------------------------------------
     # GraphQ Tree
+    # ------------------------------------------------------------------
     "prompts/grammars/SYSTEM_PROMPT_GRAPHQ_TREE.prompt.md": {
         "ground_truth": "ground_truths/class_e/ground_truth_graphq_tree.json",
         "use_representation_weights": True,
         "expect_json_response": False,
     },
+    # ------------------------------------------------------------------
     # SemGIR
-    "prompts/generator.prompt.md": {
+    # ------------------------------------------------------------------
+    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR.prompt.md": {
         "ground_truth": "ground_truths/ground_truth_sem_gir.json",
         "use_representation_weights": True,
         "expect_json_response": True,
     },
 }
 
+# ---------------------------------------------------------------------------
+# Ollama inference options (shared across all models)
+# ---------------------------------------------------------------------------
+
 OLLAMA_OPTIONS = {
-    # Limita la respuesta generada. Para modelos con "Thinking" (CoT),
-    # el límite debe ser alto para acomodar el bloque de razonamiento.
+    # Limits the generated response. For models with "Thinking" (CoT),
+    # the limit must be high to accommodate the reasoning block.
     "num_predict": 3072,
-    # Define el tamaño de contexto total (entrada + salida esperada).
-    # He tenido prompts de hasta 4000 tokens.
+    # Defines the total context size (input + expected output).
     "num_ctx": 12288,
 }
 
-RUNS_PER_MODEL = 5
+# ---------------------------------------------------------------------------
+# Run configuration
+# ---------------------------------------------------------------------------
+
+RUNS_PER_MODEL = 30
 OUTPUT_DIR = "outputs/model_eval"
-CONFIDENCE_LEVEL = 0.95  # Usa None para no calcular intervalos de confianza
+# Confidence level for statistical intervals. Set to None to disable calculating
+# and displaying confidence intervals in all aggregate output tables.
+CONFIDENCE_LEVEL = 0.95
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 ollama_client = Client(OLLAMA_SERVER)
 
@@ -110,7 +142,9 @@ if __name__ == "__main__":
             {
                 "id": q_id,
                 "text": q_info["query"],
-                "representation_weight": float(q_info.get("representation_weight", 1.0)),
+                "representation_weight": float(
+                    q_info.get("representation_weight", 1.0)
+                ),
             }
             for q_id, q_info in queries_data.items()
         ]

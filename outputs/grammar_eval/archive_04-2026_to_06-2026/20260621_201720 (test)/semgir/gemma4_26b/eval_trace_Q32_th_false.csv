@@ -1,0 +1,797 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q32,Give me the list of salaries of the Málaga players who are under 20 years old.,gemma4:26b,False,0.025,15.885502,True,stop,7365,0.122926,1571,15.492127,101.4063,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the prompt again: ""Give me the list of salaries..."". The user wants a collection of values, not an aggregate. Let me correct that to use `CREATE_LIST` for the target.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1"",
+          ""map_expression"": {
+            ""attribute_name"": ""salary"",
+            ""of"": ""e1""
+          }
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the grammar for `LIST` in the provided instructions doesn't support a `map_expression` inside the `LIST` object itself (only `SCALAR_AGGREGATE` does). The standard way to return a list of attributes is via `target: [ { ""attribute_name"": ""..."", ""of"": ""..."" } ]` if it's a single attribute, but for a collection of values from multiple entities, I must use the `LIST` construct. Since `LIST` only allows `CREATE_LIST`, `NODES`, or `RELATIONS`, and those don't support mapping, I will return the list of entities and let the projection be handled by the target definition if possible, but per instructions: ""The target MUST always be a valid JSON array containing ONLY flat identifiers... OR exactly one SemGIR construct"".
+
+Let's use the `LIST` with `CREATE_LIST` on the player entity, as that is the most structurally sound way to represent ""a list of [attribute] of [entities]"".
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the user specifically asked for ""salaries"". If I return `e1` (the players), I am returning the entities. To return the attribute values, I'll use the projection in the target. Since I cannot map inside a `LIST`, and the instructions say `target` can be an `EXPRESSION` (which includes `ATTRIBUTE`), but for a collection of multiple items, I must use `LIST`. 
+
+Let's look at the example: ""Give me the publication year and number of words..."". There, the target is an array of `ATTRIBUTE` objects. For a list of values, I will provide the attribute projection in the target array.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""salary"",
+        ""of"": ""e1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q32,"The Candidate captures the primary semantic intent of the query perfectly. It correctly identifies the entities (Player, Team), the relationship (plays_for), and applies both necessary constraints (team name 'Málaga' and age < 20) to target the correct attribute (salary). While the Ground Truth provides a second hypothesis involving a LIST projection for the players themselves, the Candidate's single hypothesis is a complete and valid interpretation of the natural language request.",,"```json
+{
+  ""rationale"": ""The Candidate captures the primary semantic intent of the query perfectly. It correctly identifies the entities (Player, Team), the relationship (plays_for), and applies both necessary constraints (team name 'Málaga' and age < 20) to target the correct attribute (salary). While the Ground Truth provides a second hypothesis involving a LIST projection for the players themselves, the Candidate's single hypothesis is a complete and valid interpretation of the natural language request."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""salary"",
+        ""of"": ""e1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  },
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        },
+        ""filter"": {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      },
+      {
+        ""attribute_name"": ""salary"",
+        ""of"": ""e1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Málaga""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""salary"",
+        ""of"": ""e1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]",outputs\model_eval\generator\20260621_191509\gemma4_26b\trace_Q32_Give_me_the_list_of_salaries_of_the_M_la_th_false.csv
+semgir,2,Q32,Give me the list of salaries of the Málaga players who are under 20 years old.,gemma4:26b,False,0.025,18.809883,True,stop,7365,0.119269,1862,18.415973,101.1079,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the prompt again: ""Give me the list of salaries..."". The user wants a collection of values, not an aggregate. Let me correct that to use `CREATE_LIST` for the target.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1"",
+          ""map_expression"": {
+            ""attribute_name"": ""salary"",
+            ""of"": ""e1""
+          }
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the grammar for `LIST` in the provided instructions doesn't support a `map_expression` inside the `LIST` object itself (only `SCALAR_AGGREGATE` does). The standard way to return a list of attributes is via `target: [ { ""attribute_name"": ""..."", ""of"": ""..."" } ]` if it were a single value, but for a collection, I must use the `list` construct. Since the grammar only allows `CREATE_LIST`, `NODES`, or `RELATIONS` as the `list` key, and those don't support mapping, I will return the list of entities and let the projection be implied by the target structure if possible, but per instructions: ""The target MUST always be a valid JSON array containing ONLY flat identifiers... OR exactly one SemGIR construct"".
+
+Let's use the `LIST` with `CREATE_LIST` and assume the attribute extraction is handled. However, looking at the examples, for ""Give me the publication year and number of words"", the target is an array of attributes. For a list of values, I will provide the list of entities that satisfy the condition.
+
+Corrected version:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+Wait, the user specifically asked for *salaries*. I will use the attribute projection in the target.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```
+Actually, looking at the `SCALAR_AGGREGATE` example, it's the only place where `map_expression` is allowed. Since I cannot map a list of entities to a list of attributes in this grammar without an aggregate, and the user wants a ""list"", I will return the list of players, as the semantic meaning of ""list of salaries"" for these specific players is tied to the player entities themselves.
+
+Final attempt following the most logical path within the strict grammar:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.6,0.6,Q32,"The Candidate fails to capture the primary target of the query: 'salaries'. While it correctly identifies the entities, relationships, and all logical constraints (team name and age), it returns a list of player entities instead of the requested attribute (salary). The Ground Truth provides two hypotheses, one focusing on the attribute and one on a complex projection; the Candidate only attempts one, but fails the semantic requirement of the target.",,"```json
+{
+  ""rationale"": ""The Candidate fails to capture the primary target of the query: 'salaries'. While it correctly identifies the entities, relationships, and all logical constraints (team name and age), it returns a list of player entities instead of the requested attribute (salary). The Ground Truth provides two hypotheses, one focusing on the attribute and one on a complex projection; the Candidate only attempts one, but fails the semantic requirement of the target."",
+  ""score"": 0.6
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""salary"",
+        ""of"": ""e1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  },
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        },
+        ""filter"": {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      },
+      {
+        ""attribute_name"": ""salary"",
+        ""of"": ""e1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Málaga""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""name"",
+            ""of"": ""e2""
+          },
+          ""operator"": ""="",
+          ""right"": ""Málaga""
+        },
+        {
+          ""left"": {
+            ""attribute_name"": ""age"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""<"",
+          ""right"": 20
+        }
+      ]
+    }
+  }
+]",outputs\model_eval\generator\20260621_191509\gemma4_26b\trace_Q32_Give_me_the_list_of_salaries_of_the_M_la_th_false.csv

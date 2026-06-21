@@ -1,0 +1,320 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q39,Give me the footballers who have a French coach.,qwen3.6:35b,False,0.025,18.691548,True,stop,3131,2.217678,1052,16.278865,64.6237,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <R> coach </R> forward to <E> France </E> </ES>
+(Note: The query asks for footballers who *have* a French coach. This implies the relation is from the footballer to the coach, and the coach is associated with the entity ""France"" (concept or entity). Assuming ""French"" refers to the nationality of the coach, we need to find footballers connected to a coach who is linked to France. However, usually in these schemas, ""French coach"" might be interpreted as a coach from France. Let's assume the relation `coach` connects `footballer` -> `coach`. And there is a relation like `nationality` or `country` connecting `coach` -> `France`.
+Alternatively, if ""French"" is an attribute of the coach, it would be `whose nationality is French`. But typically in KG QA, ""French [Role]"" implies a link to the country entity.
+Let's refine: We want footballers. They have a relation `coach` pointing to a Coach node. That Coach node has a relation (e.g., `nationality` or `country`) pointing to `France`.
+So: `<ES> <C> footballer </C> that <R> coach </R> forward to <ES> <C> coach </C> that <R> nationality </R> forward to <E> France </E> </ES>`
+
+Let's check the directionality.
+""Footballers who have a French coach"":
+Subject: Footballer.
+Relation 1: `coach` (from footballer to coach). Direction: forward.
+Target of Relation 1: Coach.
+Constraint on Target: The coach is French.
+Relation 2: `nationality` (from coach to country). Direction: forward.
+Target of Relation 2: France.
+
+So the sequence is:
+What is <ES> <C> footballer </C> that <R> coach </R> forward to <ES> <C> coach </C> that <R> nationality </R> forward to <E> France </E> </ES> </ES>
+
+Wait, looking at the grammar:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>"" | ""<ES>"" EntitySet Constraint ""</ES>"" | ...`
+`Constraint := RelationConstraint ...`
+`RelationConstraint := ""that"" Relation DIR ""to"" EntitySet`
+
+So for the inner part (the coach):
+`<ES> <C> coach </C> that <R> nationality </R> forward to <E> France </E> </ES>`
+
+For the outer part (the footballer):
+`<ES> <C> footballer </C> that <R> coach </R> forward to <ES> <C> coach </C> that <R> nationality </R> forward to <E> France </E> </ES> </ES>`
+
+This looks correct.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""coach""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""coach""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── RelationConstraint
+        │           │       ├── ""that""
+        │           │       ├── Relation
+        │           │       │   ├── ""<R>""
+        │           │       │   ├── ""nationality""
+        │           │       │   └── ""</R>""
+        │           │       ├── DIR
+        │           │       │   └── ""forward""
+        │           │       ├── ""to""
+        │           │       └── EntitySet
+        │           │           └── Entity
+        │           │               ├── ""<E>""
+        │           │               ├── ""France""
+        │           │               └── ""</E>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q39,"The Candidate captures the core logic of the query, including the nested constraint for nationality. However, it introduces an unnecessary extra layer of redundancy by explicitly defining a 'coach' concept within the second EntitySet, whereas the Ground Truth uses 'ones' (anonymous node) to represent the target of the first relation. While semantically very close, this adds a redundant node level not present in the original intent.",,"```json
+{
+  ""rationale"": ""The Candidate captures the core logic of the query, including the nested constraint for nationality. However, it introduces an unnecessary extra layer of redundancy by explicitly defining a 'coach' concept within the second EntitySet, whereas the Ground Truth uses 'ones' (anonymous node) to represent the target of the first relation. While semantically very close, this adds a redundant node level not present in the original intent."",
+  ""score"": 0.85
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""football player""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""coach""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── ""ones""
+        │           ├── Constraint
+        │           │   └── RelationConstraint
+        │           │       ├── ""that""
+        │           │       ├── Relation
+        │           │       │   ├── ""<R>""
+        │           │       │   ├── ""nationality""
+        │           │       │   └── ""</R>""
+        │           │       ├── DIR
+        │           │       │   └── ""forward""
+        │           │       ├── ""to""
+        │           │       └── EntitySet
+        │           │           └── Entity
+        │           │               ├── ""<E>""
+        │           │               ├── ""France""
+        │           │               └── ""</E>""
+        │           └── ""</ES>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""coach""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""coach""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── RelationConstraint
+        │           │       ├── ""that""
+        │           │       ├── Relation
+        │           │       │   ├── ""<R>""
+        │           │       │   ├── ""nationality""
+        │           │       │   └── ""</R>""
+        │           │       ├── DIR
+        │           │       │   └── ""forward""
+        │           │       ├── ""to""
+        │           │       └── EntitySet
+        │           │           └── Entity
+        │           │               ├── ""<E>""
+        │           │               ├── ""France""
+        │           │               └── ""</E>""
+        │           └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q39_Give_me_the_footballers_who_have_a_Frenc_th_false.csv
+graphq_tree,2,Q39,Give me the footballers who have a French coach.,qwen3.6:35b,False,0.025,13.737343,True,stop,3131,0.085098,864,13.462658,64.1775,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <R> coach </R> forward to <E> France </E> </ES>
+(Note: The query asks for footballers who *have* a French coach. This implies the relation is from the footballer to the coach, and the coach is associated with the entity ""France"" (concept or entity). Assuming ""French"" refers to the nationality of the coach, we need to find footballers connected to a coach who is linked to France. However, usually in these schemas, ""French coach"" might be interpreted as a coach from France. Let's assume the relation `coach` connects `footballer` -> `coach`. And there is a relation like `nationality` or `country` connecting `coach` -> `France`.
+Alternatively, if ""French"" is an attribute of the coach, it would be `whose nationality is French`. But typically in KG QA, ""French [Role]"" implies a link to the country entity.
+Let's refine: We want footballers. They have a relation `coach` pointing to a coach node. That coach node has a relation (e.g., `nationality` or `country`) pointing to `France`.
+So: `<ES> <C> footballer </C> that <R> coach </R> forward to <ES> <C> coach </C> that <R> nationality </R> forward to <E> France </E> </ES>`
+
+Let's check the directionality.
+""Footballers who have a French coach"":
+Subject: Footballer.
+Relation 1: `coach` (from footballer to coach). Direction: forward.
+Constraint on Coach: The coach is French.
+Relation 2: `nationality` (from coach to country). Direction: forward.
+Target: France.
+
+So the sequence is:
+What is <ES> <C> footballer </C> that <R> coach </R> forward to <ES> <C> coach </C> that <R> nationality </R> forward to <E> France </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""coach""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""coach""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── RelationConstraint
+        │           │       ├── ""that""
+        │           │       ├── Relation
+        │           │       │   ├── ""<R>""
+        │           │       │   ├── ""nationality""
+        │           │       │   └── ""</R>""
+        │           │       ├── DIR
+        │           │       │   └── ""forward""
+        │           │       ├── ""to""
+        │           │       └── EntitySet
+        │           │           └── Entity
+        │           │               ├── ""<E>""
+        │           │               ├── ""France""
+        │           │               └── ""</E>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q39,"The Candidate captures the core logic of the query, including the nested constraint for nationality. However, it introduces an unnecessary extra layer of redundancy by explicitly defining a 'coach' concept within the second EntitySet, whereas the Ground Truth uses 'ones' (anonymous node) to represent the target of the first relation. While semantically similar, the Candidate's structure is slightly more complex than required by the natural language input.",,"```json
+{
+  ""rationale"": ""The Candidate captures the core logic of the query, including the nested constraint for nationality. However, it introduces an unnecessary extra layer of redundancy by explicitly defining a 'coach' concept within the second EntitySet, whereas the Ground Truth uses 'ones' (anonymous node) to represent the target of the first relation. While semantically similar, the Candidate's structure is slightly more complex than required by the natural language input."",
+  ""score"": 0.9
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""football player""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""coach""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── ""ones""
+        │           ├── Constraint
+        │           │   └── RelationConstraint
+        │           │       ├── ""that""
+        │           │       ├── Relation
+        │           │       │   ├── ""<R>""
+        │           │       │   ├── ""nationality""
+        │           │       │   └── ""</R>""
+        │           │       ├── DIR
+        │           │       │   └── ""forward""
+        │           │       ├── ""to""
+        │           │       └── EntitySet
+        │           │           └── Entity
+        │           │               ├── ""<E>""
+        │           │               ├── ""France""
+        │           │               └── ""</E>""
+        │           └── ""</ES>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""coach""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""coach""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── RelationConstraint
+        │           │       ├── ""that""
+        │           │       ├── Relation
+        │           │       │   ├── ""<R>""
+        │           │       │   ├── ""nationality""
+        │           │       │   └── ""</R>""
+        │           │       ├── DIR
+        │           │       │   └── ""forward""
+        │           │       ├── ""to""
+        │           │       └── EntitySet
+        │           │           └── Entity
+        │           │               ├── ""<E>""
+        │           │               ├── ""France""
+        │           │               └── ""</E>""
+        │           └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\qwen3.6_35b\trace_Q39_Give_me_the_footballers_who_have_a_Frenc_th_false.csv

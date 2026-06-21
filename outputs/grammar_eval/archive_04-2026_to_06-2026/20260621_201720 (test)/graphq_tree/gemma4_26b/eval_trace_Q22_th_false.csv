@@ -1,0 +1,328 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.025,19.853692,True,stop,2970,0.159927,900,19.441972,46.2916,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> footballer </C> that <R> coach </R> backward to <E> same footballer </E> </ES> </ES>
+(Note: The query implies a comparison between two entities in the same set. Since ""their coach"" refers back to the subject, I will represent this as an EntitySet of footballers constrained by an attribute comparison against another related entity.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+(Wait, the grammar for AttributeConstraint requires `Attribute COP Value`. The value here is an EntitySet. Let's use the RelationConstraint logic if possible or treat the comparison as a complex constraint.)
+
+Actually, looking at the Grammar: 
+`AttributeConstraint := ""whose"" Attribute COP Value | ""that"" ""have"" SOP Attribute`
+`Value := ... | Attribute ""of"" EntitySet`
+
+So: what is <ES> <C> footballer </E> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+(Note: ""ones"" represents the anonymous/subject entity in a self-referential context).
+
+Let's simplify for the parser: 
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── AttributeConstraint
+        │   │   ├── ""whose""
+        │   │   ├── Attribute
+        │   │   │   ├── ""<A>""
+        │   │   │   ├── ""earnings""
+        │   │   │   └── ""</A>""
+        │   │   ├── COP
+        │   │   │   └── ""larger than""
+        │   │   └── Value
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""earnings""
+        │   │       │   └── ""</A>""
+        │   │       ├── ""of""
+        │   │       └── EntitySet
+        │   │           ├── ""<ES>""
+        │   │           ├── EntitySet
+        │   │           │   └── Concept
+        │   │           │       ├── ""<C>""
+        │   │           │       ├── ""footballer""
+        │   │           │       └── ""</C>""
+        │   │           ├── Constraint
+        │   │           │   └── RelationConstraint
+        │   │           │       ├── ""that""
+        │   │           │       ├── Relation
+        │   │           │       │   ├── ""<R>""
+        │   │           │       │   ├── ""coach""
+        │   │           │       │   └── ""</R>""
+        │   │           │       ├── DIR
+        │   │           │       │   └── ""backward""
+        │   │           │       ├── ""to""
+        │   │           │       └── EntitySet
+        │   │           │           └── Entity
+        │   │           │               ├── ""<E>""
+        │   │           │               ├── ""ones""
+        │   │           │               └── ""</E>""
+        │   │           └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.5,0.5,Q22,"The Candidate is semantically very strong and captures the complex nested logic of comparing an attribute (earnings) between two sets. It correctly identifies the AttributeConstraint, the Value extraction via 'of', and the secondary RelationConstraint for the coach. While it uses slightly different terminology ('earnings' vs 'salary') and a more specific concept ('footballer' vs 'football player'), these are acceptable semantic variations. The structural integrity and XML tag usage are excellent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically very strong and captures the complex nested logic of comparing an attribute (earnings) between two sets. It correctly identifies the AttributeConstraint, the Value extraction via 'of', and the secondary RelationConstraint for the coach. While it uses slightly different terminology ('earnings' vs 'salary') and a more specific concept ('footballer' vs 'football player'), these are acceptable semantic variations. The structural integrity and XML tag usage are excellent."",
+  ""score"": 1.0
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""football player""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""salary""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── ""ones""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── DIR
+        │               │       │   └── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── ""ones""
+        │               └── ""</ES>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── AttributeConstraint
+        │   │   ├── ""whose""
+        │   │   ├── Attribute
+        │   │   │   ├── ""<A>""
+        │   │   │   ├── ""earnings""
+        │   │   │   └── ""</A>""
+        │   │   ├── COP
+        │   │   │   └── ""larger than""
+        │   │   └── Value
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""earnings""
+        │   │       │   └── ""</A>""
+        │   │       ├── ""of""
+        │   │       └── EntitySet
+        │   │           ├── ""<ES>""
+        │   │           ├── EntitySet
+        │   │           │   └── Concept
+        │   │           │       ├── ""<C>""
+        │   │           │       ├── ""footballer""
+        │   │           │       └── ""</C>""
+        │   │           ├── Constraint
+        │   │           │   └── RelationConstraint
+        │   │           │       ├── ""that""
+        │   │           │       ├── Relation
+        │   │           │       │   ├── ""<R>""
+        │   │           │       │   ├── ""coach""
+        │   │           │       │   └── ""</R>""
+        │   │           │       ├── DIR
+        │   │           │       │   └── ""backward""
+        │   │           │       ├── ""to""
+        │   │           │       └── EntitySet
+        │   │           │           └── Entity
+        │   │           │               ├── ""<E>""
+        │   │           │               ├── ""ones""
+        │   │           │               └── ""</E>""
+        │   │           └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\gemma4_26b\trace_Q22_Tell_me_the_footballers_who_earn_more_th_th_false.csv
+graphq_tree,2,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.025,23.601208,True,stop,2970,0.157471,1135,23.183622,48.957,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> footballer </C> that <R> coach </R> backward to <E> same footballer </E> </ES> </ES>
+(Note: The query implies a comparison between two entities in the same set. Since ""their coach"" refers back to the subject, we use a relation constraint. However, since the prompt asks for footballers who earn more than their coach, and 'coach' is a relation from footballer to person, I will represent this as an attribute comparison where the value is derived from the related entity.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+(Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". The value here is an attribute of another entity. Let's use the most direct path allowed by the grammar.)
+
+Corrected Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Actually, looking at the grammar: AttributeConstraint := ""whose"" Attribute COP Value. 
+The comparison is between an attribute and another value.
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the grammar for Value is ""Attribute of EntitySet"". 
+So: what is <ES> <C> footballer </C> that <A> earnings </ES> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+This is getting complex. Let's simplify to the core intent:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Actually, the simplest way to express ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". 
+Let's try: what is <ES> <C> footballer </C> whose <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.475,0.475,Q22,"The Candidate captures the complex logic of comparing an attribute (earnings) between two entities correctly. It uses a valid AttributeConstraint with a Value node to represent the comparison. While there are minor differences in terminology ('footballer' vs 'football player', 'earnings' vs 'salary') and the directionality/target of the coach relation is slightly different from the Ground Truth, the structural logic and GraphQ IR grammar compliance are high.",,"```json
+{
+  ""rationale"": ""The Candidate captures the complex logic of comparing an attribute (earnings) between two entities correctly. It uses a valid AttributeConstraint with a Value node to represent the comparison. While there are minor differences in terminology ('footballer' vs 'football player', 'earnings' vs 'salary') and the directionality/target of the coach relation is slightly different from the Ground Truth, the structural logic and GraphQ IR grammar compliance are high."",
+  ""score"": 0.95
+}
+```","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""football player""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""salary""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""salary""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── ""ones""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── DIR
+        │               │       │   └── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── ""ones""
+        │               └── ""</ES>""
+        └── ""</ES>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""",outputs\model_eval\SYSTEM_PROMPT_GRAPHQ_TREE\20260621_181726\gemma4_26b\trace_Q22_Tell_me_the_footballers_who_earn_more_th_th_false.csv
