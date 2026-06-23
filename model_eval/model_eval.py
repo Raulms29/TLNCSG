@@ -93,6 +93,14 @@ SYSTEM_PROMPTS_CONFIG = {
         "use_representation_weights": True,
         "expect_json_response": True,
     },
+    # ------------------------------------------------------------------
+    # SemGIR Base
+    # ------------------------------------------------------------------
+    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR_BASE.prompt.md": {
+        "ground_truth": "ground_truths/ground_truth_sem_gir.json",
+        "use_representation_weights": True,
+        "expect_json_response": True,
+    },
 }
 
 # ---------------------------------------------------------------------------

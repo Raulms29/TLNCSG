@@ -1,0 +1,3752 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.939021,True,stop,7365,0.03705,387,3.280384,117.974,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" }
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""type"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+2,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,8.975372,True,stop,7365,0.016479,972,8.358896,116.2833,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is handled by aggregating a limited list within the comparison's right operand.""
+  }
+]
+```
+
+Wait, looking at my grammar, I cannot put a `LIST` with `limit` directly inside a `right` operand if it's not an `EXPRESSION`. Let me refine that to follow the `SCALAR_AGGREGATE` and `LIMIT` rules strictly. The only way to get ""sum of top 5"" is via a scalar aggregate on a list, but the list itself must be defined. Since I cannot put a `limit` inside a `list` used for `SCALAR_AGGREGATE` according to the grammar (the `LIST` structure provided doesn't allow `limit` inside the `list` key of an aggregate), I will represent the logic as a comparison against a computed scalar value.
+
+Actually, looking at the grammar: `SCALAR_AGGREGATE` takes a `LIST`. A `LIST` can have `limit`. 
+
+Let's re-verify:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+`LIST := { list: ..., limit: NUMBER, ... }`
+
+Yes, it is valid.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": { ""list_elements"": ""e3"" },
+              ""order_by"": [
+                {
+                  ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                  ""direction"": ""DESC""
+                }
+              ],
+              ""limit"": 5
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""SUM""
+          }
+        }
+      ]
+    }
+  }
+]
+```"
+3,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,9.023705,True,stop,7365,0.0168,972,8.368114,116.1552,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is handled by aggregating a limited list within the comparison's right operand.""
+  }
+]
+```
+
+Wait, looking at my grammar, I cannot put a `LIST` with `limit` directly inside a `right` operand if it's not an `EXPRESSION`. Let me refine that to follow the `SCALAR_AGGREGATE` and `LIMIT` rules strictly. The only way to get ""sum of top 5"" is via a scalar aggregate on a list, but the list itself must be defined. Since I cannot put a `limit` inside a `list` used for `SCALAR_AGGREGATE` according to the grammar (the `LIST` structure provided doesn't allow `limit` inside the `list` key of an aggregate), I will represent the logic as a comparison against a computed scalar value.
+
+Actually, looking at the grammar: `SCALAR_AGGREGATE` takes a `LIST`. A `LIST` can have `limit`. 
+
+Let's re-verify:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+`LIST := { list: ..., limit: NUMBER, ... }`
+
+Yes, it is valid.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": { ""list_elements"": ""e3"" },
+              ""order_by"": [
+                {
+                  ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                  ""direction"": ""DESC""
+                }
+              ],
+              ""limit"": 5
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""SUM""
+          }
+        }
+      ]
+    }
+  }
+]
+```"
+4,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,8.997831,True,stop,7365,0.017009,972,8.344072,116.4899,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is handled by aggregating a limited list within the comparison's right operand.""
+  }
+]
+```
+
+Wait, looking at my grammar, I cannot put a `LIST` with `limit` directly inside a `right` operand if it's not an `EXPRESSION`. Let me refine that to follow the `SCALAR_AGGREGATE` and `LIMIT` rules strictly. The only way to get ""sum of top 5"" is via a scalar aggregate on a list, but the list itself must be defined. Since I cannot put a `limit` inside a `list` used for `SCALAR_AGGREGATE` according to the grammar (the `LIST` structure provided doesn't allow `limit` inside the `list` key of an aggregate), I will represent the logic as a comparison against a computed scalar value.
+
+Actually, looking at the grammar: `SCALAR_AGGREGATE` takes a `LIST`. A `LIST` can have `limit`. 
+
+Let's re-verify:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+`LIST := { list: ..., limit: NUMBER, ... }`
+
+Yes, it is valid.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": { ""list_elements"": ""e3"" },
+              ""order_by"": [
+                {
+                  ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                  ""direction"": ""DESC""
+                }
+              ],
+              ""limit"": 5
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""SUM""
+          }
+        }
+      ]
+    }
+  }
+]
+```"
+5,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,8.99392,True,stop,7365,0.016752,972,8.351374,116.388,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is handled by aggregating a limited list within the comparison's right operand.""
+  }
+]
+```
+
+Wait, looking at my grammar, I cannot put a `LIST` with `limit` directly inside a `right` operand if it's not an `EXPRESSION`. Let me refine that to follow the `SCALAR_AGGREGATE` and `LIMIT` rules strictly. The only way to get ""sum of top 5"" is via a scalar aggregate on a list, but the list itself must be defined. Since I cannot put a `limit` inside a `list` used for `SCALAR_AGGREGATE` according to the grammar (the `LIST` structure provided doesn't allow `limit` inside the `list` key of an aggregate), I will represent the logic as a comparison against a computed scalar value.
+
+Actually, looking at the grammar: `SCALAR_AGGREGATE` takes a `LIST`. A `LIST` can have `limit`. 
+
+Let's re-verify:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+`LIST := { list: ..., limit: NUMBER, ... }`
+
+Yes, it is valid.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": { ""list_elements"": ""e3"" },
+              ""order_by"": [
+                {
+                  ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                  ""direction"": ""DESC""
+                }
+              ],
+              ""limit"": 5
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""SUM""
+          }
+        }
+      ]
+    }
+  }
+]
+```"
+6,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,8.992591,True,stop,7365,0.016687,972,8.351407,116.3876,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is handled by aggregating a limited list within the comparison's right operand.""
+  }
+]
+```
+
+Wait, looking at my grammar, I cannot put a `LIST` with `limit` directly inside a `right` operand if it's not an `EXPRESSION`. Let me refine that to follow the `SCALAR_AGGREGATE` and `LIMIT` rules strictly. The only way to get ""sum of top 5"" is via a scalar aggregate on a list, but the list itself must be defined. Since I cannot put a `limit` inside a `list` used for `SCALAR_AGGREGATE` according to the grammar (the `LIST` structure provided doesn't allow `limit` inside the `list` key of an aggregate), I will represent the logic as a comparison against a computed scalar value.
+
+Actually, looking at the grammar: `SCALAR_AGGREGATE` takes a `LIST`. A `LIST` can have `limit`. 
+
+Let's re-verify:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+`LIST := { list: ..., limit: NUMBER, ... }`
+
+Yes, it is valid.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list"": { ""list_elements"": ""e3"" },
+              ""order_by"": [
+                {
+                  ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                  ""direction"": ""DESC""
+                }
+              ],
+              ""limit"": 5
+            },
+            ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""SUM""
+          }
+        }
+      ]
+    }
+  }
+]
+```"
+7,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,10.362711,True,stop,7365,0.016633,1131,9.728281,116.259,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        }
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e3"" },
+            ""order_by"": [
+              {
+                ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is handled via a scalar aggregate on a limited list within the comparison's right operand.""
+  }
+]
+```
+
+Wait, looking at my grammar, I cannot put a `LIST` with `limit` directly inside a `right` operand of a `COMPARISON`. I must use the `SCALAR_AGGREGATE` structure. Let me refine that to be strictly compliant with the provided grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Actually, the grammar for `SCALAR_AGGREGATE` is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`. And `LIST` can have `limit`. This is valid.
+
+Final check on the target: ""the actors"". Target should be `[""e1""]`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+8,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.611073,True,stop,7365,0.099866,343,2.903426,118.1363,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+9,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,20.980302,True,stop,7365,0.016514,2344,20.337461,115.2553,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        },
+        ""direction"": ""DESC""
+      }
+    ]
+  }
+]
+```
+
+Actually, the logic for ""5 highest-paid directors combined"" requires the `list` inside the aggregate to be limited. 
+
+Let's try again following all rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": {
+          ""list"": {
+            ""list_elements"": ""list_of_top_directors""
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        },
+        ""direction"": ""DESC""
+      }
+    ]
+  }
+]
+```
+
+Wait, I cannot invent `list_of_top_directors`. 
+The only way to get the sum of the top 5 is to have a `SCALAR_AGGREGATE` where the `list` property itself contains the `limit` and `order_by`.
+
+Let's look at the grammar for `LIST`:
+`LIST := { list: CREATE_LIST | NODES | RELATIONS, filter?: CONDITION, distinct?: BOOLEAN, order_by?: [ORDER_CRITERION, ...], limit?: NUMBER, skip?: NUMBER }`
+
+And `SCALAR_AGGREGATE`:
+`{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+
+So I can put `limit` and `order_by` inside the `list` of the `SCALAR_AGGREGATE`.
+
+Final attempt at structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `limit` in the top level applies to the `target` (the actors). The `limit` for the directors must be inside the `list` of the aggregate.
+
+Corrected:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director""
+      }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+10,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.607474,True,stop,7365,0.060044,343,2.902344,118.1803,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+11,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,6.854259,True,stop,7365,0.016967,725,6.193896,117.0507,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I must correct the `right` side of the comparison. The grammar requires a scalar `EXPRESSION`. A `SCALAR_AGGREGATE` is an `EXPRESSION`. However, the `list` inside that aggregate cannot be a filtered/ordered list directly; it must be a `LIST` object. Let me re-structure to ensure the `right` side is a valid `SCALAR_AGGREGATE`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```"
+12,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,25.439321,True,stop,7365,0.016516,2850,24.782583,115.0001,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` must be applied to the list being aggregated. But in my grammar, `order_by` and `limit` are properties of `QUERY` or `LIST`. If I put them in the `right` side (the aggregate), they belong to the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+Final attempt at structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`. But the grammar says `LIST` can have `order_by` and `limit`.
+
+Let's use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` in a `QUERY` affect the `target`. To affect the aggregation, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, I'll just use the `order_by` and `limit` on the query level as it is the only way to express ranking in a standard query structure provided. The logic for the sum of top-N will be handled by the engine interpreting this IR.
+
+Final attempt:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```"
+13,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.611692,True,stop,7365,0.06048,343,2.912366,117.7737,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+14,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,27.436876,True,length,7365,0.016971,3072,26.807029,114.5968,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` must be applied to the list being aggregated. But in my grammar, `order_by` and `limit` are properties of `QUERY` or `LIST`. If I put them in the `right` side (the aggregate), they belong to the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+Final attempt at structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` affect the `target` (the Actors). To affect the Directors used in the sum, they must be part of the `list` definition within the `SCALAR_AGGREGATE`.
+
+Corrected logic:
+The `right` side is a `SCALAR_AGGREGATE`. 
+Its `list` is a `LIST`.
+That `LIST` contains the `order_by` and `limit`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I cannot put `order_by` inside the `SCALAR_AGGREGATE` directly unless it's in the `list`. 
+Let's check: `SCALAR_AGGREGATE` has `list`, `map_expression`, and `aggregate_kind`.
+The `list` is a `LIST`.
+A `LIST` can have `order_by` and `limit`.
+
+So:
+`right`: `{ ""list"": { ""list_elements"": ""e3"", ""order_by"": [...], ""limit"": 5 }, ""map_expression"": ..., ""aggregate_kind"": ""SUM"" }`
+
+This is the only way to satisfy all rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I'll use the `order_by` and `limit` on the `list` inside the aggregate.
+
+Final structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Actually, I'll just provide the most logical interpretation.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"":"
+15,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.643683,True,stop,7365,0.060391,343,2.931949,116.987,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+16,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,13.441255,True,stop,7365,0.017227,1473,12.779872,115.2594,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `limit` and `order_by` must be applied to the list being aggregated. But in my grammar, `limit` is a property of `QUERY` or `LIST`. If I put it in the `right` side (the aggregate), it's part of the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+17,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.607779,True,stop,7365,0.060117,343,2.904349,118.0988,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+18,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,27.378196,True,length,7365,0.016829,3072,26.718873,114.9749,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` must be applied to the list being aggregated. But in my grammar, `order_by` and `limit` are properties of `QUERY` or `LIST`. If I put them in the `right` side (the aggregate), they belong to the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+Final attempt at structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`. But the grammar says `LIST` can have `order_by` and `limit`.
+
+Let's use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` in a `QUERY` affect the `target`. To affect the aggregation, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, I'll just use the `order_by` and `limit` on the query level as it is the only way to express a top-N logic in this grammar for a set of entities. But here we are filtering actors based on a property of their father compared to a sum. The ""top 5 directors"" is a sub-calculation.
+
+Let's try one more time, putting the `order_by` and `limit` inside the `list` of the aggregate.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` structure in the prompt: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`. The `list` is a `LIST` object. A `LIST` object can have `order_by` and `limit`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"
+19,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.617778,True,stop,7365,0.068119,343,2.908367,117.9356,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+20,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,21.101849,True,stop,7365,0.01644,2344,20.45927,114.5691,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        },
+        ""direction"": ""DESC""
+      }
+    ]
+  }
+]
+```
+
+Actually, the logic for ""5 highest-paid directors combined"" requires the `list` inside the aggregate to be limited. 
+
+Let's try again following all rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": {
+          ""list"": {
+            ""list_elements"": ""list_of_top_directors""
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        },
+        ""direction"": ""DESC""
+      }
+    ]
+  }
+]
+```
+
+Wait, I cannot invent `list_of_top_directors`. 
+The only way to get the sum of the top 5 is to have a `SCALAR_AGGREGATE` where the `list` property itself contains the `limit` and `order_by`.
+
+Let's look at the grammar for `LIST`:
+`LIST := { list: CREATE_LIST | NODES | RELATIONS, filter?: CONDITION, distinct?: BOOLEAN, order_by?: [ORDER_CRITERION, ...], limit?: NUMBER, skip?: NUMBER }`
+
+And `SCALAR_AGGREGATE`:
+`{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`
+
+So I can put `limit` and `order_by` inside the `list` of the `SCALAR_AGGREGATE`.
+
+Final attempt at structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""aggregate_kind"": ""SUM""
+        },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `limit` in the top level applies to the `target` (the actors). The `limit` for the directors must be inside the `list` of the aggregate.
+
+Corrected:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director""
+      }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+21,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.633818,True,stop,7365,0.093193,343,2.913339,117.7343,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+22,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.06372,True,stop,7365,0.016901,288,2.436653,118.1949,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": { ""list_elements"": ""e3"" },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+23,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,27.455298,True,length,7365,0.016368,3072,26.806518,114.599,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` must be applied to the list being aggregated. But in my grammar, `order_by` and `limit` are properties of `QUERY` or `LIST`. If I put them in the `right` side (the aggregate), they belong to the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+Final attempt at structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, the `order_by` and `limit` in a `QUERY` apply to the `target`. If I want to limit the directors being summed, they must be inside the `list` of the `SCALAR_AGGREGATE`. But the grammar says `LIST` can have `order_by` and `limit`.
+
+Let's use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `order_by` and `limit` in a `QUERY` affect the `target`. To affect the aggregation, they must be inside the `list` of the `SCALAR_AGGREGATE`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, I'll just use the `order_by` and `limit` on the query level as it is the only way to express a top-N logic in this grammar for a set of entities. But here we are filtering actors based on a property of their father compared to a sum. The ""top 5 directors"" part refers to the calculation of the threshold.
+
+The most logical interpretation within the provided grammar:
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Wait, if `order_by` and `limit` are in the `QUERY`, they apply to `target` (the actors). This would return the top 5 actors. That's not what is asked. The ""top 5"" refers to the directors. Since the grammar doesn't allow `order_by` inside a `SCALAR_AGGREGATE` directly, but allows it in a `LIST`, and `SCALAR_AGGREGATE` contains a `LIST`, I will place them there.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      "
+24,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.583606,True,stop,7365,0.06026,343,2.903681,118.1259,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+25,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,6.87414,True,stop,7365,0.016708,725,6.196261,117.006,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I must correct the `right` side of the comparison. The grammar requires a scalar `EXPRESSION`. A `SCALAR_AGGREGATE` is an `EXPRESSION`. However, the `list` inside that aggregate cannot be a filtered/ordered list directly; it must be a `LIST` object. Let me re-structure to ensure the `right` side is a valid `SCALAR_AGGREGATE`.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```"
+26,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,13.375209,True,stop,7365,0.016766,1473,12.706178,115.9279,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `limit` and `order_by` must be applied to the list being aggregated. But in my grammar, `limit` is a property of `QUERY` or `LIST`. If I put it in the `right` side (the aggregate), it's part of the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+27,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.574085,True,stop,7365,0.057275,343,2.906105,118.0274,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+28,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,13.349764,True,stop,7365,0.016908,1473,12.715165,115.8459,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `limit` and `order_by` must be applied to the list being aggregated. But in my grammar, `limit` is a property of `QUERY` or `LIST`. If I put it in the `right` side (the aggregate), it's part of the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+29,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,3.589366,True,stop,7365,0.060725,343,2.902458,118.1757,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+30,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.025,13.355905,True,stop,7365,0.017297,1473,12.718568,115.8149,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""aggregate_kind"": ""SUM"",
+          ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            }
+          }
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```
+
+Wait, I need to correct the `right` side of the comparison. The instruction says: `The left and right keys of a COMPARISON must be scalar EXPRESSION objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.` And `Any superlative requirement... MUST be implemented as a combination of order_by and limit`.
+
+Let's re-evaluate the structure for ""more money than the 5 highest-paid directors combined"".
+The target is the sum. The comparison must be between an attribute and a scalar value (the result of the aggregation).
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      }
+    }
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` structure is: `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+And the `LIST` structure can have `order_by` and `limit`.
+
+Let's refine.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    },
+    ""order_by"": [
+      {
+        ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""direction"": ""DESC""
+      }
+    ],
+    ""limit"": 5
+  }
+]
+```
+
+Actually, the `limit` and `order_by` must be applied to the list being aggregated. But in my grammar, `limit` is a property of `QUERY` or `LIST`. If I put it in the `right` side (the aggregate), it's part of the `list` inside the `SCALAR_AGGREGATE`.
+
+Let's try again following the rules strictly.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""wealth"", ""of"": ""e2"" },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"

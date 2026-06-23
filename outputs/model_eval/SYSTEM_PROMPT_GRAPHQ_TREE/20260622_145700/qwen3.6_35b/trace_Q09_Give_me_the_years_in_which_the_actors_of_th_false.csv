@@ -1,0 +1,1713 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,13.828491,True,stop,3133,0.171904,1947,13.214746,147.3354,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding actors who are in the movie ""The Matrix"". The relation from Actor to Movie is typically ""cast member"" or ""actor in"". If we start with Concept ""actor"", we need to constrain it by the relation to ""The Matrix"". So, `<C> actor </C>` that `<R> cast member </R>` forward to `<E> The Matrix </E>`? No, usually relations are defined from Subject to Object. Let's assume the schema has `Actor` -> `Movie` via `cast_member`. Then to find actors OF a movie, we look for Actors where `cast_member` points TO the Movie. So direction is backward from Actor perspective? Or forward from Movie perspective?
+Standard KBpedia/Wikidata style: `P161` (cast member) goes from Work to Person. So `Movie` -> `Actor`.
+If I want actors OF a movie, I start with the Movie and go forward via `cast_member` to get Actors.
+So: `<ES> <E> The Matrix </E> that <R> cast member </R> forward to <C> actor </C> </ES>`? No, that gets the set of actors.
+Then I want the marriage year OF these actors.
+So: `what is <A> marriage year </A> of <ES> <E> The Matrix </E> that <R> cast member </R> forward to <C> actor </C> </ES>`?
+Wait, the grammar for AttributeQuery is `what is the attribute Attribute of EntitySet`.
+The EntitySet here is the set of actors.
+How to define the set of actors of Matrix?
+`<ES> <E> The Matrix </E> that <R> cast member </R> forward to <C> actor </C> </ES>` represents the set of actors connected from The Matrix.
+Let's refine the relation direction. If `cast_member` is `Movie -> Actor`, then from Movie to Actor is `forward`.
+So the EntitySet is `<ES> <E> The Matrix </E> that <R> cast member </R> forward to <C> actor </C> </ES>`.
+Then we extract the attribute `marriage year` (or `date of marriage`) from this set.
+Since multiple actors might have multiple marriages, this is a ValueQuery returning a list of years or an AttributeQuery returning the attribute values. The prompt asks for ""years"", implying a list of values. So `ValueQuery` with aggregation or just extraction?
+""Give me the years..."" suggests extracting the values.
+Let's use `AttributeQuery` if we want the attribute definition, but usually ""give me X"" where X is a value implies `ValueQuery`.
+However, `AttributeQuery` returns the attribute *of* the entity set. If the entity set has multiple members, it returns the attribute values for all of them.
+Let's stick to `AttributeQuery` as it maps ""what is the [property] of [entities]"" structure well. Or `ValueQuery` if we treat the years as the direct answer.
+Given the example ""Tell me the total budget..."", which uses `ValueQuery` with `sum`, and ""Give me the actors..."", which uses `EntityQuery`.
+""Give me the years..."" is asking for values. So `ValueQuery`.
+But what is the value? It's the attribute `marriage year` of the actors.
+So: `what is <A> marriage year </A> of <ES> ... </ES>`?
+Actually, looking at the grammar:
+`AttributeQuery := ""what is the attribute"" Attribute ""of"" EntitySet`
+`ValueQuery := ""what is"" Value`
+If I use `AttributeQuery`, it explicitly asks for the attribute.
+If I use `ValueQuery`, I must provide a `Value`. A value can be `Attribute of EntitySet`.
+So: `what is <A> marriage year </A> of <ES> ... </ES>` fits `ValueQuery` if we interpret `<A>...of...</A>` as a Value node? No, the grammar says `Value := Attribute ""of"" EntitySet`.
+So `what is <A> marriage year </A> of <ES> ... </ES>` is a valid `ValueQuery`.
+
+Let's double check the relation direction.
+Query: ""actors of Matrix"".
+Entity: Matrix (Movie).
+Relation: Cast Member (Movie -> Actor).
+Direction: Forward from Movie to Actor.
+EntitySet: `<ES> <E> The Matrix </E> that <R> cast member </R> forward to <C> actor </C> </ES>`?
+Wait, the constraint syntax is `that Relation DIR to EntitySet`.
+If I start with `<E> The Matrix </E>`, and apply a constraint `that <R> cast member </R> forward to <C> actor </C>`, this selects entities (The Matrix) that have a forward cast_member relation to an Actor. This is tautological if we just want the actors.
+Usually, to get the *target* of a relation from a source, you traverse it.
+In GraphQ IR, `EntitySet` can be filtered by constraints.
+If I want the set of Actors, I should probably start with `<C> actor </C>` and constrain it?
+Or use the traversal syntax?
+The grammar for `RelationConstraint` is: `""that"" Relation DIR ""to"" (COP Value?)? EntitySet`.
+This constrains the *current* EntitySet.
+If current ES is `<E> The Matrix </E>`, adding `that <R> cast member </R> forward to <C> actor </C>` means ""The Matrix that has a forward cast_member relation to an Actor"". This doesn't extract the actors, it filters the movies.
+To *extract* the actors, we typically need a different mechanism or the root query handles the traversal.
+However, `EntityQuery` returns entities. `AttributeQuery`/`ValueQuery` return attributes/values.
+If I use `EntityQuery`: ""what is <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>"".
+Here, we start with Concept Actor. We constrain it: ""that has a backward relation 'cast_member' to Entity 'The Matrix'"".
+If `cast_member` is Movie->Actor, then Actor <- Movie is backward. This works.
+So the set of actors is `<ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>`.
+
+Now, we want the *years* they got married.
+This is an attribute of these actors.
+So: `what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>`?
+This fits `ValueQuery` if we consider `<A>...of...</A>` as a Value.
+Grammar: `Value := Attribute ""of"" EntitySet`.
+So `what is <A> marriage year </A> of <ES> ... </ES>` is correct for `ValueQuery`.
+
+Let's refine the attribute name. ""marriage year"" or ""date of marriage"". Let's use `marriage year`.
+
+Final Sequence:
+what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── Attribute
+        │   ├── ""<A>""
+        │   ├── ""marriage year""
+        │   └── ""</A>""
+        ├── ""of""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""actor""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""cast member""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""backward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           └── Entity
+            │               ├── ""<E>""
+            │               ├── ""The Matrix""
+            │               └── ""</E>""
+            └── ""</ES>""
+```"
+2,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.163257,True,stop,3133,0.024862,399,2.663627,149.7957,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'cast member forward', so from Movie to Actor is 'cast member backward'. Then we need the marriage year attribute of these actors).
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast member""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+3,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,6.650817,True,stop,3133,0.024578,914,6.168491,148.1724,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting a specific attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute like `birth_date` or `death_date`. Let's assume there is an attribute `marriage_year` for simplicity, or more likely, we extract the year from a `marriage` event. But standard GraphQ IR often treats dates as attributes of entities if they are static facts (like birth date). For ""years in which... got married"", it implies multiple events potentially. Let's stick to extracting an attribute `marriage_year` for each actor, or if the schema supports it, a relation `married` with a date qualifier.
+Let's look at the structure: ""actors of Matrix"" -> EntitySet. ""years ... got married"" -> Attribute `marriage_year`? Or Relation `married`?
+If I use `AttributeQuery`, I get the attribute values.
+Let's try: `what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Wait, ""years"" is plural. If an actor married multiple times, this might return a list.
+Let's refine the Relation direction.
+Query: Actors OF Matrix.
+Matrix -> (has actor) -> Actor.
+So from Actor to Matrix is `actor` forward? No, usually `actor` relation goes Entity(Actor) -> Entity(Movie).
+So ""Actors of Matrix"" means we start with Movie ""The Matrix"", go backward along `actor` relation to find Actors.
+So: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>` is correct for finding the actors.
+
+Now, what do we want? ""Years in which ... got married"".
+This implies we want the `marriage_year` attribute of these actors.
+So: `what is the attribute <A> marriage year </A> of [the above EntitySet]`.
+
+Let's double check if ""marriage year"" is a standard attribute. Often it's `birth_date`. Let's assume `marriage_year` exists for this hypothetical schema.
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+4,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,7.414614,True,stop,3133,0.024464,1029,6.938642,148.2999,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'forward' if the relation is `actor_in`, or `backward` if the relation is `has_actor`. Let's assume a standard schema where `Movie` has `Actor` via `cast` or `actor`. If the relation is `cast` (Movie -> Actor), then to get Actors from Movie, we go forward. If the relation is `acted_in` (Actor -> Movie), we go backward.
+Let's look at the example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation name is 'actor' and the direction from Actor to Inception is 'backward'. This means the edge in the graph is `Inception --(actor)--> Actor`? No, usually ""backward"" means we are traversing against the arrow. If the query is `Actor that (relation) backward to Movie`, it means `Movie --(relation)--> Actor`. So the relation points from Movie to Actor.
+Let's stick to the example's logic: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This constructs a set of Actors who are linked to Inception via the 'actor' relation (directed towards the actor).
+Now, for each of these actors, we want their ""marriage year"". This is an attribute query on the EntitySet of actors.
+So: `what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+Wait, ""years"" is plural. It might imply multiple years per actor or just the set of all such years. An AttributeQuery returns the value of an attribute. If the attribute is a list of dates/years, it works.
+Let's refine the relation name. ""actors of Matrix"". In DBpedia/Wikidata, `director` or `starring` might be used. The example used `actor`. I will use `cast member` or `actor`. Let's use `actor` to be consistent with the example style for simplicity, or `starring` if more precise. Given the generic nature, `actor` is fine as a relation label in this context.
+Actually, looking at the previous example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+So for Matrix: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`.
+Then we want the attribute `marriage year` (or `birth date`, etc., but specifically marriage). Let's use `marriage year`.
+
+Final Representation 1: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+5,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,16.834813,True,stop,3133,0.024645,2417,16.364078,147.7016,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'forward' if the relation is `actor_in`, or `backward` if the relation is `has_actor`. Let's assume a standard schema where `Movie` has `Actor` via `cast` or `actor`. If the relation is `cast` (Movie -> Actor), then to get Actors from Movie, we go forward. If the relation is `acted_in` (Actor -> Movie), we go backward. Usually, ""actors of X"" implies X is the source in natural language but structurally we are filtering entities by their connection to X. Let's use a generic relation `actor` connecting Actor and Movie. To find Actors who acted in Matrix: `<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>` assuming `actor` means ""is an actor of"". Or if `acted_in` is the relation from Actor to Movie, then `<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>`. Let's stick to a generic `actor` relation where direction is defined by the schema. A common pattern is `Movie` --(cast)--> `Actor`. So from Movie to Actor is forward.
+Wait, let's look at the example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` goes from Actor to Inception? No, if it's backward to Inception, the edge points TO Inception. So Actor -> Inception. This matches `acted_in`.
+So for ""actors of Matrix"", we want Actors connected to Matrix. If the relation is `acted_in` (Actor -> Movie), then we need `<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>`? No, if Actor -> Movie is forward, then to find Actors given Movie, we traverse the relation in reverse?
+Let's re-read the example carefully: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This means: Find `actor` such that there is a relation `actor` going FROM `actor` TO `Inception`? No, ""backward to"" usually means the edge points towards the target. If I say ""A is connected to B via R backward"", it often means B -> A in some contexts, or A -> B in others depending on the parser's definition of ""direction"".
+Let's look at the AST for the example:
+`Relation` ""actor"" `DIR` ""backward"" `to` `Entity` ""Inception"".
+If the relation is `actor` (Actor --actor--> Movie), then going from Actor to Movie is forward. Going from Movie to Actor is backward.
+The query asks for Actors. The anchor is Inception.
+So we start with Concept `actor`. We constrain it by a relation to `Inception`.
+If the relation is `acted_in` (Actor -> Movie), then Actor --acted_in--> Inception.
+To find Actors who acted in Inception, we look for Actors where `acted_in` points to Inception.
+In GraphQ IR, ""that R backward to E"" typically means: The entity being described (Actor) has an edge R pointing TO E? Or does it mean we traverse R from E to get to the entity?
+Let's check the directionality rule: ""Topological Directionality... explicitly declare the edge direction"".
+If I say ""Cities in Japan"", and Japan is a country, usually Country --contains--> City. So City is forward from Country? Or backward?
+Example: ""cities in Japan"" -> `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E>`. Wait, the example says ""capital"". That's weird for cities. Ah, the example text says ""cities in Japan"" but the representation uses `capital`? No, the example text says: ""cities in Japan"" becomes `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E>`. This seems like a typo in the prompt's example description or a specific schema where `capital` links cities to countries? Unlikely.
+Let's look at the ""actors of Inception"" example again.
+Representation 1: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+If `actor` is the relation name, and it goes Actor -> Movie, then ""backward to Inception"" implies the edge points TO Inception. So Actor -> Inception. This makes sense for `acted_in`.
+So, for ""actors of Matrix"", we want Actors who acted in Matrix.
+Relation: `acted_in` (or just `actor` as per example). Direction: The actor has an `acted_in` relation pointing to the movie. So from the Actor's perspective, the edge is forward towards the movie? Or is the direction defined relative to the traversal?
+Usually ""R backward to E"" means the edge R originates at the current node and points to E? No, ""backward"" often implies traversing against the arrow.
+Let's assume the standard GraphQ interpretation: `A that R forward to B` means A -> B exists. `A that R backward to B` means B -> A exists.
+If `acted_in` is Actor -> Movie, then to find Actors for a Movie, we need Movie <- Actor. This is ""backward"" traversal from the Movie? No, we are defining the Actor set.
+The Actor is the subject. The constraint is on the Actor.
+Actor --(acted_in)--> Movie.
+So the relation goes FROM Actor TO Movie.
+If we define direction as the direction of the edge in the graph:
+""that <R> acted_in forward to <E> Matrix </E>"" would mean Actor -> Matrix.
+""that <R> acted_in backward to <E> Matrix </E>"" would mean Matrix -> Actor.
+Which one is correct for ""actors of Matrix""?
+If the schema has `Movie` --(cast)--> `Actor`, then we need `backward` (Matrix -> Actor).
+If the schema has `Actor` --(acted_in)--> `Movie`, then we need `forward` (Actor -> Matrix).
+The example ""actors of Inception"" used `<R> actor </R> backward to <E> Inception </E>`.
+This implies the relation `actor` points FROM Inception TO Actor? i.e., Inception --(actor)--> Actor. This is a ""has_actor"" type relation.
+So, I will assume the schema has relations originating from the Movie/Work to the Person (e.g., `cast`, `director`).
+Therefore, to find actors of Matrix: `<ES> <C> actor </C> that <R> cast </R> backward to <E> The Matrix </E> </ES>`?
+Wait, if `cast` is Movie -> Actor, then ""backward to"" (Movie -> Actor) means the edge points to the target. So `Actor` is the source of the constraint? No.
+Let's stick to the example's logic:
+Example: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This resulted in Actors.
+So, Relation `actor` points FROM Actor TO Inception? Or FROM Inception TO Actor?
+If ""backward to"" means the edge points TO the target (Inception), then Actor -> Inception.
+If ""backward to"" means we traverse backward from the target, then Inception -> Actor.
+Given the ambiguity, I will follow the exact pattern of the provided example for ""actors of [Movie]"".
+Pattern: `<ES> <C> actor </C> that <R> cast </R> backward to <E> The Matrix </E> </ES>` (assuming `cast` is the relation from Movie to Actor, and ""backward"" allows reaching the Actor from the Movie? No, the subject is Actor.
+Let's assume the example implies: Find Actors such that there is a relation `actor` connecting them to Inception. The direction `backward` suggests the edge is oriented towards Inception (Actor -> Inception) OR we are coming from Inception backwards.
+Actually, in many graph query languages, ""R backward to B"" means B --R--> A. So A is connected to B via R incoming.
+If `actor` relation is Movie --(actor)--> Actor, then ""backward to Inception"" means Inception --(actor)--> Actor. This finds Actors.
+So I will use a relation like `cast` or `actor` that goes from Movie to Actor, and direction `backward`.
+
+Now, for the years they got married.
+We need the attribute `marriage year` (or `birth year`? No, ""got married"").
+Attribute: `marriage date` or `year of marriage`. Let's use `<A> marriage year </A>`.
+Query: What is the attribute `marriage year` of [Actors of Matrix].
+
+Representation 1: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> cast </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+6,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,8.042347,True,stop,3133,0.024688,1118,7.544434,148.1887,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting an attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute like `birth_date` or `death_date`. Let's assume there is an attribute `marriage_year` for simplicity, or more likely, we extract the year from a `marriage` event. But standard GraphQ IR often uses attributes for dates. Let's use `AttributeQuery` with attribute `marriage year`.)
+
+Refining: ""Give me the years..."" implies multiple values. `ValueQuery` can return a list of values.
+Structure: `what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Let's check the direction. ""Actors OF Matrix"".
+Relation: `actor` (Movie -> Actor).
+To get Actors from Movie: `Actor` is connected to `Movie` via `actor`.
+If we start with `Concept: actor`, and constrain it by being an actor in `The Matrix`:
+`<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>`?
+No, usually the relation is defined as `actor(Movie, Actor)`. So from Movie to Actor is forward. From Actor to Movie is backward.
+If I want the set of Actors who acted in Matrix:
+Start with Concept `actor`. Constraint: that has relation `actor` forward to `The Matrix`.
+Wait, if the edge is `Actor --[acted in]--> Movie`, then from Actor to Movie is forward.
+If the edge is `Movie --[has actor]--> Actor`, then from Movie to Actor is forward.
+Standard DBpedia/Wikidata: `dbo:starring` (Movie -> Actor). So `actor` relation usually goes Movie -> Actor.
+So, ""Actors of Matrix"" = `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`?
+If `actor` is defined as `Movie -> Actor`, then going from Actor to Movie is `backward`.
+Let's assume the relation name is `actor` and it points from Movie to Actor.
+Then `<C> actor </C>` constrained by `<R> actor </R> backward to <E> The Matrix </E>` means: Find Actors such that there is an `actor` edge pointing *from* them *to* Matrix? No, `backward` means the edge direction in the graph is opposite to the traversal.
+Traversal: Actor -> (via constraint) -> Matrix.
+If Edge is Movie -> Actor, then traversing Actor -> Matrix is against the arrow. So `backward`.
+Correct.
+
+So the EntitySet is: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+The query asks for ""years"". This is an attribute of the actors (specifically their marriage years).
+Query: `what is the attribute <A> marriage year </A> of [EntitySet]`
+
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+7,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.151857,True,stop,3133,0.024625,399,2.670295,149.4217,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'cast member forward', so from Movie to Actor is 'cast member backward'. Then we need the marriage year attribute of these actors).
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast member""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+8,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,12.344031,True,stop,3133,0.024085,1755,11.880404,147.7222,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding actors who are in the movie ""The Matrix"". The relation from Actor to Movie is typically ""cast member"" or ""actor in"". If we start with Concept ""actor"", we need to constrain it by the relation to ""The Matrix"". So, `<C> actor </C>` that `<R> cast member </R>` forward to `<E> The Matrix </E>`? No, usually relations are defined from Subject to Object. Let's assume the schema has `Actor` -> `Movie` via `cast_member`. Then to find actors OF a movie, we look for Actors where the relation `cast_member` points TO the Movie. So direction is `forward` if the edge is Actor->Movie. Wait, standard KBpedia/Wikidata logic: Entity (Actor) --[cast_member]--> Entity (Movie). To find Actors given a Movie, we traverse the edge backward from Movie to Actor? Or do we define the constraint on the Actor set?
+Let's stick to the pattern in the examples: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` goes from Movie to Actor (Movie has_actor Actor). So, for Matrix, we want actors.
+So: `<ES> <C> actor </C> that <R> cast member </R> forward to <E> The Matrix </E> </ES>`? No, if the example used `backward` for ""actors of Inception"", it implies the relation is defined as `Movie --[actor]--> Actor`.
+Let's assume a generic relation `cast_member` connecting Actor and Movie. If we want actors OF the movie, we are filtering the set of Actors by their connection to the Movie.
+If the schema is `Actor --[appears_in]--> Movie`, then to find actors for a specific movie, we look for Actors where `appears_in` points to the Movie. This is a forward constraint on the Actor set? No, it's a constraint that links the Actor to the Movie.
+Let's use the explicit direction relative to the traversal from the root EntitySet.
+Root: `<C> actor </C>`.
+Constraint: Must be connected to `<E> The Matrix </E>`.
+If the edge is `Actor --[cast_member]--> Movie`, then we are looking for Actors that have a `cast_member` relation pointing TO the Movie? No, usually ""cast_member"" is an attribute or a relation from Actor to Movie.
+Let's look at the example again: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This implies the relation `actor` exists between `Inception` and `Actor`. Specifically, `Inception --[actor]--> Actor`. Therefore, to find the actors, we start with Concept `actor` and constrain it by saying it is connected via `actor` relation *backward* from Inception? Or does ""backward"" mean we are traversing the edge in reverse?
+If `Inception --[actor]--> Actor`, then from Actor's perspective, the edge comes *from* Inception. So the constraint on the Actor is that it has an incoming `actor` edge from Inception.
+In GraphQ IR syntax: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This means ""Find Actors such that there is a relation 'actor' going from the Actor backwards to Inception""? No, usually `backward` in these parsers means traversing the edge in the reverse direction of its definition. If the edge is defined as Source->Target, and we say `backward`, we are at Target looking for Source?
+Actually, let's look at the structure: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This reads as: ""The set of Actors, constrained by a relation 'actor' which goes backward to Inception.""
+If the relation is `Movie --[has_actor]--> Actor`, then from Actor to Movie is `backward`? No, that would be forward if the edge is defined Movie->Actor.
+Let's assume the standard Wikidata direction: `Actor (Q123) --[cast_member (P161)]--> Movie (Q456)`.
+To find actors of a movie, we want all P such that Q456 --[cast_member]--> P? No, usually it's Person --[cast_member]--> Film.
+If the schema is `Person --[cast_member]--> Film`, then to find people for a film, we look for Persons where the `cast_member` edge points to the Film. This is a constraint on the Person set: ""that has `cast_member` relation pointing TO the Film"".
+In the example, ""actors of Inception"" used `<R> actor </R> backward`. This suggests the relation name in the schema might be `actor` (Movie -> Actor). If the schema was `Actor --[actor]--> Movie`, the direction would likely be `forward`.
+Given the ambiguity, I will follow the syntactic pattern of the provided example for ""actors of [Movie]"".
+Example: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+I will use `<C> actor </C>` as the base.
+Constraint: `that <R> cast member </R> forward to <E> The Matrix </E>`? Or `backward`?
+If I assume the relation is `Movie --[cast_member]--> Actor` (like the example's `actor`), then to get from Actor to Movie, we go `backward`.
+So: `<ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>`.
+Then, for each such actor, get the attribute `marriage year` (or `date of marriage`).
+Query: ""what is the attribute <A> date of marriage </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>""
+
+Wait, ""years in which... got married"". This implies a list of years.
+So it's an AttributeQuery returning the attribute values.
+
+Refined Representation 1: what is the attribute <A> date of marriage </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""date of marriage""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast member""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+9,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,6.034317,True,stop,3133,0.024439,826,5.552853,148.7524,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting an attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute like `birth_date` or `death_date`. Let's assume there is an attribute `marriage_year` for simplicity, or more likely, we extract the year from a `marriage` event. But standard GraphQ IR often uses attributes for dates. Let's use `AttributeQuery` with attribute `marriage year`.)
+
+Refining: ""Give me the years..."" implies multiple values. `ValueQuery` can return a list of values.
+Structure: `what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Let's double check the direction. ""Actors OF Matrix"".
+Relation: `actor` (Movie -> Actor).
+To find actors *of* a movie, we go from Movie to Actor? No, usually `actor` is an edge from Actor to Movie (Actor acted in Movie).
+So, if we start with EntitySet `<C> actor </C>`, and constrain it by ""that <R> actor forward to <E> The Matrix </E>"", that means the actor has an outgoing `actor` edge to The Matrix. This is correct for finding actors who acted in the movie.
+
+So:
+1. Find Actors (Concept: `actor`)
+2. Constraint: They have relation `actor` forward to Entity `The Matrix`.
+3. Extract Attribute: `marriage year` (or similar) from these actors.
+
+Representation 1: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+10,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,5.734993,True,stop,3133,0.024684,776,5.241491,148.0495,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting a specific attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute query if the attribute exists (e.g., `birth_year`, `death_year`). Let's assume an attribute `marriage year` exists for simplicity, or more likely, we want the years from a `marriage` relation. But `AttributeQuery` returns attributes. `ValueQuery` can return values derived from relations? No, `ValueQuery` is usually for aggregations or specific value extraction. Let's look at the structure: ""Give me the years..."". This is a list of values. So it should be a `ValueQuery` or `AttributeQuery`. If we treat ""marriage year"" as an attribute of the actor, it's an AttributeQuery. If we need to traverse a marriage relation, it's more complex. Let's stick to the most direct mapping: Actors of Matrix -> get their marriage years.
+Let's refine: The actors are entities. We want the years they got married. This implies a property `marriage_year` or similar on the Actor entity, or we need to find the year from a Marriage event linked to the Actor.
+Standard KG QA pattern for ""years of X"": `what is <A> marriage year </A> of <ES> ... </ES>`.
+Let's assume the attribute is `marriage_year`.
+
+Representation 1: what is the attribute <A> marriage_year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage_year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+11,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,5.549395,True,stop,3133,0.024334,753,5.06875,148.5573,"<thinking>
+Representation 1: what is <A> marriage date </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""years"" implies a temporal value, specifically the year of marriage. I will extract the attribute representing the marriage date/year. Since the query asks for the years *in which* they got married, extracting the specific date or year attribute is appropriate. Let's use `marriage date` as the attribute, and since it asks for ""years"", we might conceptually filter by year, but usually, extraction of the date suffices. However, to be precise about ""years"", I will extract the attribute `<A> marriage date </A>`.)
+
+Let's refine the relation direction. We want actors OF Matrix.
+Matrix -> (has actor) -> Actor.
+So from Actor to Matrix is `cast member` forward? Or `actor` backward?
+Usually, relations are defined as `Actor` --[acted in]--> `Movie`.
+So to find Actors of a Movie, we go `Movie` <-[acted in]- `Actor`.
+In GraphQ IR terms: `<C> actor </C> that <R> acted in </R> backward to <E> The Matrix </E>`.
+
+Then we want the years they got married. This is an attribute of the Actor.
+So: `what is the attribute <A> marriage date </A> of <ES> ... </ES>`.
+
+Wait, ""years"" might imply just the year part. But without a specific schema for extracting just the year component, extracting the full date attribute is standard. Or perhaps the attribute is literally `marriage year`. Let's assume a generic `marriage date` or `married in` attribute. I'll use `<A> marriage date </A>`.
+
+Let's check the constraint on ""actors of Matrix"".
+EntitySet: `<ES> <C> actor </C> that <R> acted in </R> backward to <E> The Matrix </E> </ES>`
+
+Query: `what is the attribute <A> marriage date </A> of <ES> <C> actor </C> that <R> acted in </R> backward to <E> The Matrix </E> </ES>`
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage date""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""acted in""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+12,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,6.850886,True,stop,3133,0.024253,942,6.38919,147.4365,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting an attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute query if the year is stored as an attribute, or a ValueQuery if we need to traverse to a marriage event. Let's stick to the AttributeQuery pattern for simplicity unless specific traversal is needed. Actually, ""years... actors... got married"" implies finding the actors first, then their marriage dates/years.
+Let's refine: We want the years. So it's a ValueQuery or AttributeQuery returning values.
+Path: <E> The Matrix </E> --(actor)--> <C> actor </C>. Then from <C> actor </C>, we need the year of marriage.
+If we assume an attribute `marriage_year` exists on Actor, it's an AttributeQuery.
+If we assume a relation `married_to` leading to a Marriage event with a `date`, it's more complex.
+Standard KG QA often simplifies this to: ""What is the attribute [year of marriage] of [actors of Matrix]?"".
+Let's use `AttributeQuery` for ""what is the attribute <A> year of marriage </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>"".
+Wait, the prompt asks for ""years"". Plural. This suggests a list of values. `AttributeQuery` returns the attribute value. If the attribute is a date/year, it fits.
+
+Let's double check directionality.
+""actors of Matrix"": Actors are connected to Matrix. The relation is usually `actor` (Actor -> Movie) or `starring` (Movie -> Actor).
+If the schema has `actor` from Actor to Movie:
+We start with Entity ""The Matrix"". We want nodes that have a forward `actor` relation TO them? No, if `actor` is Actor->Movie, then from Movie perspective, it's backward.
+So: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`. This correctly identifies the actors.
+
+Now, ""years in which ... got married"".
+We need the attribute representing the year of marriage for these actors.
+Query: `what is the attribute <A> year of marriage </A> of [the actors]`
+
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""year of marriage""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+13,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,6.674436,True,stop,3133,0.02451,916,6.203787,147.6517,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting an attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute query if the attribute exists (e.g., `birth_year`, `death_year`). Let's assume an attribute `marriage year` exists for simplicity, or more likely, we want the years from a `marriage` relation. But `AttributeQuery` returns attributes. `ValueQuery` can return values derived from relations? No, `ValueQuery` is usually for literals or aggregates. Let's look at the structure: ""Give me the years..."". This is an extraction of a value/attribute.
+Let's refine: The actors are entities. They have a relation to the movie. We want their marriage years.
+Path: <E> The Matrix </E> <-[actor]- <C> actor </C> ->[marriage year? or marriage event]-> <V> year </V>.
+If we assume `marriage year` is an attribute of the Actor entity (or a person node), then it's an AttributeQuery.
+If we assume we need to traverse a `marriage` relation to get a date, it might be more complex.
+However, standard GraphQ IR examples often map ""years in which..."" to an Attribute if available, or a Value extraction.
+Let's stick to the most direct mapping: Extract the attribute `marriage year` (or `year of marriage`) from the actors.
+Actually, a safer bet for ""years"" is often a specific attribute like `birth_year`. For marriage, let's assume an attribute `marriage_year` or similar exists on the Person/Actor node.
+So: What is the attribute `marriage_year` of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>.
+
+Wait, the prompt says ""years"" (plural). An AttributeQuery returns the value of an attribute. If multiple actors have different years, it returns a list of values. This fits.
+
+Let's construct the sequence:
+what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+14,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,8.529724,True,stop,3133,0.024556,1188,8.047743,147.619,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding actors who are in the movie ""The Matrix"". The relation from Actor to Movie is typically ""cast member"" or ""actor in"". If we start with Concept ""actor"", we need to constrain it by the relation to ""The Matrix"". So, `<C> actor </C>` that `<R> cast member </R>` forward to `<E> The Matrix </E>`? No, usually relations are defined from Subject to Object. Let's assume the schema has `Actor` -> `Movie` via `cast_member`. Then to find actors OF a movie, we look for Actors where the relation `cast_member` points TO the Movie. So direction is `forward` if the relation is defined as Actor->Movie. Wait, standard KBpedia/Wikidata logic: Entity (Actor) --[cast_member]--> Entity (Movie). To find Actors given a Movie, we traverse the edge backward from Movie to Actor? Or do we filter Actors by their outgoing edge?
+Let's stick to the example ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` connects Actor (source) to Movie (target). To find Actors connected to a specific Movie, we look for nodes of type Actor that have an incoming edge from the Movie? No, ""backward to"" usually means traversing the edge in reverse. If `R` is `Actor -> Movie`, then `Movie <- Actor`. So from the perspective of finding the Actor, we are looking at the source of the relation where the target is the Movie.
+Let's re-read the example: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+If `R` is ""actor"", and it connects Actor to Movie, then `Actor --(actor)--> Movie`.
+""Backward to Inception"" means we are at the target end (Inception) and looking back along the edge. This finds the source nodes (Actors).
+So, for ""actors of Matrix"": `<C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E>` (assuming relation is `cast_member` or similar). Let's use a generic relation name like `actor_in` or just `actor` if it fits the schema. Given the previous example used `actor` as the relation name, I will use `actor` again for consistency with the provided example style, or perhaps `starring`. Let's use `actor` as the relation type connecting Actor to Movie.
+
+Now, we need the ""years in which [these actors] got married"".
+This requires extracting an attribute (marriage year) from the set of actors found.
+So: `what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Wait, ""years"" implies a list of values. This is an AttributeQuery returning a set of values (or a ValueQuery if aggregated, but here it's just the attribute).
+The grammar for AttributeQuery is: `what is the attribute Attribute of EntitySet`.
+So: `what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Let's refine the relation name. In Wikidata, Actor (Q5) -> Movie (Q11424) is via `cast member` (P161). But often in these simplified schemas, it might be `actor`. I will use `actor` as the relation name to match the example's simplicity, or `starring`. Let's use `actor` as the relation from Actor to Movie.
+
+Final Sequence: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+15,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.076075,True,stop,3133,0.024667,389,2.610876,148.9921,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via the 'actor' relation. Since we are looking for actors *of* the movie, the relation from Actor to Movie is 'actor'. To find the actors given the movie, we traverse 'actor' backward from the movie. Then, for each actor, we want their marriage year.)
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+16,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,7.589625,True,stop,3133,0.024573,1053,7.112647,148.0461,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'forward' if the relation is `actor_in`, or `backward` if the relation is `has_actor`. Let's assume a standard schema where `Movie` has `Actor` via `cast` or `actor`. If the relation is `cast` (Movie -> Actor), then to get Actors from Movie, we go forward. If the relation is `acted_in` (Actor -> Movie), we go backward.
+Let's look at the example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation name is 'actor' and the direction from Actor to Inception is 'backward'. This means the edge in the graph is `Inception --(actor)--> Actor`? No, usually ""backward"" means we are traversing against the arrow. If the query is `Actor that (relation) backward to Movie`, it means `Movie --(relation)--> Actor`. So the relation points from Movie to Actor.
+Let's stick to the example's logic: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This constructs a set of Actors who are linked to Inception via the 'actor' relation (directed towards the actor).
+Now, for each of these actors, we want their ""marriage year"". This is an attribute query on the EntitySet of actors.
+So: `what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+Wait, ""years"" is plural. It might imply multiple years per actor or just the set of all such years. An AttributeQuery returns the value of an attribute. If the attribute is a list of dates/years, it works.
+Let's refine the relation name. ""actors of Matrix"". In DBpedia/Wikidata, `director` or `starring` might be used. The example used `actor`. I will use `cast member` or `actor`. Let's use `actor` to be consistent with the example style for simplicity, or `starring` if more precise. Given the generic nature, `actor` is fine as a relation label in this context.
+Actually, looking at the previous example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+So for Matrix: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`.
+Then we want the attribute `marriage year` (or `birth date`, etc., but specifically marriage). Let's assume an attribute `spouse` or `marriage_date`. The prompt asks for ""years"". So `<A> marriage year </A>` is appropriate.
+
+Final Sequence: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+17,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,5.56354,True,stop,3133,0.024547,758,5.103192,148.5345,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via the 'actor' relation. Since we want the actors, and the relation is typically `Movie -> Actor`, the direction from Actor to Movie is backward relative to the query structure if we start with Actor? No, let's look at standard KBpedia/Wikidata logic.
+Usually: `<Actor> --(acted in)--> <Movie>`.
+Query: ""actors of Matrix"". We want Actors.
+Path: `Matrix` <-(`acted in`) `- Actor`.
+So, starting from Concept `actor`, we constrain it by the relation that connects it to `Matrix`.
+Relation: `actor` (or `acted in`). Direction: From Actor to Movie is forward? Or from Movie to Actor is backward?
+Let's assume standard graph direction: Entity A --[Relation]--> Entity B.
+If Relation is `actor`, usually it means ""is actor of"". So `Actor` -> `Movie`.
+To find actors OF a movie, we look for nodes where the relation points TO the movie.
+So if we start with `<C> actor </C>`, we need a constraint that says this actor has a relation pointing to `Matrix`.
+If the relation is `actor` (Actor -> Movie), then from Actor's perspective, it goes forward to Movie.
+So: `<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>`.
+
+Then we want the ""years in which [these actors] got married"".
+This is an attribute query on the resulting set of actors. The attribute is ""marriage year"" or ""date of marriage"". Let's use `<A> marriage year </A>` or `<A> date of marriage </A>`. The prompt asks for ""years"", so extracting the value is appropriate.
+
+So: `what is the attribute <A> date of marriage </A> of <ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>`
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""date of marriage""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+18,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.2616,True,stop,3133,0.024255,414,2.780665,148.8852,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years, so it's an AttributeQuery returning values. The relation from Actor to Movie is typically 'actor' or 'starring'. If we start with Actors of the movie, we go backward from the movie to the actor via the 'actor' relation (meaning the actor has a relation pointing to the movie). Then for each actor, we want their marriage year.)
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+19,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,21.3668,True,length,3133,0.024625,3072,20.880691,147.1216,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'forward' if the relation is `actor_in`, or `backward` if the relation is `has_actor`. Let's assume a standard schema where `Movie` has `Actor` via `cast` or `actor`. If the relation is `cast` (Movie -> Actor), then to get Actors from Movie, we go forward. If the relation is `acted_in` (Actor -> Movie), we go backward. Usually, ""actors of X"" implies X is the source in natural language but structurally we are filtering entities by their connection to X. Let's use a generic relation `actor` connecting Actor and Movie. To find Actors who acted in Matrix: `<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>` assuming `actor` means ""is an actor of"". Or if `acted_in` is the relation from Actor to Movie, then `<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>`. Let's stick to a generic `actor` relation where direction is defined by the schema. A common pattern is `Movie` --(cast)--> `Actor`. So from Movie to Actor is forward.
+Wait, let's look at the example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` goes from Actor to Inception? No, if it's backward to Inception, the edge points TO Inception. So Actor -> Inception. This matches `acted_in`.
+So for ""actors of Matrix"", we want Actors connected to Matrix. If the relation is `acted_in` (Actor -> Movie), then we need `<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>`? No, if Actor -> Movie is forward, then to find Actors given Movie, we traverse the relation in reverse?
+Let's re-read the example carefully: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This means: Find `actor` such that there is a relation `actor` going FROM `actor` TO `Inception`? No, ""backward to"" usually means the edge points towards the target. If I say ""A is connected to B via R backward"", it often means B -> A in some contexts, or A -> B in others depending on the parser's definition of ""direction"".
+Let's look at the AST for the example:
+`Relation` ""actor"" `DIR` ""backward"" `to` `Entity` ""Inception"".
+If the relation is `actor` (Actor --actor--> Movie), then going from Actor to Movie is forward. Going from Movie to Actor is backward.
+The query asks for Actors. The anchor is Inception.
+So we start with Concept `actor`. We constrain it by a relation to `Inception`.
+If the relation is `acted_in` (Actor -> Movie), then Actor --acted_in--> Inception.
+To find Actors who acted in Inception, we look for Actors where `acted_in` points to Inception.
+In GraphQ IR, ""that R backward to E"" typically means: The entity being described (Actor) has an edge R pointing TO E? Or does it mean we traverse R from E to get to the entity?
+Let's check the directionality rule: ""Topological Directionality... explicitly declare the edge direction"".
+If I say ""Cities in Japan"", and Japan is a country, usually Country --contains--> City. So City is forward from Country? Or backward?
+Example: ""cities in Japan"" -> `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E>`. Wait, the example says ""capital"". That's weird for cities. Usually it's `country` or `located_in`. Let's assume the relation is `located_in` (City -> Country). If City --located_in--> Japan, then to find Cities given Japan, we might say ""Cities that have relation `located_in` pointing to Japan"".
+If ""backward to"" means the edge points TO the target, then `actor` backward to `Inception` means Actor --actor--> Inception. This fits `acted_in`.
+So, for ""actors of Matrix"", we want Actors who acted in Matrix.
+Relation: `acted_in` (or just `actor` as per example). Direction: The actor has the relation pointing to the movie. So from the perspective of the Actor node, the edge is outgoing. But the constraint is anchored on the Movie? No, the constraint is on the Actor. ""Actor that [relation] to Movie"".
+If the relation is `acted_in` (Actor -> Movie), then the direction from Actor to Movie is forward.
+Why did the example use `backward`?
+Maybe the relation in the schema is `has_actor` (Movie -> Actor)?
+If Movie --has_actor--> Actor, then to find Actors from Movie, we go forward.
+If the example used `backward`, it implies the relation is Actor -> Movie (e.g., `acted_in`) and we are traversing it? No, if we are defining the Actor, we say ""Actor that has relation `acted_in` pointing to Inception"".
+Let's assume the standard GraphQ interpretation:
+`<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>` would mean Actor --forward--> Movie.
+The example used `backward`. This suggests the relation name in the example was likely `actor` (as a noun/role) or the direction logic is inverted relative to my assumption.
+Let's stick to the pattern: ""X of Y"" -> `<C> X </C> that <R> [relation] </R> backward to <E> Y </E>`.
+I will use `acted_in` as the relation name for clarity, or just `actor` if following the example strictly. Let's use `acted_in` and assume standard directionality: Actor --acted_in--> Movie. To find Actors given Movie, we usually traverse the inverse. But in this IR, constraints are on the subject (Actor). ""Actor that acted_in to Matrix"". If `acted_in` is forward from Actor, then it should be `forward`.
+However, if I follow the example's syntax `<R> actor </R> backward to <E> Inception </E>`, I will use `backward` and relation `actor` (or `cast`). Let's use `cast` as a generic relation. If `cast` is Movie -> Actor, then Actor is reached via `backward`? No, if Movie -> Actor is forward, then Actor is forward.
+Let's assume the example implies the relation `actor` connects Actor to Inception (Actor -> Inception). And ""backward"" indicates we are looking at the target side? No, that's confusing.
+Let's try a different interpretation: `backward` means the edge points TO the entity mentioned after `to`. So `R backward to E` means `X --R--> E`.
+If `actor` is the relation Actor -> Movie, then `Actor that actor backward to Inception` means Actor --actor--> Inception. This makes sense.
+So for ""actors of Matrix"": `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`.
+
+Now, we need the years they got married.
+This requires a second hop or a nested query?
+""Give me the years in which the actors ... got married.""
+This implies: For each Actor found above, find their marriage events/years.
+Structure: `what is <A> year </A> of <ES> <C> marriage </C> that <R> spouse </R> forward to <ES> <C> actor </C> ... </ES> </ES>`?
+Or simpler: `what is <A> marriage year </A> of <ES> <C> actor </C> ... </ES>` if there is a direct attribute. Usually, marriage is an event or relation.
+Let's assume we need to find the `year` of the `marriage` relation/event involving these actors.
+Query: What is the year of marriage for the actors of The Matrix?
+Representation 1: what is <A> year </A> of <ES> <C> marriage </C> that <R> spouse </R> forward to <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES> </ES>
+Wait, ""spouse"" relation usually connects Person to Person. Marriage is an event connecting two people.
+Let's simplify: Find the `year` attribute of the `marriage` entity associated with these actors.
+Relation from Actor to Marriage: `married`. Direction: Actor --married--> Marriage? Or Marriage --married_to--> Actor?
+If Marriage --married_to--> Actor, then to find Marriages for Actors, we go backward? No, if we have the Actor, and want the Marriage, and the edge is Marriage -> Actor, we traverse backward from Actor to Marriage.
+So: `<ES> <C> marriage </C> that <R> spouse </R> backward to <ES> ... </ES> </ES>`?
+Let's assume a relation `married` (Person -> Marriage) or `spouse` (Person <-> Person).
+If we use `spouse`, we get other people. We want the year.
+Let's assume there is a `marriage` concept with a `year` attribute, connected to the actor via `married` relation.
+Actor --married--> Marriage. Direction: Forward from Actor to Marriage.
+So: `<ES> <C> marriage </C> that <R> married </R> forward to <ES> ... </ES> </ES>`?
+No, if Actor --married--> Marriage, then from Actor's perspective, the relation is forward. But we are filtering the Marriage set by its connection to the Actor. ""Marriage that is connected to Actor via `married`"". If `married` points TO Marriage, then it's `backward`?
+Let's stick to the previous logic: `R backward to E` means `X --R--> E`.
+So if we want Marriages connected to Actors (where Actor --married--> Marriage), then for the Marriage node, the relation `married` points TO it. So it is `backward`? No, `married` points FROM Actor TO Marriage. So from Marriage's perspective, the incoming edge is `married`.
+Constraint on Marriage: ""that has relation `married` pointing to it from an Actor"".
+This is getting complex. Let's use a simpler attribute if possible or standard relations.
+Common schema: Person --spouse--> Person. Person --birth_date--> Date.
+Maybe ""years in which ... got married"" implies finding the date/year of the marriage event.
+Let's assume a `marriage` entity type with `year` attribute, linked to `actor` via `married_to`.
+Actor --married_to--> Marriage.
+To find Marriages for Actors: `<ES> <C> marriage </C> that <R> married_to </R> backward to <ES> ... </ES> </ES>`?
+If `married_to` is Actor -> Marriage, then from Marriage's view, it's an incoming edge.
+Let's use the pattern: `<ES> <C> marriage </C> that <R> spouse </R> forward to <ES> ... </ES> </ES>` if `spouse` is Marriage -> Person? No.
+
+Let's try a direct attribute approach if available, or assume `married` is a relation from Actor to a Date/Year? Unlikely.
+Let's assume the question asks for the year of the marriage event.
+I will formulate it as: Find Marriages connected to the Actors, then get their Year.
+Relation Actor -> Marriage: `married`.
+Constraint on Marriage: ""that is married to [Actor]"". If `married` is Actor->Marriage, then Marriage has an incoming `married`.
+In GraphQ IR, usually constraints are expressed from the perspective of the constrained node.
+""Marriage that has relation `married` pointing TO it?"" No, relations have direction.
+Let's assume the relation is `spouse` (Person <-> Person). Then we find spouses, then their marriage dates? Too indirect.
+Let's assume a `marriage` concept with attribute `year`. And a relation `participant` (Marriage -> Person) or `married` (Person -> Marriage).
+If `married` is Person -> Marriage:
+We want Marriages where `married` points to them from an Actor.
+So, `<ES> <C> marriage </C> that <R> married </R> backward to <ES> ... </ES> </ES>`?
+If `backward` means ""edge points to target"", then `married backward to Actor` means Marriage --married--> Actor? No, that would be `Actor --married--> Marriage`.
+Let's assume `backward` means the edge originates from the constrained node and points to the target? No, example `actor backward to Inception` meant Actor -> Inception.
+So `R backward to E` = `Node --R--> E`.
+If we want Marriages connected to Actors via `married` (Actor -> Marriage), then for the Marriage node, the relation is incoming.
+This IR seems to define constraints on the *subject* of the EntitySet.
+""Marriage"
+20,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,12.413326,True,stop,3133,0.024586,1763,11.916203,147.9498,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'forward' if the relation is `actor_in`, or `backward` if the relation is `has_actor`. Let's assume a standard schema where `Movie` has `Actor` via `cast` or `actor`. If the relation is `cast` (Movie -> Actor), then to get Actors from Movie, we go forward. If the relation is `acted_in` (Actor -> Movie), we go backward. Usually, ""actors of X"" implies X is the source in natural language but structurally we are filtering entities by their connection to X. Let's use a generic relation `actor` connecting Actor and Movie. To find Actors who acted in Matrix: `<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>` assuming `actor` means ""is an actor of"". Or if `acted_in` is the relation from Actor to Movie, then `<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>`. Let's stick to a generic `actor` relation where direction is defined by the schema. A common pattern is `Movie` --(cast)--> `Actor`. So from Movie to Actor is forward.
+Wait, let's look at the example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` goes from Actor to Inception? No, if it's backward to Inception, the edge points TO Inception. So Actor -> Inception. This matches `acted_in`.
+So for ""actors of Matrix"", we want Actors connected to Matrix. If the relation is `acted_in` (Actor -> Movie), then we need `<ES> <C> actor </C> that <R> acted_in </R> forward to <E> The Matrix </E> </ES>`? No, if Actor -> Movie is forward, then to find Actors given Movie, we traverse the relation in reverse?
+Let's re-read the example carefully: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This means: Find `actor` such that there is a relation `actor` going FROM `actor` TO `Inception`? No, ""backward to"" usually means the edge points towards the target. If I say ""A is connected to B via R backward"", it often means B -> A in some contexts, or A -> B in others depending on the parser's definition of ""direction"".
+Let's look at the AST for the example:
+`Relation` ""actor"" `DIR` ""backward"" `to` `Entity` ""Inception"".
+If the tree structure implies traversal from the current node (Actor) to the next (Inception), then ""forward"" would be Actor -> Inception. ""Backward"" would be Inception -> Actor.
+However, standard GraphQ IR often defines direction relative to the *query path*.
+Let's assume the example's logic: `actor` relation connects Actor and Movie. To get Actors from Movie, we traverse the relation. If the example uses `backward`, it likely means the edge in the database is `Movie -> Actor` (e.g., `has_actor`) and we are traversing it backwards? Or the edge is `Actor -> Movie` (`acted_in`) and we are traversing it backwards from Movie?
+Actually, let's look at the ""cities in Japan"" example: `<C> city </C> that <R> capital </R> backward to <E> Japan </E>`.
+Here, City is the subject. Japan is the object. The relation is `capital`. Usually `City` --(is_capital_of)--> `Country`. Or `Country` --(has_capital)--> `City`.
+If it's `backward`, and we are starting from `city`, it suggests the edge points to `city`. So `Japan` -> `City`. This implies the relation in the DB is likely `has_capital` or similar, pointing from Country to City. Traversing ""backward"" means going against the arrow? Or does ""backward"" mean the direction of the query path is opposite to the edge definition?
+Let's stick to the most robust interpretation: **Direction describes the traversal relative to the EntitySet being defined.**
+If I define `<ES> <C> actor </C> ...`, I am looking for Actors.
+The constraint links this Actor to `Inception`.
+If the example says `backward to Inception`, it implies the connection is established by traversing a relation in the backward direction relative to the standard edge orientation, OR it simply means ""the relation points to Inception"".
+Let's assume the standard GraphQ IR convention from the prompt's examples:
+`<R> actor </R> backward to <E> Inception </E>` means we are finding Actors who have a relationship pointing TO Inception? No, that would be `forward` if the edge is Actor->Inception.
+Let's assume the relation `actor` in the example represents the link *from* the movie *to* the actor (i.e., Movie has Actor). Then to get the actors, we go forward. But the example says `backward`.
+Alternative: The relation `actor` represents `acted_in` (Actor -> Movie). To find Actors given a Movie, we must traverse the edge in reverse (backward). This makes sense.
+So, for ""actors of Matrix"":
+1. Start with Concept `actor`.
+2. Constraint: that has relation `acted_in` (or similar) pointing to `The Matrix`. Since we are going from Actor to Movie in the DB, but we have the Movie and want the Actor, we traverse `backward`.
+3. So: `<ES> <C> actor </C> that <R> acted_in </R> backward to <E> The Matrix </E> </ES>`.
+
+Now, for each of these actors, we want their ""marriage year"".
+This is an Attribute Query on the EntitySet of Actors.
+Attribute: `marriage year` (or `year of marriage`). Let's use `<A> marriage year </A>`.
+
+So: `what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> acted_in </R> backward to <E> The Matrix </E> </ES>`
+
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""acted_in""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+21,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,11.258575,True,stop,3133,0.042321,1592,10.757535,147.9893,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding actors who are in the movie ""The Matrix"". The relation from Actor to Movie is typically ""cast member"" or ""actor in"". If we start with Concept ""actor"", we need to constrain it by saying they have a relation to ""The Matrix"". Let's assume the relation `actor` connects Actor -> Movie. So, an actor *is* in a movie. To find actors OF the movie, we look for entities of type Actor that have the relation `actor` forward to the Entity ""The Matrix"". Wait, usually relations are defined as Source -> Target. If `actor` is (Actor) -> (Movie), then to find Actors given a Movie, we traverse `actor` backward.
+So: `<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>`? No, if the relation is `actor` (Actor->Movie), then from Actor's perspective, it goes forward to Movie. From Movie's perspective, it comes backward from Actor.
+Let's stick to the standard: ""Actors of X"" means Entities of type Actor connected to X via a relation where X is the target. If the relation is `actor` (Actor -> Movie), then we want Actors such that `actor` forward leads to Movie.
+Actually, let's look at the example: ""actors of the movie Inception"". Output was `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`. This implies the relation `actor` is defined as (Movie) -> (Actor). So, from Actor to Movie is `actor` forward? No, if `actor` is Movie->Actor, then Actor->Movie is `actor` backward.
+Let's re-read the example carefully.
+Example: ""Give me the actors of the movie Inception.""
+Output Sequence: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`
+This means: Find Actors such that there is a relation `actor` going *backward* from the Actor to Inception? Or does it mean the relation `actor` connects them, and we traverse it in the direction that leads to Inception?
+Usually ""A that R backward to B"" means A --(R)--> B is false, but B --(R)--> A is true? No.
+Let's look at the AST structure for the example.
+`RelationConstraint`: `that` `Relation` (`actor`) `DIR` (`backward`) `to` `EntitySet` (`Inception`).
+If DIR is backward, it usually means we are traversing the edge in the reverse direction of its definition. If the edge is defined as Actor -> Movie (let's call it `starring`), then to go from Movie to Actor, we go backward.
+However, the example uses `<R> actor </R>`. Let's assume the schema has a relation `actor` which is (Movie) -> (Actor). Then ""Actors of Inception"" are Actors connected to Inception via `actor`. To get from Actor to Inception, you would go `actor` forward? No, if `actor` is Movie->Actor, then Actor->Movie is the inverse.
+Let's assume the standard Wikidata/DBpedia style where relations are often undirected or named by the property.
+If the example says `<R> actor </R> backward to <E> Inception </E>`, it implies that from the perspective of the `actor` node, the relation `actor` points *away* from it towards something else? No.
+Let's interpret ""backward to"" as: The constraint is on the EntitySet (Actors). We are looking for Actors such that if we follow the relation `actor` in the *backward* direction, we hit Inception. This implies the relation `actor` is defined as (Actor) -> (Movie)? No, if I am at Actor and go backward along `actor`, I arrive at Movie. That means the edge points from Movie to Actor. So `actor` is (Movie) -> (Actor).
+Okay, so for ""actors of Matrix"", we assume relation `actor` is (Movie) -> (Actor).
+Now, the query asks for the *years* in which these actors got married.
+So we need the attribute `marriage year` (or similar) of these actors.
+The attribute is likely `date of marriage` or `year of marriage`. Let's use `<A> date of marriage </A>` or just extract the year from a date. The prompt asks for ""years"". I will use `<A> year of marriage </A>` as a conceptual attribute, or `<A> date of marriage </A>` and assume the system handles it. Given the strict typing, let's use `<A> year of marriage </A>`.
+
+So:
+1. Identify Actors of Matrix: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>` (Following the example's logic for ""actors of"").
+2. Get their marriage years: `what is the attribute <A> year of marriage </A> of [Step 1]`.
+
+Wait, does ""actors of Matrix"" imply the main cast or all actors? Usually all.
+Does ""got married"" imply a specific event? Yes, `year of marriage`.
+
+Let's refine the Relation direction based on the example again.
+Example: `actors` (Concept) ... `<R> actor </R>` ... `backward to` `Inception` (Entity).
+This constructs the set of Actors.
+Then we want the attribute `year of marriage` of this set.
+
+Representation 1: what is the attribute <A> year of marriage </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""year of marriage""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+22,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.145654,True,stop,3133,0.024309,399,2.670607,149.4042,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'cast member forward', so from Movie to Actor is 'cast member backward'. Then we need the marriage year attribute of these actors).
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast member""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+23,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,5.496628,True,stop,3133,0.024278,744,5.016717,148.3042,"<thinking>
+Representation 1: what is <A> marriage date </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""years"" implies a temporal value. I will use the attribute `marriage date` or similar, but since the prompt asks for ""years"", extracting the date and filtering/formatting is usually handled by the consumer. However, in GraphQ IR, we extract the specific attribute. Let's assume an attribute like `spouse marriage year` or just `marriage date`. Given the ambiguity of schema, I will use a generic temporal attribute `marriage date` which can be interpreted as the year. Or better, since it asks for ""years"", maybe there is a specific attribute `year of marriage`. Let's stick to a plausible attribute name like `spouse marriage year` or just `marriage date`. Let's use `marriage date` as it's more standard, and the user can extract the year. Wait, the prompt asks for ""years"". If I return dates, it includes day/month. If I return years, I need a specific attribute. Let's assume there is an attribute `year of marriage` or similar. To be safe and generic, I'll use `marriage date` as the attribute, but the query type is AttributeQuery returning values. Actually, if the schema has `spouse`, one might query `spouse` then `marriage date`. But here we want the years directly associated with the actor's marriage event. Let's assume an attribute `marriage year` exists for simplicity or just `marriage date`. I will use `marriage date` as it is a common property.)
+
+Refining: ""actors of Matrix"" -> `<ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>`.
+""years in which ... got married"" -> We need the attribute representing the marriage year. Let's call it `marriage year`.
+
+So: what is the attribute `<A> marriage year </A>` of `<ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>`?
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast member""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+24,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,8.567645,True,stop,3133,0.024777,1197,8.083259,148.0838,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting an attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute like `birth_date` or `death_date`. Let's assume there is an attribute `marriage_year` for simplicity, or more likely, we extract the year from a `marriage` event. But standard GraphQ IR often uses attributes for dates. Let's use `AttributeQuery` with attribute `marriage year`.)
+
+Refining: ""Give me the years..."" implies multiple values. `ValueQuery` can return a list of values.
+Structure: `what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Let's check the direction. ""Actors OF Matrix"".
+Relation: `actor` (Movie -> Actor).
+To get Actors from Movie: `Actor` is connected to `Movie` via `actor`.
+If we start with `Concept: actor`, and constrain it by being an actor in `The Matrix`:
+`<ES> <C> actor </C> that <R> actor </R> forward to <E> The Matrix </E> </ES>`?
+No, usually the relation is defined as `actor(Movie, Actor)`. So from Movie to Actor is forward. From Actor to Movie is backward.
+If I want the set of Actors who acted in Matrix:
+Start with Concept `actor`. Constraint: that has relation `actor` forward to `The Matrix`.
+Wait, if the edge is `Actor --[acted in]--> Movie`, then from Actor to Movie is forward.
+If the edge is `Movie --[has actor]--> Actor`, then from Movie to Actor is forward.
+Standard DBpedia/Wikidata: `dbo:starring` (Movie -> Actor). So `actor` relation usually goes Movie -> Actor.
+So, ""Actors of Matrix"" = `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`?
+If `actor` is defined as `Movie -> Actor`, then going from Actor to Movie is `backward`.
+Let's assume the relation name is `actor` and it points from Movie to Actor.
+Then `<C> actor </C>` constrained by `<R> actor </R> backward to <E> The Matrix </E>` means: Find Actors such that there is an `actor` edge pointing *from* them *to* Matrix? No, `backward` means the edge direction in the graph is opposite to the traversal.
+Traversal: Actor -> (via constraint) -> Matrix.
+If Edge is Movie -> Actor, then traversing Actor -> Matrix is against the arrow. So `backward`.
+Correct.
+
+So the EntitySet is: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+The query asks for ""years in which ... got married"". This implies extracting a date/year attribute related to marriage.
+Let's assume an attribute `marriage_year` exists on the Actor entity, or we extract the year from a `marriage` event.
+Given the simplicity of typical examples, I will use an Attribute Query for `marriage year`.
+
+Representation 1: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+25,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.259729,True,stop,3133,0.025002,414,2.770376,149.4382,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years, so it's an AttributeQuery returning values. The relation from Actor to Movie is typically 'actor' or 'starring'. If we start with Actors of the movie, we go backward from the movie to the actor via the 'actor' relation (meaning the actor has a relation pointing to the movie). Then for each actor, we want their marriage year.)
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+26,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,6.78457,True,stop,3133,0.024738,935,6.28889,148.6749,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via the relation 'actor'. Since we want the actors, and the relation is typically `Movie -> Actor`, the direction from Actor to Movie is backward. So `<C> actor </C> that <R> actor </R> backward to <E> The Matrix </E>`).
+Then, for each of these actors, we want their marriage year. This is an attribute query on the set of actors.
+The attribute is ""marriage year"" (or similar, let's assume `marriage_year` or just `year` of marriage). Let's use `<A> marriage year </A>` as a conceptual attribute for the year they got married.
+So: ""what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>""
+
+Wait, the question asks for ""years"". Plural. It implies extracting the value.
+Is it a ValueQuery? ""what is sum/average..."" No.
+It's asking for the values of an attribute.
+The grammar says:
+`AttributeQuery := ""what is the attribute"" Attribute ""of"" EntitySet`
+This returns the attribute values.
+
+Let's refine the relation direction.
+If `R(actor, movie)` means ""Actor acted in Movie"".
+To find actors OF a movie: Start with Movie, go forward along `actor`? Or start with Actor, go backward to Movie?
+Usually, in knowledge graphs like Wikidata/DBpedia:
+Entity: The Matrix (Q10699)
+Relation: cast member / actor (P161)
+Direction: From Movie to Actor is forward. From Actor to Movie is backward.
+If we define the EntitySet as ""Actors"", we are looking for nodes of type `Actor`.
+Constraint: They must be connected to `The Matrix`.
+Path: `<C> actor </C>` (the target) --[relation]--> `<E> The Matrix </E>` (the source).
+If the relation is `actor` (Movie -> Actor), then from Actor to Movie is `backward`.
+So: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Then we want the attribute of these actors.
+Attribute: `marriage year`? Or just `year`? Usually, marriage is an event. Let's assume a direct attribute `marriage_year` exists for simplicity, or perhaps the question implies ""when did they get married"".
+Let's stick to `AttributeQuery`.
+
+Representation 1: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+27,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.779044,True,stop,3133,0.024954,492,3.292573,149.4272,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: ""The Matrix"" refers to the movie. We need the actors of this movie. Then for each actor, we want their marriage year. Since an actor might have multiple marriages, this is a value query returning a set of years or a list of values).
+
+Let's refine the structure.
+1. Root: ValueQuery (asking for ""years"").
+2. Target Attribute: <A> marriage year </A>.
+3. Source EntitySet: Actors of The Matrix.
+   - Base Concept: <C> actor </C>.
+   - Constraint: That <R> actor </R> backward to <E> The Matrix </E>.
+
+So: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── ValueQuery
+    ├── ""what is""
+    └── Value
+        ├── Attribute
+        │   ├── ""<A>""
+        │   ├── ""marriage year""
+        │   └── ""</A>""
+        ├── ""of""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""actor""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""actor""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""backward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           └── Entity
+            │               ├── ""<E>""
+            │               ├── ""The Matrix""
+            │               └── ""</E>""
+            └── ""</ES>""
+```"
+28,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,15.487126,True,stop,3133,0.024527,2215,15.011802,147.5506,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+(Note: We are looking for the attribute ""marriage year"" (or similar) associated with the actors who appeared in ""The Matrix"". The query asks for the years *in which* they got married, implying we need to extract a date/year value from a marriage event or attribute linked to these actors. A simpler interpretation often used in KG QA is extracting a specific attribute like ""birth year"" or ""marriage date"". Let's assume there is an attribute `marriage year` or we extract the year from a `marriage` relation. Given the grammar, extracting an Attribute is standard. If ""marriage year"" isn't a direct attribute, it might be a ValueQuery over a Relation. However, usually ""years in which X happened"" maps to an Attribute like `birth_date` or `death_date`. Let's assume there is an attribute `marriage_year` for simplicity, or more likely, we extract the year from a `marriage` event. But standard GraphQ IR often treats dates as attributes of entities if they are static facts (like birth date). For ""years in which... got married"", it implies multiple events potentially. Let's stick to extracting an attribute `marriage_year` for each actor, or if the schema supports it, a relation `married_to` with a date qualifier.
+Let's look at the structure: ""actors of Matrix"" -> EntitySet. ""years in which ... got married"" -> Attribute `marriage_year`? Or Relation `married`?
+If I use `AttributeQuery`, I get the attribute values.
+Let's assume the question asks for the attribute `marriage year` (or similar) of the actors.
+Actually, a more robust interpretation for ""years in which... got married"" is to find the *values* of the marriage dates.
+Let's try: `what is <A> marriage_year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Wait, ""years"" is plural. It might be a ValueQuery if we want the specific years as values? No, `AttributeQuery` returns the attribute values for the set of entities.
+Let's refine the relation direction. ""Actors OF Matrix"". The relation is usually `actor` (Movie -> Actor). So from Actor to Movie it is `actor forward`. From Movie to Actor it is `actor backward`. We start with Actors, so we need Actors that have a relation *to* Matrix. That is `actor forward`? No.
+If the edge is `Matrix --[actor]--> Actor`, then to find actors of Matrix, we go `Matrix` via `actor` forward? Or `Actor` via `actor` backward?
+Standard KBpedia/Wikidata: `Movie` has property `cast member` (or similar) pointing to `Actor`.
+So `Actor` is the target. To get Actors from Movie: `<ES> <C> actor </C> that <R> cast member </R> forward to <E> Matrix </E> </ES>`? No, if the edge is Movie->Actor, then Actor has an incoming edge from Movie.
+Let's assume the relation name is `actor`.
+If `Matrix` --`actor`--> `Actor`, then `Actor` is connected via `actor` *forward* from Matrix? No, forward means following the arrow. So `Matrix` -> `Actor` is forward.
+So `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>` implies the relation points TO the Actor? No.
+Let's use the example: ""actors of the movie Inception"" -> `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`.
+This implies the relation `actor` goes from Actor to Movie (Actor --`actor`--> Movie). So to find Actors of a Movie, we look for Actors that have an `actor` relation pointing *to* the Movie. This is ""backward"" traversal from the perspective of the Movie? No, it's ""forward"" from Actor to Movie.
+Wait, the example says: ""actors OF the movie Inception"".
+Result: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`.
+This means the constraint is on the EntitySet of Actors. The constraint is ""that [has relation] `actor` [direction] `backward` to `Inception`"".
+If direction is `backward`, it usually means we are traversing the edge in reverse? Or that the edge points *to* the target?
+In the example, `Actor` --`actor`--> `Movie`. To find Actors of `Inception`, we want Actors where `Inception` is the destination.
+If the relation is defined as `Actor -> Movie`, then from Actor's perspective, it goes forward to Movie.
+Why does the example use `backward`?
+Maybe the relation is defined `Movie -> Actor`? If `Movie --[actor]--> Actor`, then to find Actors of Inception, we go `Inception` via `actor` forward.
+But the query starts with `<C> actor </C>`. So we are filtering Actors.
+If the relation is `Movie -> Actor`, then an Actor has an incoming edge from Movie. This is often called ""backward"" in some contexts (incoming).
+Let's stick to the example's logic: ""actors of [Movie]"" uses `backward` if the relation name is `actor`. This suggests the canonical direction might be `Actor -> Movie`? No, if it were `Actor -> Movie`, finding actors of a movie would require checking if the target is the movie.
+Let's assume the standard Wikidata schema: `P161 (cast member)` goes from Work to Person.
+So `Matrix` --`cast member`--> `Actor`.
+To find Actors of Matrix, we can start with Matrix and go forward.
+But the query structure is `<ES> <C> actor </C> ...`. We are filtering the set of all actors.
+Constraint: ""that [is connected to] Matrix"".
+If the relation is `cast member` (Movie->Actor), then for an Actor, this relation is incoming.
+The example uses `backward`. This likely means ""the edge points TO the target entity"" or ""traverse in reverse direction of the canonical definition""?
+Actually, let's look at the example again: `<R> actor </R> backward to <E> Inception </E>`.
+If I assume the relation `actor` is defined as `Actor -> Movie`, then `backward` would mean `Movie -> Actor`. That doesn't make sense for ""actors of"".
+If I assume the relation `actor` is defined as `Movie -> Actor`, then `forward` is `Movie -> Actor`. `backward` is `Actor -> Movie`.
+If the constraint is on the Actor, and we say `that <R> actor </R> backward to <E> Inception </E>`, it implies the Actor has an outgoing edge `actor` pointing to Inception? No, ""backward"" usually restricts direction.
+Let's trust the example's pattern: ""actors of [Movie]"" -> `<C> actor </C> that <R> actor </R> backward to <E> [Movie] </E>`.
+
+Now for the second part: ""years in which ... got married"".
+We need the attribute `marriage year` (or similar) of these actors.
+So: `what is the attribute <A> marriage_year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+
+Is ""marriage_year"" a standard attribute? Maybe `spouse` and we need the date?
+If we need dates, it might be a ValueQuery over a Relation.
+""Give me the years..."" -> Values.
+But `AttributeQuery` returns the values of an attribute. If `marriage_year` is an attribute (e.g., ""year of marriage""), this works.
+If the schema has `married_to` relation with a date qualifier, it's more complex.
+Given the simplicity of typical GraphQ IR tasks, assuming an attribute `marriage_year` or `birth_year` etc. is common for ""years in which..."".
+Let's use `marriage_year`.
+
+One detail: ""The Matrix"" vs ""Matrix"". I will use ""The Matrix"" as it is the full title, but ""Matrix"" is also acceptable. I'll use ""The Matrix"".
+
+Final Sequence: what is the attribute <A> marriage_year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage_year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+29,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,3.137549,True,stop,3133,0.024942,399,2.662444,149.8623,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'cast member forward', so from Movie to Actor is 'cast member backward'. Then we need the marriage year attribute of these actors).
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""cast member""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+30,Q09,Give me the years in which the actors of Matrix got married.,qwen3.6:35b,False,0.025,7.556105,True,stop,3133,0.024269,1053,7.076732,148.7975,"<thinking>
+Representation 1: what is <A> marriage year </A> of <ES> <C> actor </C> that <R> cast member </R> backward to <E> The Matrix </E> </ES>
+(Note: ""actors of Matrix"" implies finding entities of type 'actor' connected to the entity 'The Matrix' via a relation like 'cast member' or 'actor'. Since we want the actors, and the movie is the destination of the actor's role in the movie, the direction from Actor to Movie is 'forward' if the relation is `actor_in`, or `backward` if the relation is `has_actor`. Let's assume a standard schema where `Movie` has `Actor` via `cast` or `actor`. If the relation is `cast` (Movie -> Actor), then to get Actors from Movie, we go forward. If the relation is `acted_in` (Actor -> Movie), we go backward.
+Let's look at the example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation name is 'actor' and the direction from Actor to Inception is 'backward'. This means the edge in the graph is `Inception --(actor)--> Actor`? No, usually ""backward"" means we are traversing against the arrow. If the query is `Actor that (relation) backward to Movie`, it means `Movie --(relation)--> Actor`. So the relation points from Movie to Actor.
+Let's stick to the example's logic: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This constructs a set of Actors who are linked to Inception via the 'actor' relation (directed towards the actor).
+Now, for each of these actors, we want their ""marriage year"". This is an attribute query on the EntitySet of actors.
+So: `what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`
+Wait, ""years"" is plural. It might imply multiple years per actor or just the set of all such years. An AttributeQuery returns the value of an attribute. If the attribute is a list of dates/years, it works.
+Let's refine the relation name. ""actors of Matrix"". In DBpedia/Wikidata, `director` or `starring` might be used. The example used `actor`. I will use `cast member` or `actor`. Let's use `actor` to be consistent with the example style for simplicity, or `starring` if more precise. Given the generic nature, `actor` is fine as a relation label in this context.
+Actually, looking at the previous example: ""actors of the movie Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+So for Matrix: `<ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>`.
+Then we want the attribute `marriage year` (or `birth date`, etc., but specifically marriage). Let's assume an attribute `spouse` or `marriage_date`. The prompt asks for ""years"". So `<A> marriage year </A>` is appropriate.
+
+Final Sequence: what is the attribute <A> marriage year </A> of <ES> <C> actor </C> that <R> actor </R> backward to <E> The Matrix </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── AttributeQuery
+    ├── ""what is the attribute""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""marriage year""
+    │   └── ""</A>""
+    ├── ""of""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""The Matrix""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"

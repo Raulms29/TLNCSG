@@ -1,0 +1,5527 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,11.576977,True,stop,7359,0.039065,1251,10.896436,114.8082,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e3""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used for single values. To get a collection of years, I should use a `LIST` with a `map_expression`. However, the grammar only supports `SCALAR_AGGREGATE` or `COUNT` as expressions within targets. Since the user wants ""the years"" (plural), and there isn't a specific `COLLECT` construct in the provided grammar for attribute projection from a list of relations, I will use the most appropriate structure: a `LIST` of attributes via an aggregation-like approach or simply targeting the attribute if it were part of an entity. 
+
+Actually, looking at the `target` definition: `target` can be a `LIST`. I will define the target as a list of the marriage years extracted from the relationships.
+
+Corrected JSON:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e3""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+*Self-correction*: The grammar for `LIST` does not explicitly include a `map_expression`. Only `SCALAR_AGGREGATE` has it. However, to return multiple values (years), one must use an aggregation or a list of entities. Given the constraints, I will provide the years by targeting the attribute via a scalar aggregate if we assume a collection, but since ""years"" is plural, I'll treat the target as a projection of the relationship attribute.
+
+Final attempt following the `SCALAR_AGGREGATE` pattern for the only available way to use `map_expression`:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e3""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+(Note: While `SUM` is mathematically incorrect for a set of years, it is the only structural way in this specific grammar to use `map_expression` on a list to reach an attribute. In a real-world parser, one would expect a `COLLECT` or `LIST_OF_ATTRIBUTES` construct)."
+2,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,11.125564,True,stop,7359,0.099114,1205,10.393021,115.9432,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly define a `map_expression` for a plain `LIST`. Only `SCALAR_AGGREGATE` has it. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints, I will provide the years via a list of relationship IDs and assume the engine handles the attribute projection, or use the most structurally sound way allowed by the provided grammar.
+
+Let's refine: The user wants ""the years"". This is a collection of values.
+The only way to get a collection of values in this grammar is `SCALAR_AGGREGATE` (which returns one value) or returning the `LIST` itself. Since I cannot use `map_expression` on a plain `LIST`, and I cannot return a list of strings directly as a target without an aggregation, I will return the `LIST` of relationships that contain those years.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+3,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.691687,True,stop,7359,0.06843,1158,9.996231,115.8437,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, looking at the grammar and logic for retrieving a list of values from attributes: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since ""years"" is an attribute of a relationship, and there isn't a `LIST_OF_ATTRIBUTES` construct in the grammar, I will use the most appropriate structure: a `LIST` of relationships that are filtered by the movie, then target the attribute.
+
+Actually, looking at the provided examples, for ""Give me the publication year... of books"", the target is an array of `EXPRESSION` (Attributes). 
+
+Let's refine:
+Target: `[{ ""attribute_name"": ""marriage_year"", ""of"": ""r1"" }]`
+Constraint: Movie title = 'Matrix'.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, the `SCALAR_AGGREGATE` is for a single value. The prompt asks for ""the years"" (plural). In the absence of a `LIST_OF_ATTRIBUTES`, I will use the pattern from the ""publication year and number of words"" example where multiple attributes are targeted directly.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    },
+    ""distinct"": true
+  }
+]
+```"
+4,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.295039,True,stop,7359,0.08913,1114,9.593952,116.1148,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar only allows `map_expression` inside `SCALAR_AGGREGATE`. Since the user wants ""the years"" (plural), and there is no `LIST_MAP` construct in the provided grammar, I must interpret this as retrieving the attribute via a list of relationships.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` definition: it is for a single value. If I cannot use a projection on a list, and the target must be an identifier or a SemGIR construct, I will provide the attribute via the relationship collection if possible, but since the grammar only supports `SUM`, `MIN`, `MAX`, `AVG`, I will use `MIN` and `MAX` to represent the range or simply return the attribute of the relation. 
+
+Wait, looking at Example 3: ""Give me the publication year..."". The target is an `EXPRESSION` (Attribute).
+Let's refine:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+5,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.766707,True,stop,7359,0.058638,1172,10.083128,116.2338,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `MAP` operation for a `LIST` to return attributes. It only defines `NODES` and `RELATIONS`. However, in the ""walking distance"" example, `SCALAR_AGGREGATE` is used with `SUM` on an attribute of a relationship. For a set of values, I will use the `SCALAR_AGGREGATE` pattern if it were a single value, but since it's a list of years, and the grammar for `LIST` only supports `NODES` or `RELATIONS`, I must return the relationships that contain those years.
+
+Let's refine to the most compliant version:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+6,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,14.096753,True,stop,7359,0.058799,1556,13.439346,115.7794,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar doesn't explicitly define a `MAP_LIST` construct for attributes. It only defines `LIST` as `NODES` or `RELATIONS`. But to return ""the years"", I must project an attribute. In the example ""Give me the publication year... of the books"", the target is an `EXPRESSION` (Attribute). 
+
+Let's refine:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Wait, the `LIST` grammar provided is:
+`LIST := { list: CREATE_LIST | NODES | RELATIONS, ... }`
+It does *not* include a `map_expression`. However, in the example for ""walking distance"", the user uses `SCALAR_AGGREGATE` with a `map_expression`. Since I need multiple years (a set), and there is no `LIST_OF_ATTRIBUTES` construct, I will use the `SCALAR_AGGREGATE` pattern if I were to sum them, but since it's just ""the years"", I will provide the list of relationships that contain those years.
+
+Actually, looking at the example: `Give me the publication year and number of words...`. The target is a list of `EXPRESSION` (Attributes).
+I will use the pattern where the target is an array of attributes derived from the filtered entities.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+7,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.803386,True,stop,7359,0.059757,1172,10.129796,115.6983,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `MAP` operation for a `LIST` to return attributes. It only defines `NODES` and `RELATIONS`. However, in the ""walking distance"" example, `SCALAR_AGGREGATE` is used with `SUM` on an attribute of a relationship. For a set of values, I will use the `SCALAR_AGGREGATE` pattern if it were a single value, but since it's a list of years, and the grammar for `LIST` only supports `NODES` or `RELATIONS`, I must return the relationships that contain those years.
+
+Let's refine to the most compliant version:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+8,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.35507,True,stop,7359,0.068636,1122,9.673371,115.9885,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly show a `map_expression` inside a plain `LIST`. It only shows it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints, I will provide the most structurally sound version for retrieving the attribute values via the relationship list.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+9,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.326067,True,stop,7359,0.089378,1111,9.602111,115.7037,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly define a `map_expression` for a plain `LIST`. Only `SCALAR_AGGREGATE` has it. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints and the provided examples (like the ""publication year"" example), I will use the attribute projection on the target.
+
+Final attempt following the ""Give me the publication year... of books"" example:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+10,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.361518,True,stop,7359,0.058724,1122,9.670929,116.0178,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly show a `map_expression` inside a plain `LIST`. It only shows it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints, I will provide the most structurally sound version for retrieving the attribute values via the relationship list.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+11,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.684492,True,stop,7359,0.058815,1500,12.977395,115.5856,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` construct with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` for aggregation and `LIST` for collections of nodes/relations. Since ""years"" are attributes of a relationship (marriage year), and the user wants the *set* of these values, I will use a `LIST` of the relationships and project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements` (which is an ID) or `nodes_of`/`rels_of`. It does *not* explicitly define a `map_expression` inside a standard `LIST` object, only inside `SCALAR_AGGREGATE`. But `SCALAR_AGGREGATE` returns a single value. 
+
+Given the constraints of the provided grammar, to return ""the years"" (a collection of values), I must treat the target as a list of attributes derived from the relationships found. Since the grammar doesn't support `map_expression` in `LIST`, but does in `SCALAR_AGGREGATE`, and the user wants multiple values, I will provide the relationship IDs that contain those years, or use the most logical projection available. 
+
+Let's refine to a valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+*Self-correction*: The user wants the *years*. Since I cannot map attributes in a `LIST` per grammar, but I can return the relationship objects which *contain* the attribute, this is the closest valid IR.
+
+Final attempt at the most accurate semantic representation:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+12,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,11.272151,True,stop,7359,0.058952,1224,10.576088,115.7328,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` construct with a `map_expression`. However, the grammar provided only supports `SCALAR_AGGREGATE` for computing values and `CREATE_LIST` for collecting existing IDs. Since ""years"" are attributes of a relationship (marriage year), and the user wants the *values* of those attributes:
+
+Corrected approach based on Grammar:
+The target should be a list of expressions. However, the grammar only allows `target` to be `ENTITY_ID`, `RELATION_ID`, `PATH_ID`, `LIST`, `EXPRESSION`, or `CONDITION`. To return a collection of attribute values, I must use a `LIST` with a `map_expression` (though `map_expression` is only explicitly defined under `SCALAR_AGGREGATE`). 
+
+Let's re-examine the `target` for ""years"". Since I cannot invent a new `LIST` type with `map_expression`, and `SCALAR_AGGREGATE` returns a scalar, I will use the most structurally sound approach: target the relationship and assume the projection happens via the logic of the query engine.
+
+Actually, looking at Example 3: ""Give me the publication year... of the books"". The target is an array of `EXPRESSION` (Attributes).
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the `marriage_year` is an attribute of a relationship. In my `r1`, I'll define it as such. But how to link the actor to the year? The prompt implies the actors *of* Matrix. 
+
+Final attempt following Example 3 pattern:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```"
+13,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.127795,True,stop,7359,0.068659,1434,12.412849,115.5255,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `map_expression` inside a plain `LIST`. It only defines it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a list of entities. Given the constraints, I will provide the years via a scalar aggregate if possible, but since it's multiple years, I'll treat the target as a list of the marriage events and assume the projection is handled by the engine.
+
+Let's refine to the most valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+*Self-correction*: The user wants the *years*. Since I cannot invent a `map_expression` for `LIST` in the grammar, and `SCALAR_AGGREGATE` only returns one value, I will return the relationship objects that contain the year attribute.
+
+Final attempt following strict grammar:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+14,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.586339,True,stop,7359,0.089722,1485,12.862789,115.4493,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` construct with a `map_expression`. However, the grammar provided only supports `SCALAR_AGGREGATE` for computing values and `CREATE_LIST` for collecting existing IDs. Since ""years"" are attributes of a relationship (marriage year), and the target must be an expression or ID, I will use the `SCALAR_AGGREGATE` approach if I treat it as a collection of values, but strictly following the grammar:
+
+Corrected approach: The user wants the years. These are attributes of the marriage event/relationship.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` example in the prompt: it is used for `SUM`, `MIN`, etc. For a simple list of attributes, I will use the `LIST` structure with `map_expression`. Note: The grammar for `LIST` does not explicitly show `map_expression` outside of `SCALAR_AGGREGATE`, but in the context of ""Give me the years"", it is the only way to project an attribute from a collection.
+
+Let's refine to be strictly compliant with the provided `SCALAR_AGGREGATE` and `LIST` grammar:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM"" 
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+*Self-correction*: Since the grammar doesn't allow a `LIST` to have a `map_expression` without an `aggregate_kind`, and I cannot use `SUM` to get a list, I will return the relationship IDs that represent those marriage events, as the years are attributes of them.
+
+```json
+[
+  {
+    ""target"": [ ""r1"" ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```"
+15,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.28383,True,stop,7359,0.058847,1111,9.584991,115.9104,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly define a `map_expression` for a plain `LIST`. Only `SCALAR_AGGREGATE` has it. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints and the provided examples (like the ""publication year"" example), I will use the attribute projection on the target.
+
+Final attempt following the ""Give me the publication year... of books"" example:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+16,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.84396,True,stop,7359,0.059199,1529,13.181091,115.9995,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but doesn't explicitly show a `map_expression` inside a plain `LIST`. It only shows it inside `SCALAR_AGGREGATE`. However, to return multiple values (years), one must use an aggregation or a list of attributes. Given the constraints, I will provide the years via a projection on the relationship list.
+
+Final attempt following the most logical interpretation of the provided grammar for ""list of attribute values"":
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+*Self-correction*: The grammar for `LIST` does not include `map_expression`. Only `SCALAR_AGGREGATE` does. But a `SCALAR_AGGREGATE` returns a single value. If the user asks for ""the years"" (plural), and I cannot use `map_expression` in `LIST`, I must return the relationships that contain those years as the target, or assume the projection is part of the extraction logic. Given the instruction ""The target defines what is returned"", I will return the list of relationship IDs that represent these marriages.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```"
+17,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.433738,True,stop,7359,0.068308,1129,9.7132,116.2336,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `map_expression` inside a plain `LIST`. It only defines it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a list of entities. Given the constraints, I will provide the years via a scalar aggregate if possible, but since it's a set of years, I will treat it as a retrieval of the attribute from the relationship.
+
+Let's refine to the most valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"":
+          ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+18,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,11.122485,True,stop,7359,0.089678,1205,10.380551,116.0825,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly define a `map_expression` for a plain `LIST`. Only `SCALAR_AGGREGATE` has it. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints, I will provide the years via a list of relationship IDs and assume the engine handles the attribute projection, or use the most structurally sound way allowed by the provided grammar.
+
+Let's refine: The user wants ""the years"". This is a collection of values.
+The only way to get a collection of values in this grammar is `SCALAR_AGGREGATE` (which returns one value) or returning the `LIST` itself. Since I cannot use `map_expression` on a plain `LIST`, and I cannot return a list of strings directly as a target without a wrapper, I will return the `LIST` of relationships that contain those years.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+19,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.771345,True,stop,7359,0.058887,1172,10.086517,116.1947,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `MAP` operation for a `LIST` to return attributes. It only defines `NODES` and `RELATIONS`. However, in the ""walking distance"" example, `SCALAR_AGGREGATE` is used with `SUM` on an attribute of a relationship. For a set of values, I will use the `SCALAR_AGGREGATE` pattern if it were a single value, but since it's a list of years, and the grammar for `LIST` only supports `NODES` or `RELATIONS`, I must return the relationships that contain those years.
+
+Let's refine to the most compliant version:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+20,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.228607,True,stop,7359,0.058928,1452,12.531929,115.864,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly define a `map_expression` for a plain `LIST`. Only `SCALAR_AGGREGATE` has it. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints, I will provide the years via a list of relationship IDs and assume the engine handles the attribute projection, or use the most structurally sound way provided in examples.
+
+Let's refine based on the ""Give me the publication year... of books"" example:
+The example `target` shows `{ ""attribute_name"": ""publication_year"", ""of"": ""e1"" }`. 
+
+Final attempt following the ""publication year"" example pattern:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Wait, the `marriage_year` is an attribute of a relationship (the marriage event). The prompt implies actors who were married. I will model the marriage as a relationship.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""marriage_event"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+21,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,14.633446,True,stop,7359,0.059628,1606,13.926943,115.316,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` construct with a `map_expression`. However, the grammar provided only supports `SCALAR_AGGREGATE` for computing values and `CREATE_LIST` for collecting existing IDs. Since ""years"" are attributes of a relationship (marriage year), and the user wants the *values* of those attributes:
+
+Corrected approach based on Grammar:
+The target should be a list of expressions. However, the grammar only allows `target` to be `ENTITY_ID`, `RELATION_ID`, `PATH_ID`, `LIST`, `EXPRESSION`, or `CONDITION`. To return a collection of attribute values, I must use a `LIST` with a `map_expression` (though `map_expression` is only explicitly defined under `SCALAR_AGGREGATE`). 
+
+Let's re-examine the `SCALAR_AGGREGATE` and `LIST` structure. The grammar says:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+This is for a single value. 
+
+If I cannot return a raw list of attributes via the provided grammar without an aggregator, and the user asks for ""the years"" (plural), I will use `SCALAR_AGGREGATE` with a placeholder or assume the target can be a projection if the system supports it. But strictly following the grammar:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+Actually, looking at the `target` definition: `EXPRESSION` is a valid target. An `EXPRESSION` can be an `ATTRIBUTE`. 
+
+Final attempt following the most logical path within the provided grammar constraints:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    }
+  }
+]
+```
+Wait, the `map_expression` is only defined inside `SCALAR_AGGREGATE`. I will use a `LIST` of relationship IDs and assume the projection happens at the execution layer, or use the `SCALAR_AGGREGATE` pattern if I were to sum them (but that's wrong). 
+
+Let's use the most compliant structure: Target is the list of relationships, and we filter for those where the actor was in 'Matrix'.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+22,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.068077,True,stop,7359,0.068866,1433,12.365848,115.8837,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `map_expression` inside a plain `LIST`. It only defines it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a list of entities. Given the constraints, I will provide the years via a scalar aggregate if possible, but since it's multiple years, I'll treat the target as a list of the marriage events and assume the projection is handled by the engine.
+
+Let's refine to the most valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+*Self-correction*: The user wants the *years*. Since I cannot invent a `map_expression` for `LIST` in the grammar, and `SCALAR_AGGREGATE` only returns one value, I will return the relationships that contain the year attribute.
+
+Final attempt following strict grammar:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+23,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,11.021711,True,stop,7359,0.099848,1172,10.28096,113.9971,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `MAP` operation for a `LIST` to return attributes. It only defines `NODES` and `RELATIONS`. However, in the ""walking distance"" example, `SCALAR_AGGREGATE` is used with `SUM` on an attribute of a relationship. For a set of values, I will use the `SCALAR_AGGREGATE` pattern if it were a single value, but since it's a list of years, and the grammar for `LIST` only supports `NODES` or `RELATIONS`, I must return the relationships that contain those years.
+
+Let's refine to the most compliant version:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+24,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,13.230147,True,stop,7359,0.059454,1448,12.563092,115.2583,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly show a `map_expression` inside a plain `LIST`. It only shows it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes (years), I must use the aggregation-like structure or assume the target can be an expression derived from a list. Given the constraints, I will provide the most structurally sound version for retrieving multiple values.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""rel_id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Wait, I see a mistake in my `relationships` block (using `rel_id` instead of `id`). Let me fix the final JSON.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+25,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.393069,True,stop,7359,0.05999,1125,9.748541,115.4019,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `map_expression` inside a plain `LIST`. It only defines it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a list of entities. Given the constraints, I will provide the years via a scalar aggregate if possible, but since it's multiple years, I'll treat the target as a projection of the relationship attribute.
+
+Let's refine to the most valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+26,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,14.155227,True,stop,7359,0.05961,1545,13.417344,115.1495,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `map_expression` inside a plain `LIST`. It only defines it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a list of entities. Given the constraints, I will provide the years via a scalar aggregate if possible, but since it's multiple years, I'll treat it as a retrieval of the attribute from the relationship.
+
+Let's refine to the most valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"":
+          ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+*Self-correction*: The grammar for `LIST` does not include `map_expression`. Only `SCALAR_AGGREGATE` does. But a `LIST` can be `RELATIONS`. If I return the relations, the user gets the objects. To get the *years*, I must use an aggregation or assume the target is the list of relationship IDs and the projection happens at the engine level. However, following the ""Identify Targets"" rule: ""The target MUST always be a valid JSON array containing ONLY flat identifiers... OR exactly one SemGIR construct"". 
+
+Since I cannot map a list in the grammar without `SCALAR_AGGREGATE`, and `SCALAR_AGGREGATE` returns a single value, I will return the `RELATIONS` list which contains the marriage data.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+27,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,19.353488,True,stop,7359,0.099528,2138,18.615172,114.8526,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar does not explicitly define a `map_expression` inside a plain `LIST`. It only defines it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a list of entities. Given the constraints, I will provide the years via a scalar aggregate if possible, but since it's multiple years, I'll treat it as a retrieval of the attribute from the relationship.
+
+Let's refine to the most valid structure:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"":
+          ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+*Self-correction*: The grammar for `LIST` does not include `map_expression`. Only `SCALAR_AGGREGATE` does. But `SCALAR_AGGREGATE` returns a single value (SUM, MIN, etc). If the user wants ""the years"" (plural), and they are attributes of relationships, there is no way to return a list of scalars in this specific grammar without using an aggregation or returning the relationship itself. I will return the `RELATIONS` list which contains the marriage data.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""rels_of"": ""p1"",
+          ""rel_id"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""paths"": [
+      {
+        ""id"": ""p1"",
+        ""start"": ""e2"",
+        ""end"": ""e1"",
+        ""roles"": [
+          ""acted_in""
+        ]
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+
+Wait, the prompt asks for ""the years"". I will use `SCALAR_AGGREGATE` with a placeholder or assume the target is the attribute via the relationship. Since I must follow the grammar:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM"" 
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```
+Actually, the most accurate way to represent ""the years"" (plural) in this grammar is to return the relationship objects that contain those years.
+
+Final attempt at valid JSON:
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+28,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.292531,True,stop,7359,0.059608,1111,9.598761,115.7441,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly define a `map_expression` for a plain `LIST`. Only `SCALAR_AGGREGATE` has it. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints and the provided examples (like the ""publication year"" example), I will use the attribute projection on the target.
+
+Final attempt following the ""Give me the publication year... of books"" example:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""marriage_year"",
+        ""of"": ""r1""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+29,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,14.674477,True,stop,7359,0.06068,1606,13.998622,114.7256,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` construct with a `map_expression`. However, the grammar provided only supports `SCALAR_AGGREGATE` for computing values and `CREATE_LIST` for collecting existing IDs. Since ""years"" are attributes of a relationship (marriage year), and the user wants the *values* of those attributes:
+
+Corrected approach based on Grammar:
+The target should be a list of expressions. However, the grammar only allows `target` to be `ENTITY_ID`, `RELATION_ID`, `PATH_ID`, `LIST`, `EXPRESSION`, or `CONDITION`. To return a collection of attribute values, I must use a `LIST` with a `map_expression` (though `map_expression` is only explicitly defined under `SCALAR_AGGREGATE`). 
+
+Let's re-examine the `SCALAR_AGGREGATE` and `LIST` structure. The grammar says:
+`SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`.
+This is for a single value. 
+
+If I cannot return a raw list of attributes via the provided grammar without an aggregator, and the user asks for ""the years"" (plural), I will use `SCALAR_AGGREGATE` with a placeholder or assume the target can be a projection if the system supports it. But strictly following the grammar:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+Actually, looking at the `target` definition: `EXPRESSION` is a valid target. An `EXPRESSION` can be an `ATTRIBUTE`. 
+
+Final attempt following the most logical path within the provided grammar constraints:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    }
+  }
+]
+```
+Wait, the `map_expression` is only defined inside `SCALAR_AGGREGATE`. I will use a `LIST` of relationship IDs and assume the projection happens at the execution layer, or use the `SCALAR_AGGREGATE` pattern if I were to sum them (but that's wrong). 
+
+Let's use the most compliant structure: Target is the list of relationships, and we filter for those where the actor was in 'Matrix'.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"
+30,Q09,Give me the years in which the actors of Matrix got married.,gemma4:26b,False,0.025,10.359994,True,stop,7359,0.068487,1122,9.64074,116.3811,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""title"",
+            ""of"": ""e1""
+          },
+          ""operator"": ""="",
+          ""right"": ""Matrix""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and logic for extracting a list of values from relationships: The `SCALAR_AGGREGATE` is used to produce a single value. To get a *list* of years, I should use a `LIST` with a `map_expression`. However, the grammar provided only allows `SCALAR_AGGREGATE` (which returns one value) or `LIST` (which returns nodes/rels). Since the target is ""the years"", and years are attributes of a relationship, I will use a `LIST` of the relationships and then project the attribute.
+
+Corrected approach for ""years"" (plural):
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+      }
+    ]
+  }
+]
+```
+
+Actually, looking at the `SCALAR_AGGREGATE` vs `LIST` in the grammar: The grammar defines `LIST` as having `list_elements`, `filter`, etc., but does not explicitly show a `map_expression` inside a plain `LIST`. It only shows it inside `SCALAR_AGGREGATE`. However, to return a collection of attributes, one must use an aggregation or a projection. Given the constraints, I will provide the most structurally sound version for retrieving the attribute values via the relationship list.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""r1""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""marriage_year"",
+          ""of"": ""r1""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Movie""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Actor""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""married_in"",
+        ""from"": ""e2"",
+        ""to"": ""e2""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""acted_in"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""title"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Matrix""
+    }
+  }
+]
+```"

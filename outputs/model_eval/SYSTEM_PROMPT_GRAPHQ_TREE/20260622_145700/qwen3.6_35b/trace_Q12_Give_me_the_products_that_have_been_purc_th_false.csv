@@ -1,0 +1,2439 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,21.628791,True,length,3139,0.183393,3072,20.983453,146.4011,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation in the `forward` direction if the edge is Customer->Product, or `backward` if the edge is Product->Customer.
+    *   Standard schema assumption: Usually, relations are named from the perspective of the source node. If we have a relation `purchased` on the `product` node pointing to the `customer`, it would be ""product purchased customer"". If we have `purchase` on `customer` pointing to `product`, it is ""customer purchase product"".
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the agent. A common schema pattern is `Customer --[purchased]--> Product`. If this is the case, to get Products from a Customer, we go `forward` along `purchased`.
+    *   Alternative schema: `Product --[purchased_by]--> Customer`. To get Products from a Customer, we go `backward` along `purchased_by`.
+    *   Let's stick to a generic relation name `purchase` or `purchased`. Let's assume the relation is `purchased` and it connects Product to Customer (Product was purchased by Customer). Then to find products for a customer, we traverse `purchased` in the `backward` direction from the customer? No, if the edge is Product->Customer, then Customer<-Product. To get Products given a Customer, we go backward along the edge pointing to the customer.
+    *   Let's try the other common pattern: `Customer --[purchases]--> Product`. Then we go `forward` along `purchases`.
+    *   The prompt says ""products that have been purchased by..."". This is passive voice.
+    *   Let's use a generic relation name `purchase` and assume the direction needs to be inferred or stated clearly. If I say `<R> purchase </R>`, does it mean Customer->Product or Product->Customer?
+    *   Let's look at the example: ""actors of the movie Inception"". Movie -> Actor. Relation `actor`. Direction `backward` from Movie to Actor? No, the example says: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` points *from* Actor *to* Movie (Actor is in Movie). So to find Actors given a Movie, you go `backward` along `actor`.
+    *   Applying this logic: ""Products purchased by Customer"". Relation `purchase` likely points from Product to Customer (Product was purchased by Customer). Therefore, to find Products given a Customer, we must traverse `backward` along the `purchase` relation.
+    *   Wait, let's re-read the example carefully.
+        *   Input: ""Give me the actors of the movie Inception.""
+        *   Output: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`
+        *   This means: Find Actors such that there is a relation `actor` going from Actor to Inception? No, ""backward to"" usually means the edge points *to* the target. If I go backward along an edge, I am moving against the arrow. If the arrow is Actor -> Movie, and I want Actors given a Movie, I start at Movie and go backward (against the arrow) to find the Actor.
+        *   So, Relation `actor` is defined as `Actor --[actor]--> Movie`.
+        *   Query: Find X such that X --[relation]--> Target. This requires traversing `backward` from Target.
+    *   Now for ""Products purchased by Customer"".
+        *   Likely schema: `Product --[purchased_by]--> Customer` OR `Customer --[purchases]--> Product`.
+        *   If the relation is named `purchase`, it's ambiguous. Let's assume a relation `purchased` exists on the product node pointing to the customer (Product was purchased). Then we need to go `backward` from Customer to find Products.
+        *   However, often ""purchased"" is an action performed by the customer. `Customer --[purchased]--> Product`. If this is the case, we go `forward` from Customer to find Products.
+        *   Let's look at the phrasing again: ""products that have been purchased by the customer"". This emphasizes the product's state.
+        *   Let's assume the relation is `purchase` and it connects Customer to Product (Customer purchases Product). Then we go `forward`.
+        *   Let's assume the relation is `purchased_by` and it connects Product to Customer. Then we go `backward`.
+        *   Without a schema, I will use a generic relation name `purchase` and assume the direction `forward` from Customer to Product is the most natural interpretation of ""Customer purchases Product"". But wait, the query starts with Products. ""Give me products..."".
+        *   Let's try to map it to the example structure: `<ES> <C> product </C> that <R> purchase </R> forward to <E> Customer ... </E>`. This implies `Product --[purchase]--> Customer`? No, if I go `forward` from Product to Customer, then the edge is Product->Customer.
+        *   Let's check the example again: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+            *   Structure: TargetConcept --[Relation] DIR to SourceEntity.
+            *   If DIR is `backward`, it means we are at SourceEntity and moving against the Relation arrow to find TargetConcept. So Arrow is Target -> Source. (Actor -> Movie).
+            *   If DIR is `forward`, it means we are at SourceEntity and moving with the Relation arrow to find TargetConcept. So Arrow is Source -> Target. (Customer -> Product).
+        *   Which schema is more standard? ""Customer purchases Product"" is a very common event model. Edge: Customer -> Product. Relation name: `purchase`.
+        *   If I use `forward`, I am saying: Find Products such that there is a `purchase` edge from Customer to Product. This fits ""Customer purchased Product"".
+        *   If I use `backward`, I am saying: Find Products such that there is a `purchase` edge from Product to Customer. This fits ""Product was purchased by Customer"" (if the relation is named `purchased_by` or similar).
+        *   Given the ambiguity, I will assume the relation is `purchase` and it flows from Customer to Product (Customer -> Product). Thus, to find Products given a Customer, we traverse `forward`.
+        *   Wait, let's look at the constraint syntax: `that <R> ... DIR to <ES>`.
+        *   If I write `<C> product </C> that <R> purchase </R> forward to <E> Customer </E>`, this means: Find Products where there is a `purchase` edge going from Product to Customer? No.
+        *   Let's re-read the grammar rule for RelationConstraint: `""that"" Relation DIR ""to"" EntitySet`.
+        *   In the example: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+            *   This parses as: The Actor is connected to Inception via `actor` relation. The direction from Actor to Inception is... wait.
+            *   Usually, ""A that R forward to B"" means A ->(R)-> B.
+            *   ""A that R backward to B"" means B ->(R)-> A.
+            *   Let's verify with the example: `Actor` that `actor` `backward` to `Inception`.
+                *   If `backward` means we traverse against the edge, and we end up at Actor starting from Inception, then the edge is Actor -> Inception.
+                *   So `Actor --[actor]--> Inception`.
+            *   Now apply to Products: `Product` that `purchase` `forward` to `Customer`.
+                *   If `forward` means we traverse with the edge, and we go from Product to Customer, then the edge is Product -> Customer.
+                *   This implies `Product --[purchase]--> Customer`.
+            *   Does ""Product purchased by Customer"" imply Product -> Customer or Customer -> Product?
+                *   If the relation is named `purchased_by`, it's Product -> Customer.
+                *   If the relation is named `purchases`, it's Customer -> Product.
+                *   The prompt uses ""purchased"". This is a past participle, often used as an adjective or passive verb.
+                *   Let's assume the relation name is `purchase` and it represents the act of purchasing. Usually, actions are edges from Agent to Patient. Customer (Agent) -> Product (Patient).
+                *   If Edge is Customer -> Product, then to find Products given a Customer, we go `forward` from Customer?
+                *   Let's check the syntax `<C> product </C> that <R> purchase </R> forward to <E> Customer </E>`.
+                    *   This says: Product --(purchase)--> Customer. (Because ""A R forward to B"" usually defines the edge A->B).
+                    *   If the edge is Product -> Customer, then the relation name `purchase` is slightly weird (Product purchases Customer?). It should be `purchased_by`.
+                *   Let's try: `<C> product </C> that <R> purchased_by </R> backward to <E> Customer </E>`.
+                    *   This says: Edge is Product -> Customer. We go backward from Customer to find Product.
+                    *   This fits ""Product was purchased by Customer"".
+        *   However, simpler schemas often just use `purchase` for Customer->Product.
+            *   If Edge is Customer -> Product (`Customer --[purchase]--> Product`).
+            *   To find Products given a Customer: Start at Customer, go forward along `purchase`.
+            *   Syntax: `<ES> <C> product </C> that <R> purchase </R> backward to <E> Customer </E>`?
+                *   If ""A R backward to B"" means B->A, then this implies Edge is Product -> Customer. Contradiction.
+                *   If ""A R forward to B"" means A->B, then `<C> product </C> that <R> purchase </R> forward to <E> Customer </E>` implies Edge is Product -> Customer.
+            *   So if the edge is Customer -> Product, how do we express it?
+                *   We need to say: There exists a relation `purchase` from Customer to Product.
+                *   In the constraint `<C> product </C> that <R> purchase </R> ...`, the subject of the relative clause is `product`.
+                *   If the edge is Customer -> Product, then from the perspective of the Product, the Customer is the source.
+                *   So we are looking for Products such that there is a `purchase` edge coming *from* a Customer.
+                *   This corresponds to traversing `backward` along the `purchase` edge (which points Customer->Product) starting from the Customer? No, if I am at the Product, and the edge is Customer->Product, I can't traverse it forward or backward easily without knowing the direction definition in the constraint syntax.
+                *   Let's look at the example again: `Actor` that `actor` `backward` to `Inception`.
+                    *   This establishes the pattern: `[Target] that [Relation] [DIR] to [Source]`.
+                    *   If DIR is `backward`, it implies the Relation points from Target to Source. (Target -> Source).
+                    *   If DIR is `forward`, it implies the Relation points from Source to Target? No, let's test.
+                    *   If I say `Customer` that `purchase` `forward` to `Product`. This would mean Customer -> Product.
+                    *   But my target is `Product`. So I would write `<C> product </C> that <R> purchase </R> backward to <E> Customer </E>`?
+                        *   If ""backward"" means the edge points Target->Source, then Edge is Product -> Customer.
+                    *   What if I write `<C> product </C> that <R> purchase </R> forward to <E> Customer </E>`?
+                        *   If ""forward"" means the edge points Source->Target (Customer->Product), then this syntax is confusing because the subject is Product.
+    
+    Let's refine the interpretation of `DIR` in `RelationConstraint`.
+    Grammar: `""that"" Relation DIR ""to"" EntitySet`
+    Example: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`
+    Interpretation: The constraint filters the Concept (Actor). It requires a connection to the EntitySet (Inception).
+    If `backward` is used, it typically means ""traverse the relation in reverse"".
+    If the relation is `actor` (Actor -> Movie), traversing it from Movie to Actor is backward.
+    So, `Actor` that `actor` `backward` to `Movie` means: Find Actors such that there is an `actor` edge pointing TO the Movie"
+2,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,11.131711,True,stop,3139,0.025968,1557,10.626468,146.5209,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation connects the product to the customer.
+    *   If we assume a generic schema where `Customer` has an outgoing relation `purchases` to `Product`, then from `Product`'s perspective, it is connected via `purchases` in the `backward` direction.
+    *   Let's use `purchased` as the relation name for clarity of the edge itself, or `purchases` as the action. Let's stick to the relation name `purchased` connecting Product to Customer for simplicity, or `purchases` connecting Customer to Product.
+    *   Standard interpretation: ""Customer X purchased Product Y"". Relation: `purchases`. Direction from Product to Customer is `backward`.
+    *   Constraint on Customer: The customer has ID 'USR-99'. This is an attribute constraint on the target EntitySet (the Customer).
+4.  **Target EntitySet for Constraint**: `<E> USR-99 </E>`? No, IDs are usually attributes of entities. So we need `<ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES>`.
+5.  **Assembly**:
+    *   Root: `what is`
+    *   EntitySet: `<ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES> </ES>`
+
+Let's refine the relation direction.
+If the graph has `Customer --[purchases]--> Product`:
+To find products bought by a customer, we start at Product and go `backward` along `purchases` to Customer.
+Constraint on Customer: `whose <A> ID </A> is ""USR-99""`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES> </ES>
+
+Wait, the prompt says ""customer with ID 'USR-99'"".
+Is 'USR-99' an Entity or a Value? It's a value for the attribute ID.
+So: `<ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES>`.
+
+Final Sequence:
+what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES> </ES>
+
+Let's double check the relation name. ""purchased by"" suggests the passive voice. Active: Customer purchases Product. Relation: `purchases`.
+From Product to Customer: `backward`.
+
+One detail: The prompt asks for ""products"".
+So root is EntityQuery returning Products.
+
+Structure:
+S -> EntityQuery
+  -> ""what is""
+  -> EntitySet
+    -> ""<ES>""
+    -> EntitySet (Concept: product)
+      -> Concept
+        -> ""<C>""
+        -> ""product""
+        -> ""</C>""
+    -> Constraint
+      -> RelationConstraint
+        -> ""that""
+        -> Relation
+          -> ""<R>""
+          -> ""purchases""
+          -> ""</R>""
+        -> DIR
+          -> ""backward""
+        -> ""to""
+        -> EntitySet (Customer with ID constraint)
+          -> ""<ES>""
+          -> EntitySet (Concept: customer)
+            -> Concept
+              -> ""<C>""
+              -> ""customer""
+              -> ""</C>""
+          -> Constraint
+            -> AttributeConstraint
+              -> ""whose""
+              -> Attribute
+                -> ""<A>""
+                -> ""ID""
+                -> ""</A>""
+              -> COP
+                -> ""is""
+              -> Value
+                -> VTYPE? No specific type needed, just string.
+                -> ""<V>""
+                -> ""USR-99""
+                -> ""</V>""
+          -> ""</ES>""
+    -> ""</ES>""
+
+This looks correct.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           │                   └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+3,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,13.506937,True,stop,3139,0.024378,1919,13.000981,147.6042,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation in the `forward` direction if the edge is Customer->Product, or `backward` if the edge is Product->Customer.
+    *   Standard schema assumption: Usually, relations are named from the perspective of the source node. If we have a relation `purchased` on the `product` node pointing to the `customer`, it would be ""product purchased customer"". If we have `purchase` on `customer` pointing to `product`, it is ""customer purchase product"".
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the agent. A common schema pattern is `Customer --[purchased]--> Product`. If this is the case, to get Products from a Customer, we go `forward` along `purchased`.
+    *   Alternative schema: `Product --[purchased_by]--> Customer`. To get Products from a Customer, we go `backward` along `purchased_by`.
+    *   Let's stick to a generic relation name `purchase` or `purchased`. Let's assume the relation is `purchased` and it connects Product to Customer (Product was purchased by Customer). Then to find products for a customer, we traverse `purchased` in the `backward` direction from the customer? No, if the edge is Product->Customer, then Customer<-Product. To get Products given a Customer, we go backward along the edge pointing to the customer.
+    *   Let's try the other common pattern: `Customer --[purchases]--> Product`. Here, the relation is `purchases` (or `purchase`). Direction from Customer to Product is `forward`.
+    *   Let's use the relation name `purchased` as it appears in the prompt ""have been purchased"". If the edge is `Product --[purchased]--> Customer`, then we need to go `backward` from Customer to Product.
+    *   However, often ""purchased"" is treated as the action. Let's assume a relation `purchase` exists between Customer and Product.
+    *   Let's look at the example: ""actors of the movie Inception"". Movie -> Actor. Relation `actor`. Direction `backward` from Movie to Actor? No, in the example `Inception` is the target of the actor relation? Wait. The example says: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` points *from* Actor *to* Movie (Actor acts in Movie). So to find Actors for a Movie, you go `backward` along the `actor` edge.
+    *   Applying this logic: ""Products purchased by Customer"". Relation is likely `purchased` or `purchase`. If we assume the relation `purchased` points from Product to Customer (Product was purchased by Customer), then to find Products for a Customer, we go `backward` along `purchased`.
+    *   Let's define the relation as `purchased`.
+    *   Constraint: `<ES> <E> USR-99 </E> that <R> customer_id </R> is ""USR-99"" </ES>`? No, we need to identify the customer entity first.
+    *   Step 1: Identify Customer with ID 'USR-99'. This is an `AttributeQuery` or a filtered EntitySet. `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+    *   Step 2: Find Products linked to this Customer via the `purchased` relation.
+    *   If the schema is `Product --[purchased]--> Customer`, then we want `<C> product </C>` that has a `purchased` relation pointing *to* the customer identified above. This means traversing `purchased` in the `backward` direction from the Customer? No, if the edge is Product->Customer, then Customer<-Product. To get Products, we go `backward` along the edge incoming to Customer? No, we go `backward` along the edge *from* the target?
+    *   Let's clarify directionality: `Relation DIR to EntitySet`.
+        *   If Relation is `purchased` (Product -> Customer), and we are at Customer, we want Products. The path is Customer <- Product. So we traverse `purchased` in the `backward` direction? No, `backward` usually means against the arrow. If Arrow is P->C, backward from C is to P. Yes.
+        *   So: `<ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>`.
+
+    Let's refine the Customer identification.
+    Entity: `<E> USR-99 </E>`? No, that's a value. We need the entity with attribute `id` equal to `USR-99`.
+    So: `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+
+    Final Structure:
+    What is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+
+    Wait, is the relation `purchased` or `purchase`? The prompt says ""have been purchased"". I will use `purchased`.
+    Is the direction correct?
+    If `Product --[purchased]--> Customer`, then to get Products from a Customer, we go against the arrow (backward). Correct.
+
+    Let's double check if ""purchased"" is the relation name or if it should be ""purchase"". Usually relations are verbs in base form or past participle depending on schema. I'll use `purchased` as it matches the text closely and fits the P->C direction logic derived from the example.
+
+    Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+4,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,8.513052,True,stop,3139,0.024881,1190,8.024076,148.3037,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation backward from the product to the customer? Or is the relation defined as `purchase` from Customer to Product?
+    *   Standard KBpedia/DBpedia style: `Customer` --(purchased)--> `Product`.
+    *   If we start with `<C> product </C>`, and want to constrain it by the customer, we need a constraint that links the product back to the customer.
+    *   Constraint structure: ""that <R> purchased </R> backward to <ES> ... </ES>"".
+    *   The inner EntitySet is the customer with ID 'USR-99'. This is an attribute constraint on the concept `customer`.
+    *   Inner EntitySet: `<C> customer </C>` whose `<A> id </A>` ""is"" ""USR-99"".
+4.  **Relation Direction**: If the relation is `purchased` (Customer -> Product), then from the perspective of the Product, the relation to the Customer is backward. So, `<R> purchased </R> backward`.
+
+Let's refine the sequence:
+""what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>""
+
+Wait, usually ""purchased by"" implies the edge is `purchased` pointing from Customer to Product.
+If I have a product node P and a customer node C.
+Edge: C --[purchased]--> P.
+Query: Find P such that there exists C where C has id 'USR-99' AND C --[purchased]--> P.
+In GraphQ IR, constraints on the current EntitySet (P) are expressed as relations connecting P to other sets.
+""that <R> purchased </R> backward to ..."" means ""there is a relation `purchased` going from this node (P) backwards to ..."". This matches C --[purchased]--> P.
+
+So:
+1.  Root: `EntityQuery`
+2.  EntitySet: `<ES>`
+3.  Base Concept: `<C> product </C>`
+4.  Constraint: `RelationConstraint`
+    *   Relation: `<R> purchased </R>`
+    *   Direction: `backward`
+    *   Target EntitySet: `<ES>`
+        *   Base Concept: `<C> customer </C>`
+        *   Constraint: `AttributeConstraint`
+            *   Attribute: `<A> id </A>`
+            *   COP: `is`
+            *   Value: `""USR-99""` (string)
+5.  Close tags.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── VTYPE
+        │           │               └── ""string""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+5,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,11.011697,True,stop,3139,0.024584,1555,10.5246,147.7491,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation is from Product to Customer (Product *was purchased by* Customer). So, if we start with `<C> product </C>`, we need a constraint that links it to the customer.
+    *   Let's define the relation as `purchased`. If `Product` has a property/relation `purchased` pointing to `Customer`, then from Product to Customer is `forward`.
+    *   Alternatively, if the relation is `purchases` (Customer -> Product), then from Product to Customer is `backward`.
+    *   Let's stick to the explicit ""purchased by"" phrasing. ""Product X purchased by Customer Y"". Relation: `purchased`. Direction from Product to Customer: `forward`.
+    *   Wait, standard KB schema often has `Customer` as the subject of `purchases`. Let's assume a generic relation `purchased` connecting Product to Customer for clarity in this abstract context, or use `purchases` backward. Let's use `purchased` forward for ""Product is purchased by Customer"".
+    *   Actually, let's look at the example: ""actors of the movie Inception"". Movie -> Actor (backward). Here: Customer -> Product (forward) or Product -> Customer (backward)?
+    *   If I say ""Products purchased by Customer"", the link is `Customer --[purchases]--> Product`. To get products from a customer, we go forward. But here we have the customer as a constraint on the product. So we start with Products and filter them.
+    *   Constraint: `that <R> purchased </R> backward to <E> USR-99 </E>`? No, if the relation is `purchased` (Product -> Customer), then it's forward. If the relation is `purchases` (Customer -> Product), then from Product to Customer is backward.
+    *   Let's assume the relation name is `purchased` and it points from Product to Customer. Then `<R> purchased </R> forward`.
+    *   However, usually, IDs are attributes of an Entity. ""Customer with ID 'USR-99'"". This implies we need to find the customer entity first or filter by attribute.
+    *   The prompt says ""customer with ID 'USR-99'"". This is a specific entity identified by an attribute.
+    *   So, the target of the relation is an EntitySet: `<ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`.
+    *   Now, connecting Product to this Customer Set.
+    *   Relation: `purchased`. Direction: If `Product --[purchased]--> Customer`, then from Product to Customer is `forward`.
+    *   So: `<ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>`.
+
+Let's refine the relation direction. If the graph has `Customer --[purchases]--> Product`, then to find products for a customer, we go forward from Customer. But we are starting with Products. So we need to check if the product is connected *to* the customer via the inverse of `purchases`, which is `purchased`.
+Let's assume the relation is explicitly named `purchased` and goes Product -> Customer.
+Constraint: `that <R> purchased </R> forward to ...`
+
+Let's double check the ""customer with ID"" part.
+EntitySet for customer: `<ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`.
+
+Final Sequence:
+what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+6,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,10.283028,True,stop,3139,0.024338,1445,9.779069,147.7646,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation is from Product to Customer (Product *was purchased by* Customer). So, if we start with `<C> product </C>`, we need a constraint that links it to the customer.
+    *   Let's define the relation as `purchased`. If `Product` has a property/relation `purchased` pointing to `Customer`, then from Product to Customer is `forward`.
+    *   Alternatively, if the relation is `purchases` (Customer -> Product), then from Product to Customer is `backward`.
+    *   Let's stick to the explicit ""purchased by"" phrasing. ""Product X purchased by Customer Y"". Relation: `purchased`. Direction from Product to Customer: `forward`.
+    *   Wait, standard KB schema often has `Customer` as the subject of `purchases`. Let's assume a generic relation `purchased` connecting Product to Customer for clarity in this abstract context, or use `purchases` backward. Let's use `purchased` forward for ""Product is purchased by Customer"".
+    *   Actually, let's look at the example ""actors of the movie Inception"". Movie -> Actor via `actor` relation (backward). Here: Product <- Customer via `purchases`. So from Product to Customer is `backward` if the relation is `purchases`. Or if the relation is `purchased`, it is `forward`. Let's use `purchased` forward.
+    *   Constraint on Customer: The customer has ID 'USR-99'. This is an attribute constraint on the Customer entity set.
+4.  **Customer EntitySet**: `<ES> <E> Customer </E> whose <A> ID </A> is ""USR-99"" </ES>`.
+5.  **Combining**: `<ES> <C> product </C> that <R> purchased </R> forward to <ES> <E> Customer </E> whose <A> ID </A> is ""USR-99"" </ES> </ES>`.
+
+Let's refine the relation direction. If I say ""Give me products..."", I am looking for nodes of type Product. These nodes must satisfy a condition: they are connected to a specific customer.
+If the graph has edges `Customer --[purchases]--> Product`, then to get from Product to Customer, we go `backward` on `purchases`.
+If the graph has edges `Product --[purchased_by]--> Customer`, then we go `forward` on `purchased_by`.
+Without a specific schema, ""purchased"" is ambiguous. However, ""purchased by"" strongly suggests the passive voice of ""Customer purchases Product"". So `Customer -> Product` is the active relation. Therefore, from Product to Customer is `backward`. Let's use relation `purchases` and direction `backward`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> ID </A> is ""USR-99"" </ES> </ES>
+
+Let's double check the constraint syntax.
+`whose <A> ID </A> is ""USR-99""` -> `AttributeConstraint`.
+Value: `""USR-99""` is a string. `<V> USR-99 </V>` with VTYPE `string`.
+
+Final Sequence: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> ID </A> is ""USR-99"" </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Entity
+        │           │       ├── ""<E>""
+        │           │       ├── ""Customer""
+        │           │       └── ""</E>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+7,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,9.757822,True,stop,3139,0.041809,1358,9.244291,146.9015,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product` has attribute `purchased_by` pointing to `Customer`. Or more standardly in KGs: `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the source of the action ""purchase"" and the Product is the object. So, `Customer --[purchases]--> Product`.
+    *   We want Products. So we start with `<C> product </C>` and constrain it by a relation going *to* the Customer.
+    *   Relation: `purchases` (or `purchase`). Let's use `purchased` as the relation name for simplicity, or `purchases`. Let's assume the relation is `purchased` (Product is purchased by Customer). If the schema has `Customer --[purchases]--> Product`, then from Product's perspective, it is connected via `purchases` *backward* to Customer.
+    *   Let's refine: ""products ... purchased by customer"".
+    *   EntitySet 1: `<C> product </C>`.
+    *   Constraint: `that <R> purchases </R> backward to <ES> <E> USR-99 </E> filtered by attribute ID = 'USR-99' </ES>`.
+    *   Wait, the customer is identified by ID. So we need to find the Customer entity first or constrain the target EntitySet.
+    *   Target: `<C> customer </C>` whose `<A> ID </A>` `is` `<V> string ""USR-99"" </V>`.
+    *   Relation direction: From Product to Customer. If the edge is `Customer --[purchases]--> Product`, then from Product to Customer is `backward`.
+    *   So: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is <V> string ""USR-99"" </V> </ES> </ES>`.
+
+Let's double check the relation direction.
+If `Customer` has a property/edge `purchases` pointing to `Product`, then:
+`Customer --(purchases)--> Product`.
+Query: Find Products.
+Constraint on Product: It must be connected to a Customer via the `purchases` edge. Since the edge points *from* Customer *to* Product, traversing from Product *to* Customer is `backward`.
+
+So the structure is:
+`what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is <V> string ""USR-99"" </V> </ES> </ES>`
+
+Let's verify the types.
+`<C> product </C>`: Concept.
+`<R> purchases </R>`: Relation.
+`<C> customer </C>`: Concept.
+`<A> ID </A>`: Attribute.
+`<V> string ""USR-99"" </V>`: Value.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is <V> string ""USR-99"" </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+8,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,11.453361,True,stop,3139,0.022354,1621,10.971531,147.746,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product` has attribute `purchased_by` pointing to `Customer`. Or more standardly in KGs: `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the source of the action ""purchase"" and the Product is the object. So, `Customer --[purchases]--> Product`.
+    *   We want Products. So we start with `<C> product </C>` and constrain it by a relation going *to* the Customer.
+    *   Relation: `purchases` (or `purchase`). Let's use `purchased` as the inverse or just `purchases`. If the relation name is `purchases`, then from Product to Customer, it is `backward`.
+    *   Constraint on Customer: The customer has ID 'USR-99'. This is an attribute constraint on the EntitySet representing the customer.
+4.  **Constructing the Sequence**:
+    *   ""what is""
+    *   `<ES>`
+        *   Base: `<C> product </C>`
+        *   Constraint: `that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> ID </A> is <V> USR-99 </V> </ES>`
+    *   Wait, the grammar for RelationConstraint is `that Relation DIR to EntitySet`.
+    *   So: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> ID </A> is <V> USR-99 </V> </ES> </ES>`
+    *   Let's refine the relation name. ""purchased by"" suggests the edge might be named `purchased`. If `Product --[purchased]--> Customer`, then direction is `forward`. Let's assume the standard KG schema where relations are often verbs from subject to object. `Customer` (subject) `purchases` (verb) `Product` (object).
+    *   Query: ""Give me the products..."" -> Target: Product.
+    *   Constraint: ""...that have been purchased by the customer..."" -> Relation connecting Product to Customer. If relation is `purchases`, it goes Customer->Product. So from Product, we go `backward`.
+    *   Let's use `purchased` as the relation name for clarity in the ""purchased by"" context, often implying `Product --[purchased]--> Customer`. In that case, direction is `forward`.
+    *   Let's stick to a generic `purchased` relation going forward from Product to Customer.
+    *   Sequence: `what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <E> Customer </E> whose <A> ID </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's double check the ""purchased by"" semantics.
+If I say ""The book was written by John"", relation is `written_by` (Book -> John) or `wrote` (John -> Book).
+If the schema has `purchases` (Customer -> Product), then to find products for a customer, we go backward from Product to Customer.
+If the schema has `purchased` (Product -> Customer), we go forward.
+Without specific schema, `purchased` is a safe bet for ""purchased by"".
+
+Let's assume the relation is `purchased`.
+Sequence: `what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <E> Customer </E> whose <A> ID </A> is <V> USR-99 </V> </ES> </ES>`
+
+Wait, the value 'USR-99' is a string.
+Attribute: `ID`.
+Value: `USR-99` (string).
+
+Final Sequence:
+`what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <E> Customer </E> whose <A> ID </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's verify the AST structure.
+Root: EntityQuery
+Child: EntitySet
+  Child: Concept (product)
+  Child: Constraint (RelationConstraint)
+    Child: Relation (purchased)
+    Child: DIR (forward)
+    Child: EntitySet (Customer with ID constraint)
+      Child: Entity (Customer)
+      Child: Constraint (AttributeConstraint)
+        Child: Attribute (ID)
+        Child: COP (is)
+        Child: Value (USR-99)
+
+This looks correct.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Entity
+        │           │       ├── ""<E>""
+        │           │       ├── ""Customer""
+        │           │       └── ""</E>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+9,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,4.4351,True,stop,3139,0.024799,585,3.956352,147.8635,"<thinking>
+The user wants to find products purchased by a specific customer.
+1.  **Root Query**: `EntityQuery` because we are looking for entities (products).
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer via a ""purchase"" relation.
+4.  **Relation Direction**: We are starting from ""product"" and going to ""customer"". If the relation is `purchased_by` (Product -> Customer), the direction is forward. If the relation is `buys` (Customer -> Product), the direction from Product to Customer is backward. Usually, in knowledge graphs like Wikidata or DBpedia, relations are defined as `(Subject) -> (Object)`.
+    *   Let's assume a standard schema where `purchased_by` connects Product to Customer. So `<R> purchased_by </R>` forward to `<E> USR-99 </E>`.
+    *   Alternatively, if the relation is `buys` connecting Customer to Product, then from Product to Customer it would be backward.
+    *   Let's stick to the explicit relation name provided or implied. ""purchased by"" suggests the edge is `purchased_by`. So: `<ES> <C> product </C> that <R> purchased_by </R> forward to <E> USR-99 </E> </ES>`.
+5.  **Customer Entity**: `<E> USR-99 </E>`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased_by </R> forward to <E> USR-99 </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased_by""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+10,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,10.135945,True,stop,3139,0.021959,1426,9.658603,147.6404,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation is from Product to Customer (Product *was purchased by* Customer). So, if we start with `<C> product </C>`, we need a constraint that links it to the customer.
+    *   Let's define the relation as `purchased`. If `Product` has a property/relation `purchased` pointing to `Customer`, then from Product to Customer is `forward`.
+    *   Alternatively, if the relation is `purchases` (Customer -> Product), then from Product to Customer is `backward`.
+    *   Let's stick to the explicit ""purchased by"" phrasing. Often in these schemas, relations are named after the action or role. Let's use `<R> purchased </R>` connecting Product to Customer. Direction: `forward` (Product -> Customer).
+4.  **Customer EntitySet**: We need to filter the customer by ID 'USR-99'.
+    *   This requires an Attribute constraint on the Customer entity set.
+    *   Attribute: `id`.
+    *   Value: `'USR-99'` (string).
+    *   So, the target customer set is `<ES> <E> Customer </E> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`. Wait, `Customer` is a concept here? Or an entity? The prompt says ""customer with ID..."", implying we don't know the specific customer node name, just its attribute. So it's `<C> customer </C>` filtered by id.
+5.  **Constructing the Sequence**:
+    *   ""what is""
+    *   EntitySet: `<ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>`
+
+Let's refine the relation direction.
+If I say ""Products purchased by Customer"", the edge is likely `Customer --[purchases]--> Product`.
+If we start with `<C> product </C>`, we need to go *backward* along the `purchases` relation to find the customer.
+Or, if the relation is named `purchased` (Product --[purchased]--> Customer), we go *forward*.
+Given ""purchased by"", it's safer to assume a relation `purchased` exists from Product to Customer. Let's use `<R> purchased </R>` and direction `forward`.
+
+Sequence:
+what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>
+
+Let's double check the constraint syntax.
+`whose <A> id </A> is <V> string ""USR-99"" </V>` is an AttributeConstraint.
+The EntitySet for customer is `<ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`.
+
+Final Sequence:
+what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+11,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,6.603663,True,stop,3139,0.024201,906,6.144826,147.4411,"<thinking>
+The user wants to find products purchased by a specific customer.
+1.  **Root Query**: `EntityQuery` because we are looking for entities (products).
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer via a ""purchased"" relation.
+4.  **Relation Direction**: We are starting from ""product"" and going to ""customer"". If the relation is `purchased` (Product -> Customer), then we need to traverse it `forward`. However, usually, in knowledge graphs, relations are defined as (Subject -> Object). If the schema defines `purchased` as `Customer -> Product`, then from Product to Customer it would be `backward`. Let's assume a standard schema where `purchased` connects Customer to Product. So, `Customer --[purchased]--> Product`.
+    *   Query: ""products that have been purchased by the customer"".
+    *   Path: Product <-[purchased]- Customer.
+    *   Therefore, from Product's perspective, the relation is `purchased` in `backward` direction to reach the Customer.
+5.  **Customer Entity**: `<E> USR-99 </E>` (or conceptually a customer with ID USR-99). The prompt says ""customer with ID 'USR-99'"". This implies an entity lookup or a filter. Since `USR-99` is a specific ID, it's likely an Entity node `<E> USR-99 </E>` representing that specific customer instance, or we need to find the customer first. Given the specificity, treating `USR-99` as an Entity identifier is standard for this type of query unless ""ID"" implies an attribute filter. Let's assume `USR-99` identifies the entity directly for simplicity, or use a constraint if it were a name. Here, ID usually points to a node. Let's treat `<E> USR-99 </E>` as the customer entity.
+6.  **Sequence Construction**:
+    *   ""what is""
+    *   EntitySet: `<ES>`
+        *   Base: `<C> product </C>`
+        *   Constraint: `that <R> purchased </R> backward to <E> USR-99 </E>`
+    *   `</ES>`
+
+Let's refine the relation direction. If I ask ""products purchased by customer"", I am looking for products. The link is from Customer to Product. So, Customer -> Product. To get Products from Customer, we go forward on `purchased`. But the query structure is ""Products [that are connected to] Customer"".
+If the graph edge is `Customer --(purchased)--> Product`:
+*   From Product node, to find the Customer, we go `backward` along `purchased`.
+*   So: `<C> product </C>` that `<R> purchased </R>` backward to `<E> USR-99 </E>`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <E> USR-99 </E> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""USR-99""
+        │               └── ""</E>""
+        └── ""</ES>""
+```"
+12,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,8.950793,True,stop,3139,0.024778,1248,8.466503,147.4044,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation goes from Product to Customer (Product is the subject of the passive verb 'purchased', but semantically the link is between them).
+    *   If we assume a relation `purchased` exists such that `<Product> --[purchased]--> <Customer>`, then to find products given a customer, we go `backward` from Customer? No, we are filtering the Product set.
+    *   Let's define the constraint on the Product EntitySet: ""that <R> purchased <DIR> to <ES> Customer ... </ES>"".
+    *   If the relation is `purchased` (Product -> Customer), then from Product to Customer is `forward`.
+    *   Wait, let's look at standard patterns. ""Actors of movie Inception"". Movie -> Actor is usually `actor` or `starring`. Direction: Actor --[starring]--> Movie? Or Movie --[cast]--> Actor?
+    *   Let's assume the relation name is `purchased` and it connects Product to Customer.
+    *   Constraint on `<C> product </C>`: ""that <R> purchased </R> forward to <ES> ... </ES>"".
+4.  **Customer EntitySet**: We need to identify the customer with ID 'USR-99'.
+    *   Base: `<C> customer </C>`.
+    *   Constraint: Attribute `id` is 'USR-99'.
+    *   Structure: `<ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`.
+
+Let's refine the relation direction.
+If I say ""Give me products purchased by Customer X"", I am looking for Products P such that there is a link P -> Customer X (if `purchased` means 'was purchased by') or Customer X -> P (if `purchases` means 'buys').
+Usually, in these schemas, if the relation is named `purchased`, it might be `Product --[purchased]--> Customer`.
+If I am at Product and want to check if it was purchased by a specific customer, I follow the `purchased` edge forward to the Customer.
+So: `<ES> <C> product </C> that <R> purchased </R> forward to <ES> ... </ES> </ES>`.
+
+Let's construct the sequence:
+""what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>""
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── VTYPE
+        │           │               └── ""string""
+        │           └── ""<V>""
+        │               └── ""USR-99""
+        │           └── ""</V>""
+        │       └── ""</ES>""
+        └── ""</ES>""
+```"
+13,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,7.518187,True,stop,3139,0.024645,1041,7.055367,147.5473,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation goes from Product to Customer (Product is the subject of the passive verb 'purchased', but semantically the link is between them).
+    *   If we assume a relation `purchased` exists such that `<Product> --[purchased]--> <Customer>`, then to find products given a customer, we go `backward` from Customer? No, we are filtering the Product set.
+    *   Let's define the constraint on the Product EntitySet: ""that <R> purchased <DIR> to <ES> Customer ... </ES>"".
+    *   If the relation is `purchased` (Product -> Customer), then from Product to Customer is `forward`.
+    *   Wait, let's look at standard patterns. ""Actors of movie Inception"". Movie -> Actor is usually `actor` or `starring`. Direction: Actor --[starring]--> Movie? Or Movie --[cast]--> Actor?
+    *   Let's assume the relation name is `purchased` and it connects Product to Customer.
+    *   Constraint on `<C> product </C>`: ""that <R> purchased </R> forward to <ES> ... </ES>"".
+4.  **Customer EntitySet**: We need to identify the customer with ID 'USR-99'.
+    *   Base: `<C> customer </C>`.
+    *   Constraint: ""whose <A> id </A> is <V> USR-99 </V>"".
+5.  **Value Type**: The ID 'USR-99' is a string.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+14,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,10.003308,True,stop,3139,0.024838,1402,9.515622,147.3367,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation goes from Product to Customer (Product is the subject of the passive verb 'purchased', but semantically the link is between them).
+    *   If we assume a relation `purchased` exists such that `<Product> --[purchased]--> <Customer>`, then to find products given a customer, we go `backward` from Customer? No, we are filtering the Product set.
+    *   Let's define the constraint on the Product EntitySet: ""that <R> purchased <DIR> to <ES> Customer ... </ES>"".
+    *   If the relation is `purchased` (Product -> Customer), then from Product to Customer is `forward`.
+    *   Wait, let's look at standard patterns. ""Actors of movie Inception"". Movie -> Actor is usually `actor` or `starring`. Direction: Actor --[starring]--> Movie? Or Movie --[cast]--> Actor?
+    *   Let's assume the relation name is `purchased` and it connects Product to Customer.
+    *   Constraint on `<C> product </C>`: ""that <R> purchased </R> forward to <ES> ... </ES>"".
+4.  **Customer EntitySet**: We need to identify the customer with ID 'USR-99'.
+    *   Base: `<C> customer </C>`.
+    *   Constraint: ""whose <A> id </A> is <V> USR-99 </V>"".
+5.  **Assembly**:
+    *   Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+
+Let's refine the relation direction. If I say ""Give me products purchased by Customer X"", and the graph has edges `Customer --[purchases]--> Product`, then to get from Product back to Customer, we go `backward` on `purchases`.
+However, if the edge is `Product --[was_purchased_by]--> Customer`, we go `forward` on `was_purchased_by`.
+Without a specific schema, ""purchased"" is ambiguous. Let's use a generic relation name `purchased` and assume it links Product to Customer (Product -> Customer). Thus, from Product to Customer is `forward`.
+
+Let's try the other common pattern: `Customer --[purchases]--> Product`.
+Query: Products that have been purchased by Customer X.
+Filter Products: ""that <R> purchases <DIR> backward to <ES> Customer ... </ES>"".
+This seems more robust for general KBQA where relations are often subject-verb-object (Customer purchases Product).
+
+Let's stick to the explicit relation name `purchased` as a link from Product to Customer for simplicity in naming, or use `purchases` from Customer to Product.
+Let's use `purchased` as the relation name connecting Product to Customer.
+Relation: `<R> purchased </R>`.
+Direction: From Product to Customer is `forward`.
+
+Constraint on Customer: ""whose <A> id </A> is <V> USR-99 </V>"".
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+15,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,7.030649,True,stop,3139,0.02481,970,6.562379,147.8122,"<thinking>
+The user wants to find products purchased by a specific customer.
+1.  **Root Query**: `EntityQuery` because we are looking for entities (products).
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer via a ""purchase"" relation.
+4.  **Relation Direction**: We are starting from ""product"" and going to ""customer"". If the relation is `purchased_by` (Product -> Customer), the direction is `forward`. If the relation is `purchases` (Customer -> Product), the direction from Product to Customer is `backward`. Usually, in knowledge graphs, relations are named from the perspective of the source node. Let's assume a standard schema where `purchased_by` connects Product to Customer. So, `<R> purchased_by </R>` with direction `forward`. Alternatively, if the relation is `has_purchased` (Customer -> Product), then from Product it would be `backward`. Let's use a generic relation name like ""purchase"" or ""purchased_by"". Given the phrasing ""products that have been purchased by..."", it implies the product is the subject of the passive verb. A common schema pattern is `Product --[purchased_by]--> Customer`. So direction is `forward`.
+5.  **Customer Entity**: `<E> USR-99 </E>` (or concept customer with attribute ID). The prompt says ""customer with ID 'USR-99'"". This implies we need to filter the customer entity by its ID attribute.
+    *   So, the target of the relation is an EntitySet: `<ES> <C> customer </C> whose <A> ID </A> is <V> USR-99 </V> </ES>`.
+6.  **Constructing the Sequence**:
+    *   ""what is""
+    *   `<ES>`
+        *   Base: `<C> product </C>`
+        *   Constraint: `that <R> purchased_by </R> forward to <ES> <C> customer </C> whose <A> ID </A> is <V> USR-99 </V> </ES>`
+    *   `</ES>`
+
+Let's refine the relation name. ""purchased"" or ""purchased_by"". Let's use `purchased_by` for clarity of direction (Product -> Customer).
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased_by </R> forward to <ES> <C> customer </C> whose <A> ID </A> is <V> USR-99 </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased_by""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               ├── ""USR-99""
+        │           │               └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+16,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,11.502662,True,stop,3139,0.024798,1622,11.034161,146.998,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation in the `forward` direction if the edge is Customer->Product, or `backward` if the edge is Product->Customer.
+    *   Standard schema assumption: Usually, relations are named from the perspective of the source node. If we have a relation `purchased` on the `product` node pointing to the `customer`, it would be ""product purchased customer"". If we have `purchase` on `customer` pointing to `product`, it is ""customer purchase product"".
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the agent. A common schema pattern is `Customer --[purchased]--> Product`. If this is the case, to get Products from a Customer, we go `forward` along `purchased`.
+    *   Alternative schema: `Product --[purchased_by]--> Customer`. To get Products from a Customer, we go `backward` along `purchased_by`.
+    *   Let's stick to a generic relation name `purchased` and assume the direction connects the two. If the query is ""products ... purchased by customer"", it often implies the edge exists between them. Let's use `purchased` as the relation name. If we assume the standard ""Subject Verb Object"" graph structure where `Customer` is the subject of the purchase action, the edge is `Customer -> Product`. Therefore, from `Customer` to `Product` is `forward`.
+    *   However, often in these datasets (like Wikidata or DBpedia), relations might be defined differently. Let's look at the example ""actors of the movie Inception"". Movie -> Actor relation was `actor` backward? No, the example said: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` points *from* Actor *to* Movie (Actor has property/edge `actor` pointing to Movie). So to find Actors of a Movie, you go `backward` from the Movie.
+    *   Applying this logic: ""Products purchased by Customer"". If we treat ""purchased"" as the relation name on the Product node pointing to the Customer (Product -> Customer), then to find Products given a Customer, we must go `backward`.
+    *   Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Constraint: `that <R> purchased </R> backward to <E> USR-99 </E>`. Wait, `USR-99` is an ID, so it's a Value or an Entity? IDs are usually Entities in these schemas if they identify a specific node, or Values if filtering by attribute. The prompt says ""customer with ID 'USR-99'"". This suggests we first find the Customer entity matching that ID, then find products.
+    *   Step 1: Find Customer with ID USR-99. `<ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`.
+    *   Step 2: Find Products linked to this Customer. `<ES> <C> product </C> that <R> purchased </R> backward to [Customer Set] </ES>`.
+    *   Combining them: We need the products of the customer identified by USR-99.
+    *   Let's refine the relation direction. If `purchased` is the edge from Product to Customer, then `Product --[purchased]--> Customer`. To get Products from Customer, we traverse `backward`.
+    *   So: `<ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>`.
+
+Let's double check the ""customer with ID"" part. Is `USR-99` an Entity or a Value?
+If `USR-99` is just a value to filter a Customer node, we use `AttributeConstraint`.
+If `USR-99` is a direct reference to a Customer entity, we might just use `<E> USR-99 </E>` if the schema allows ID-based lookup directly. However, usually ""with ID"" implies an attribute filter. I will use the Attribute Constraint approach for robustness.
+
+Relation Name: `purchased`.
+Direction: `backward` (assuming Product -> Customer edge).
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+17,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,8.755622,True,stop,3139,0.026027,1207,8.260459,146.1178,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product` has attribute `purchased_by` pointing to `Customer`. Or more standardly in KGs: `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the source of the action ""purchase"" and the Product is the object. So, `Customer --[purchases]--> Product`.
+    *   We want Products. So we start with `<C> product </C>` and constrain it by a relation going *to* the Customer.
+    *   Relation: `purchases` (or `purchase`). Let's use `purchased` as the relation name for simplicity, or `purchases`. Let's assume the relation is `purchased` connecting Product to Customer? No, usually relations are named from subject to object. `Customer --[purchases]--> Product`.
+    *   If we start with `<C> product </C>`, we need a constraint that links it back to the customer. So, ""that <R> purchases </R> backward to <E> Customer ... </E>"".
+    *   Wait, the prompt says ""customer with ID 'USR-99'"". This is an attribute constraint on the Customer entity.
+    *   So, the structure is: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> id </A> is 'USR-99' </ES> </ES>`.
+    *   Let's refine the relation name. ""purchased by"" suggests the edge might be `purchased` from Product to Customer? If `Product --[purchased]--> Customer`, then we go forward.
+    *   Let's stick to a common schema: `Customer` has a relation `purchases` to `Product`.
+    *   Query: ""what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> id </A> is 'USR-99' </ES> </ES>"".
+    *   Actually, usually IDs are attributes of the entity. So `<E> Customer </E>` with constraint `whose <A> id </A> is 'USR-99'`.
+
+Let's double check directionality.
+If I want products bought by Customer X:
+Path: Product <-[purchases]- Customer.
+So from Product, we go *backward* along the `purchases` relation to find the Customer.
+Constraint on Customer: `id` is `USR-99`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> Customer </E> whose <A> id </A> is 'USR-99' </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Entity
+        │           │       ├── ""<E>""
+        │           │       ├── ""Customer""
+        │           │       └── ""</E>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+18,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,14.232699,True,stop,3139,0.024302,2030,13.785817,147.2528,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `purchase` (Customer -> Product).
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies a passive voice. The relation is likely `purchased` (Product -> Customer) or `purchaser` (Product -> Customer). Let's use `purchased` as the relation name for simplicity, direction `forward` from Product to Customer.
+    *   Wait, let's look at standard patterns. ""Actor of Movie"" -> Actor is connected to Movie. Here ""Customer purchased Product"". So Customer -> Product. If we start with Product, we go backward along the `purchased` relation (if defined as Customer->Product) or forward along a `purchaser` relation (if defined as Product->Customer).
+    *   Let's assume the relation is `purchased` connecting `Customer` to `Product`. So `Customer --[purchased]--> Product`. To get products from a customer, we go `forward` from Customer? No, we are filtering Products. So we need `<ES> <C> product </C> that <R> purchased </R> backward to <E> ... </E>`.
+    *   Actually, let's define the relation explicitly based on the text ""purchased by"". This suggests the edge is `Product --[purchased]--> Customer`? No, ""by"" indicates the agent. In RDF, `:product :purchasedBy :customer`. So `Product -> Customer`.
+    *   If the graph has `Product -> Customer` via relation `purchased`, then to find products for a specific customer, we look for products that have this relation pointing *to* the customer entity. This is a `forward` traversal from Product to Customer? No, if the edge is `Product -> Customer`, traversing from Product goes to Customer. So it's `forward`.
+    *   Let's check the alternative: `Customer --[purchases]--> Product`. Then we would look for products that are the target of a `purchases` relation from the customer. This would be `backward` traversal from Product (going against the arrow) to Customer? No, if we start at Product and go backward along `purchases`, we get to Customer.
+    *   Let's stick to the most direct interpretation: Relation `purchased` connects Product to Customer. Direction `forward`.
+    *   Constraint on Customer: The customer has ID 'USR-99'. This is an attribute constraint on the Customer entity.
+    *   So, `<ES> <C> product </C> that <R> purchased </R> forward to <ES> <E> USR-99 </E> whose <A> id </A> is ""USR-99"" </ES> </ES>`?
+    *   Wait, the prompt says ""customer with ID 'USR-99'"". This implies we need to identify the customer entity first or filter by attribute. Since 'USR-99' is likely a literal value for an `id` attribute, we should constrain the target EntitySet (Customer) by this attribute.
+    *   Target EntitySet: `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+    *   Relation Constraint on Product: `that <R> purchased </R> forward to [Target EntitySet]`.
+
+Let's refine the relation direction.
+If the schema is `Customer --[purchases]--> Product`:
+Query: Products that are purchased by Customer(USR-99).
+Path: Product <-[purchases]- Customer.
+From Product perspective, we go `backward` along `purchases` to Customer.
+Constraint: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>`.
+
+If the schema is `Product --[purchased]--> Customer`:
+Path: Product ->[purchased]-> Customer.
+From Product perspective, we go `forward` along `purchased` to Customer.
+Constraint: `<ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>`.
+
+Both are semantically equivalent depending on schema. I will use `purchased` as the relation name and `forward` direction, assuming `Product -> Customer`. This is often clearer in natural language parsing (""X purchased by Y"" -> X has relation to Y).
+
+Step 1: Identify Root: `EntityQuery`.
+Step 2: Target: `<C> product </C>`.
+Step 3: Constraint: Relation to Customer.
+   - Relation: `purchased`.
+   - Direction: `forward` (Product -> Customer).
+   - Target EntitySet: `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+
+Let's double check the attribute constraint syntax.
+`whose <A> id </A> is ""USR-99""`
+Value: `""USR-99""` is a string. `VTYPE` string.
+
+Final Sequence:
+what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+
+Wait, looking at the examples, `whose` is used for AttributeConstraint.
+`AttributeConstraint := ""whose"" Attribute COP Value`
+`Value := VTYPE ""<V>"" Literal ""</V>""`
+
+So: `whose <A> id </A> is <string> ""USR-99"" </string>`? No, the grammar says `Value` can be `VTYPE ""<V>"" Literal`.
+Example: `whose <A> population </A> is larger than 1000000`.
+Here: `whose <A> id </A> is ""USR-99""`.
+
+Let's construct the AST.
+</think>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │       ├── ""purchased""
+        │       │       └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+19,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,12.931568,True,stop,3139,0.024159,1822,12.445147,146.4024,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation in the `forward` direction if the edge is Customer->Product, or `backward` if the edge is Product->Customer.
+    *   Standard schema assumption: Usually, relations are named from the perspective of the source node. If we have a relation `purchased` on the `product` node pointing to the `customer`, it would be ""product purchased customer"". If we have `purchase` on `customer` pointing to `product`, it is ""customer purchase product"".
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the agent. A common schema pattern is `Customer --[purchased]--> Product`. If this is the case, to get Products from a Customer, we go `forward` along `purchased`.
+    *   Alternative schema: `Product --[purchased_by]--> Customer`. To get Products from a Customer, we go `backward` along `purchased_by`.
+    *   Let's use a generic relation name `purchase` or `purchased`. Let's assume the relation is `purchased` and it connects Product to Customer (Product was purchased by Customer). Then to find products for a customer, we traverse `purchased` in the `backward` direction from the customer? No, if the edge is Product->Customer, then Customer<-Product. To get Products given a Customer, we go backward along the edge pointing to the customer.
+    *   Let's try the other common pattern: `Customer --[purchases]--> Product`. Then we go `forward` along `purchases`.
+    *   Let's stick to the explicit relation name provided in the prompt's context if any. None provided. I will use `purchased` as the relation name, assuming it links Product to Customer (Product is purchased by Customer). Thus, from Customer to Product is `backward`.
+    *   Wait, let's look at the example ""actors of the movie Inception"". Movie -> Actor. Relation `actor`. Direction `backward` from Movie to Actor? No, the example says: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` points *from* Actor *to* Movie (Actor acts in Movie). So to find Actors given a Movie, you go `backward` along the `actor` edge.
+    *   Applying this logic: ""Products purchased by Customer"". Relation `purchased` likely points from Product to Customer (Product is purchased by Customer). Therefore, to find Products given a Customer, we traverse `backward` along `purchased`.
+4.  **Customer Entity**: `<E> USR-99 </E>`? No, the prompt says ""customer with ID 'USR-99'"". This implies an attribute constraint on a Customer entity.
+    *   Base: `<C> customer </C>`.
+    *   Constraint: `whose <A> id </A> is <V> USR-99 </V>`.
+5.  **Constructing the Sequence**:
+    *   ""what is""
+    *   EntitySet: `<ES>`
+        *   Concept: `<C> product </C>`
+        *   Constraint: `that <R> purchased </R> backward to <ES>`
+            *   Inner EntitySet: `<ES>`
+                *   Concept: `<C> customer </C>`
+                *   Constraint: `whose <A> id </A> is <V> USR-99 </V>` (Note: ID is usually a string or number. I'll use string).
+            *   `</ES>`
+        *   `</ES>`
+
+Let's refine the relation direction. If the schema is `Product --[purchased_by]--> Customer`, then finding products for a customer is `backward` traversal of `purchased_by`. If the schema is `Customer --[purchases]--> Product`, it is `forward` traversal of `purchases`. Without specific schema, `purchased` is ambiguous. However, ""products that have been purchased"" suggests the passive voice on the product. Let's assume the relation is `purchased` and it connects Product to Customer.
+Actually, a safer bet for ""purchased by"" is often a relation named `purchase` or `ordered` from Customer to Product. But let's look at the example again. ""Actors of Inception"". Inception -> Actor. Relation `actor`. Direction `backward`. This means the edge is Actor -> Inception.
+So, if we have ""Products purchased by Customer"", and we assume a similar structure where the relation describes the link from the target (Product) to the source (Customer), the relation might be `purchased_by` or just `purchased`. Let's use `purchased` as the relation name, pointing Product -> Customer.
+Therefore: `<C> product </C>` that `<R> purchased </R>` backward to `<ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES>`.
+
+Wait, if the relation is `purchased` (Product -> Customer), then going from Customer to Product is `backward`.
+If the relation was `purchase` (Customer -> Product), going from Customer to Product is `forward`.
+Given ""products that have been purchased by..."", it's slightly ambiguous. I will use `purchased` as the relation name and assume it points Product->Customer, requiring a `backward` traversal from the Customer side.
+
+Let's double check the ID value type. 'USR-99' looks like a string.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+20,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,14.50146,True,stop,3139,0.024779,2069,14.019867,147.5763,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation goes from Product to Customer (Product is the subject of the passive verb 'purchased', but semantically the link is between them).
+    *   If we assume a relation `purchased` exists such that `<Product> --[purchased]--> <Customer>`, then to find products given a customer, we go `backward` from Customer? No, we are filtering the Product set.
+    *   Let's define the constraint on the Product EntitySet: ""that <R> purchased <DIR> to <ES> Customer ... </ES>"".
+    *   If the relation is `purchased` (Product -> Customer), then from Product to Customer is `forward`.
+    *   Wait, let's look at standard patterns. ""Actors of Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. Here `Inception --[actor]--> Actor`? No, usually `Movie --[has_actor]--> Actor`. If the relation is `has_actor`, then from Movie to Actor is forward. From Actor to Movie is backward. The example says ""actors of Inception"" uses `backward`. This implies the relation in the graph is likely `Actor --[acted_in]--> Movie` or similar, so going from Actor to Movie is forward? No, if it's `backward`, it means we are traversing against the arrow direction defined by the relation name?
+    *   Let's re-read the example carefully: ""Give me the actors of the movie Inception."" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+    *   This implies the relation `actor` connects Actor to Movie. If we are at Actor and want to check if it connects to Inception, and we use `backward`, it suggests the edge in the graph is `Inception --[actor]--> Actor`? No, usually ""backward"" means traversing the edge in reverse.
+    *   Let's assume the standard Wikidata/DBpedia style: `Customer --[purchases]--> Product`.
+    *   We want Products. So we start with `<C> product </C>`.
+    *   Constraint: The product must be connected to Customer USR-99 via the ""purchase"" relationship.
+    *   If the graph has `Customer --[purchases]--> Product`, then from Product to Customer is `backward` (against the arrow).
+    *   So: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> USR-99 </E> ... </ES> </ES>`.
+    *   Wait, the target is ""customer with ID 'USR-99'"". This is an Entity `<E> USR-99 </E>` of type `<C> customer </C>`.
+    *   So the inner set is `<ES> <C> customer </C> that <A> id </A> is <V> string ""USR-99"" </V> </ES>`.
+    *   Combining them: Products that have relation `purchases` (or similar) to the Customer.
+    *   Let's assume the relation name is `purchased_by` or just `purchase`. If we use `purchased`, and it goes Product -> Customer, then from Product to Customer is `forward`.
+    *   However, often ""purchased by"" implies the customer is the source. Let's stick to the example's logic for directionality if possible. The example ""actors of Inception"" used `backward` with relation `actor`. This is slightly ambiguous without knowing the schema. But typically, if you ask for X related to Y, and you filter X by Y, you traverse from X to Y.
+    *   Let's assume a generic relation `purchased` connecting Product to Customer.
+    *   Query: What is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>.
+    *   Alternative: If the relation is `purchases` (Customer -> Product), then from Product to Customer is `backward`.
+    *   Let's use `purchased` as the relation name for clarity, assuming it links Product to Customer.
+    *   Actually, a safer bet for ""products purchased by customer"" is that there is a transaction or direct link. Let's assume a direct relation `purchased_by` from Product to Customer? Or `purchases` from Customer to Product?
+    *   If I use `purchases` (Customer -> Product), then finding products for a customer involves going `backward` from Product to Customer? No, we are filtering Products. So we check if the Product has an incoming edge from the Customer. That is traversing `backward` along the `purchases` edge.
+    *   Let's assume the relation is `purchased` (Product -> Customer). Then we traverse `forward`.
+    *   Let's try to be schema-agnostic but syntactically correct. I will use the relation `purchased` and direction `forward` assuming Product -> Customer. If the schema was Customer -> Product, it would be `backward`. Given ""products ... purchased by customer"", the passive voice often obscures direction. However, in many KGs, `purchased_by` is a property of the item. Let's assume `purchased` connects Product to Customer.
+
+    *   Refined Plan:
+        1. Root: EntityQuery
+        2. Target: `<C> product </C>`
+        3. Constraint: Relation `purchased` connecting to a Customer entity with ID 'USR-99'.
+        4. Inner EntitySet for Customer: `<ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES>`
+        5. Relation Direction: If `purchased` is Product->Customer, direction is `forward`.
+
+    *   Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> string ""USR-99"" </V> </ES> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+21,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,9.544844,True,stop,3139,0.025128,1339,9.048429,147.9815,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation is from Product to Customer (Product *was purchased by* Customer). So, if we start with `<C> product </C>`, we need a constraint that links it to the customer.
+    *   Let's define the relation as `purchased` connecting Product to Customer. Direction: `forward` from Product to Customer? No, usually relations are defined from Subject to Object. If ""Customer purchases Product"", the relation is `purchases` (Customer -> Product). Then to find products for a customer, we go `backward` along `purchases`.
+    *   Alternatively, if the relation is `purchased_by` (Product -> Customer), we go `forward`.
+    *   Let's use a generic relation name `purchase` or `purchased`. Given ""purchased by"", let's assume the edge exists between Product and Customer. Let's assume the standard direction for ""who bought what"" is Customer -> Product via `purchases`. Therefore, from Product to Customer is `backward`.
+    *   Wait, the prompt says ""products ... purchased by ... customer"". This is a passive construction. The active relation is likely `purchases` (Customer -> Product). So, to find products for a specific customer, we look for Products that have a `purchases` relation coming *from* the Customer. In GraphQ IR terms, if we are at the Product node, the constraint is ""that has a `purchases` relation backward to the Customer"".
+    *   Let's refine: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> USR-99 </E> ... </ES> </ES>`.
+    *   The customer is identified by ID 'USR-99'. This is an attribute of the Customer entity. So we need to constrain the Customer EntitySet to have `id` = 'USR-99'.
+    *   Structure:
+        *   Root: `<C> product </C>`
+        *   Constraint on Product: `that <R> purchases </R> backward to <ES> <E> customer </E> whose <A> id </A> is <V> USR-99 </V> </ES>`
+
+Let's double check the direction.
+If Relation is `purchases` (Customer -> Product):
+Query: ""Give me products..."" (Start at Product).
+Constraint: ""...that have been purchased by customer..."" (Product is connected to Customer via `purchases`).
+From Product's perspective, the `purchases` edge comes *from* the Customer. So it is a `backward` traversal of the `purchases` relation.
+
+Customer Constraint: ""customer with ID 'USR-99'"".
+EntitySet for Customer: `<ES> <E> customer </E> whose <A> id </A> is <V> USR-99 </V> </ES>`. Note: 'USR-99' is a string value.
+
+Final Sequence:
+what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> customer </E> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Entity
+        │           │       ├── ""<E>""
+        │           │       ├── ""customer""
+        │           │       └── ""</E>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+22,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,7.210468,True,stop,3139,0.024256,999,6.730523,148.4283,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+4.  **Relation**: The relation is likely ""purchased"" or ""purchase"". Since we are going from Product to Customer (who purchased it), and typically relations are defined as `Customer -> Product` (purchases), we need to traverse backward from Product to Customer. Let's assume the relation name is `purchase`.
+    *   Path: `<C> product </C>` --[`purchase`, backward]--> `<E> USR-99 </E>`.
+5.  **Customer Entity**: The customer is identified by ID 'USR-99'. This is an entity with a specific attribute value or just the entity itself if 'USR-99' is the name/ID in the graph. Given ""customer with ID"", it implies filtering customers by their ID attribute.
+    *   So, we need to find `<C> customer </C>` whose `<A> id </A>` is `'USR-99'`.
+6.  **Combining**:
+    *   Find `<C> product </C>`.
+    *   That has relation `purchase` backward to a `<C> customer </C>`.
+    *   That customer has attribute `id` equal to 'USR-99'.
+
+Let's refine the structure:
+*   Root: `what is <ES> <C> product </C> ... </ES>`
+*   Constraint on Product: `that <R> purchase </R> backward to <ES> <C> customer </C> whose <A> id </A> is 'USR-99' </ES>`
+
+Representation 1:
+`what is <ES> <C> product </C> that <R> purchase </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's double check the direction.
+If `purchase` connects Customer (source) to Product (target), then:
+*   From Product to Customer, we go `backward`. Correct.
+
+Value Type for 'USR-99': It's a string/ID. I'll use `<V> USR-99 </V>`.
+
+Final Sequence:
+`what is <ES> <C> product </C> that <R> purchase </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>`
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchase""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+23,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,12.986242,True,stop,3139,0.024624,1848,12.500335,147.836,"<thinking>
+The user wants to find products purchased by a specific customer.
+1.  **Root Query**: `EntityQuery` because we are looking for entities (products).
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer via a ""purchased"" relation.
+4.  **Relation Direction**: We are starting from ""product"" and going to ""customer"". If the relation is `purchased` (Product -> Customer), then we need to traverse it `forward`. However, usually, in knowledge graphs, relations are defined as (Subject -> Object). If the schema defines `purchased` as `Customer -> Product`, then from Product to Customer it would be `backward`. Let's assume a standard schema where `purchased` connects Customer to Product. So, `Customer --[purchased]--> Product`.
+    *   Query: ""products that have been purchased by the customer"".
+    *   Path: Product <-[purchased]- Customer.
+    *   Therefore, from Product's perspective, the relation is `purchased` in `backward` direction to reach the Customer.
+5.  **Customer Entity**: `<E> USR-99 </E>` (or conceptually a customer with ID USR-99). The prompt says ""customer with ID 'USR-99'"". This implies an entity lookup or a filter. Since `USR-99` is a specific ID, it's likely an Entity node `<E> USR-99 </E>` representing that specific customer instance, or we need to find the customer first. Given the specificity, treating `USR-99` as the Entity identifier for the customer is standard in these parsers unless ""ID"" implies an attribute filter. Let's treat `USR-99` as the Entity name/ID directly for simplicity, or assume there is a Customer entity with that ID.
+    *   Actually, usually ""customer with ID X"" means we need to find the node representing that customer. If the graph has nodes like `<E> USR-99 </E>`, we use that. If it requires filtering by attribute `id` = 'USR-99', it would be more complex. Given the example ""Inception"", specific names are treated as Entities. Let's assume `USR-99` is the Entity name.
+6.  **Constructing the Sequence**:
+    *   ""what is""
+    *   `<ES>`
+        *   Base: `<C> product </C>`
+        *   Constraint: ""that <R> purchased </R> backward to <E> USR-99 </E>""
+    *   `</ES>`
+
+Let's refine the relation direction.
+If the fact is ""Customer X purchased Product Y"", the edge is likely `purchased` from Customer to Product.
+We want Products. So we start at Product. To get to Customer, we go against the edge. So `backward`.
+Sequence: `what is <ES> <C> product </C> that <R> purchased </R> backward to <E> USR-99 </E> </ES>`
+
+Wait, is `USR-99` an Entity or a Value? The prompt says ""customer with ID 'USR-99'"". In many KG schemas, IDs are attributes. However, in GraphQ IR examples, specific named entities like ""Inception"" or ""Valve"" are `<E>`. If `USR-99` is just an ID string, it might be a Value constraint on a Customer concept.
+Let's look at the complexity. ""customer with ID 'USR-99'"".
+Option A: `<E> USR-99 </E>` is the customer node.
+Option B: `<C> customer </C>` whose attribute `id` is `<V> USR-99 </V>`.
+
+Usually, if the input provides a specific identifier like ""USR-99"", it's safer to treat it as an Entity if the schema supports direct ID lookup, or as a Value constraint if not. Without schema info, ""customer with ID..."" strongly suggests filtering a Customer concept by its ID attribute.
+Let's try Option B for robustness:
+Target: Products.
+Constraint on Products: They are linked to a Customer.
+Constraint on that Customer: Its ID is 'USR-99'.
+
+Sequence: `what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's re-read the prompt style. ""Give me the products..."".
+If I use Option A, it assumes `USR-99` is a node name.
+If I use Option B, it assumes `USR-99` is an attribute value.
+""customer with ID 'USR-99'"" -> The entity is a Customer. The property is ID. Value is USR-99. This feels more semantically accurate for ""with ID"".
+
+Let's construct the AST for Option B.
+
+1.  **Root**: EntityQuery
+2.  **EntitySet**:
+    *   Concept: `product`
+    *   Constraint: RelationConstraint
+        *   Relation: `purchased`
+        *   DIR: `backward`
+        *   To: EntitySet (The Customer)
+            *   Concept: `customer`
+            *   Constraint: AttributeConstraint
+                *   Attribute: `id`
+                *   COP: `is`
+                *   Value: `USR-99` (string)
+
+Representation 1: `what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's double check the relation name. ""purchased by"".
+Customer -> [purchased] -> Product.
+From Product to Customer: `backward`. Correct.
+
+One detail: The prompt says ""customer with ID 'USR-99'"". It doesn't explicitly say the customer *is* USR-99. It says the customer *has* that ID. So filtering is correct.
+
+Final check on tags:
+`<ES>` wraps the product set.
+Inside, `<C> product </C>`.
+Constraint `that <R> purchased </R> backward to ...`
+The target of `to` is another EntitySet (the customer).
+That inner ES has `<C> customer </C>` and constraint `whose <A> id </A> is <V> USR-99 </V>`.
+
+This looks solid.
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │       ├── ""purchased""
+        │       │       └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+24,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,14.004375,True,stop,3139,0.024612,1995,13.521911,147.5383,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation goes from Product to Customer (Product is the subject of the passive verb 'purchased', but semantically the link is between them).
+    *   If we assume a relation `purchased` exists such that `<Product> --[purchased]--> <Customer>`, then to find products given a customer, we go `backward` from Customer? No, we are filtering the Product set.
+    *   Let's define the constraint on the Product EntitySet: ""that <R> purchased <DIR> to <ES> Customer ... </ES>"".
+    *   If the relation is `purchased` (Product -> Customer), then from Product to Customer is `forward`.
+    *   Wait, let's look at standard patterns. ""Actors of Inception"" -> `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. Here `Inception --[actor]--> Actor`? No, usually `Movie --[starring]--> Actor`. If the relation is `starring`, then from Movie to Actor is forward. The example used `backward` for ""actors of Inception"". This implies the relation in the graph is likely `Actor --[acted in]--> Movie`. So to get Actors from Movie, we go `backward` along `acted in`.
+    *   Similarly, for ""products purchased by customer"", if the graph has `Customer --[purchases]--> Product`, then to get Products from Customer, we go `forward` along `purchases`.
+    *   However, if the graph has `Product --[was purchased by]--> Customer`, then to get Products from Customer, we go `backward` along `was purchased by`.
+    *   Let's assume a generic relation name `purchase` connecting Customer to Product. `Customer --[purchase]--> Product`.
+    *   Query: ""products ... that ... [link] ... customer"".
+    *   If I use `<C> product </C> that <R> purchase </R> forward to <ES> <E> USR-99 </E> </ES>`, this implies `Product --[purchase]--> Customer`. This is semantically weird (Products don't purchase).
+    *   It is more likely the relation is defined as `Customer --[purchases]--> Product`. In this case, to filter Products by their purchaser, we say: `<C> product </C> that <R> purchases </R> backward to <E> USR-99 </E>`.
+    *   Let's stick to the relation name `purchase` for simplicity, assuming directionality handles the semantics. If I say ""Product that has relation `purchased` forward to Customer"", it means `Product -> Customer`. If I say ""Product that has relation `purchases` backward to Customer"", it means `Customer -> Product`.
+    *   Let's use the relation `purchase` and assume the direction is from Customer to Product (`forward`). So, we need Products that are the target of a `purchase` relation originating from the customer. This corresponds to `<C> product </C> that <R> purchase </R> backward to ...`.
+    *   Wait, let's re-read the example: ""actors of Inception"". Output: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` goes from Actor to Movie (`Actor --[actor]--> Movie`). To find Actors given a Movie, we traverse `backward`.
+    *   So, for ""products purchased by customer"", if the relation is `purchased` (Product -> Customer), we would use `forward`. If the relation is `purchases` (Customer -> Product), we would use `backward`.
+    *   Common schema: `Customer --[purchases]--> Product`.
+    *   Therefore, to find Products given a Customer, we traverse `backward` along `purchases`.
+    *   Constraint: `<R> purchases </R> backward to <ES> <E> USR-99 </E> </ES>`.
+    *   Wait, the customer is identified by ID 'USR-99'. This is an attribute constraint on the Customer entity.
+    *   So the target EntitySet for the constraint is: `<ES> <E> Customer </E> whose <A> id </A> is ""USR-99"" </ES>`. Or simply `<E> USR-99 </E>` if 'USR-99' is the entity name/ID directly. The prompt says ""customer with ID 'USR-99'"". This suggests filtering a Customer concept by an attribute, or referencing an entity directly. Given ""ID"", it's likely an attribute filter on a generic Customer node, or the entity itself is named USR-99. Let's assume the entity is `<E> USR-99 </E>` for simplicity as it's a specific ID, or `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`. The latter is more robust.
+    *   Let's refine: ""products that have been purchased by the customer with ID 'USR-99'"".
+    *   Root: `<C> product </C>`.
+    *   Constraint on Product: `that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+
+Let's double check the direction.
+If Relation is `purchases` (Customer -> Product).
+We want Products.
+Constraint: The product must be connected to a Customer via `purchases`.
+From Product's perspective, the edge `purchases` comes *from* the Customer. So it is incoming to the Product? No, `Customer --[purchases]--> Product`. The edge points TO the Product.
+So from Product, looking for the source of `purchases`, we go `backward`. Correct.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+25,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,9.374442,True,stop,3139,0.027135,1315,8.885484,147.9942,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation in the `forward` direction if the edge is Customer->Product, or `backward` if the edge is Product->Customer.
+    *   Standard schema assumption: Usually, relations are named from the perspective of the source node. If we have a relation `purchased` on the `product` node pointing to the `customer`, it would be ""product purchased customer"". If we have `purchase` on `customer` pointing to `product`, it is ""customer purchase product"".
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the agent. A common schema pattern is `Customer --[purchased]--> Product`. If this is the case, to get Products from a Customer, we go `forward` along `purchased`.
+    *   Alternative schema: `Product --[purchased_by]--> Customer`. To get Products from a Customer, we go `backward` along `purchased_by`.
+    *   Let's use a generic relation name `purchase` or `purchased`. Let's assume the relation is `purchased` and it connects Product to Customer (Product was purchased by Customer). Then to find products for a customer, we traverse `purchased` in the `backward` direction from the customer? No, if the edge is Product->Customer, then Customer<-Product. To get Products given a Customer, we go backward along the edge pointing to the customer.
+    *   Let's try the other common pattern: `Customer --[purchases]--> Product`. Then we go `forward` along `purchases`.
+    *   Let's stick to the explicit relation name provided in the prompt's context if any. None provided. I will use `purchased` as the relation name, assuming it links Product to Customer (Product is purchased by Customer). Thus, from Customer to Product is `backward`.
+    *   Wait, let's look at the example ""actors of the movie Inception"". Movie -> Actor. Relation `actor`. Direction `backward` from Movie to Actor? No, the example says: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`. This implies the relation `actor` goes from Actor to Movie (Actor acts in Movie). So to find Actors given a Movie, we go `backward` along `actor`.
+    *   Applying this logic: ""Products purchased by Customer"". Relation `purchased` likely goes from Product to Customer (Product is purchased by Customer). To find Products given a Customer, we traverse `backward` along `purchased`.
+4.  **Customer Entity**: `<E> USR-99 </E>`? No, 'USR-99' is an ID attribute of a Customer entity. So we need to filter the Customer entity by its ID attribute.
+    *   EntitySet for Customer: `<ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES>`.
+5.  **Combine**:
+    *   Target: `<C> product </C>`
+    *   Constraint: `that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES>`
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> ID </A> is ""USR-99"" </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+26,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,9.544951,True,stop,3139,0.024506,1341,9.057609,148.0523,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation connects the product to the customer.
+    *   If we assume a generic schema where `Customer` has an outgoing relation `purchases` to `Product`, then from `Product`'s perspective, it is connected via `purchases` in the `backward` direction.
+    *   Let's use `purchased` as the relation name for clarity of the edge itself, or `purchases` as the action. Let's stick to the relation name `purchased` connecting Product to Customer for simplicity, or `purchases` connecting Customer to Product.
+    *   Standard interpretation: Find Products (`<C> product </C>`) such that there is a relation `purchases` (or similar) from the Customer to the Product.
+    *   So, `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <E> USR-99 </E> ... </ES> </ES>`.
+    *   Wait, the customer is identified by an ID attribute. So we need to constrain the Customer entity.
+    *   Target Customer Set: `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+    *   Combining them: Products that are connected via `purchases` (forward from customer) to the specific customer. From Product side, this is `backward`.
+
+Let's refine the relation direction.
+If Relation is `purchases`: `Customer --[purchases]--> Product`.
+Query: ""Give me products..."" -> Start with `<C> product </C>`.
+Constraint: ""...that have been purchased by the customer..."" -> The product must be the target of a `purchases` relation from a specific customer.
+So, `<R> purchases </R>` going `backward` to the Customer EntitySet.
+
+Customer EntitySet: `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+
+Let's double check the relation name. ""purchased by"" often maps to a relation like `buyer` or `purchases`. Let's use `purchases` as the forward relation from Customer to Product.
+
+Step 1: Identify Root -> EntityQuery.
+Step 2: Target -> `<C> product </C>`.
+Step 3: Constraint -> RelationConstraint.
+    - Relation: `<R> purchases </R>`
+    - Direction: `backward` (since we are at Product, looking for the source Customer).
+    - To EntitySet: `<ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES>`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+27,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,11.042186,True,stop,3139,0.024356,1562,10.568652,147.7956,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation is from Product to Customer (Product *was purchased by* Customer). So, if we start with `<C> product </C>`, we need a constraint that links it to the customer.
+    *   Let's define the relation as `purchased` going from Product to Customer. Then the direction from Product to Customer is `forward`.
+    *   Alternatively, if the relation is `purchases` (Customer -> Product), then from Product to Customer it is `backward`.
+    *   Let's stick to a generic relation name `purchased` which connects the product to the buyer. So `<R> purchased </R>` going `forward` to the customer entity set.
+4.  **Customer EntitySet**: We need to filter customers by ID 'USR-99'.
+    *   Base: `<C> customer </C>`.
+    *   Constraint: Attribute `id` is 'USR-99'.
+    *   So, `<ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES>`.
+5.  **Combining**:
+    *   Target: `<ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's refine the relation direction. ""Products ... purchased by ... Customer"".
+If the graph has `Customer --[purchases]--> Product`, then to get products from a customer, we go `forward` on `purchases`.
+If the graph has `Product --[purchased_by]--> Customer`, then to get products from a customer, we go `backward` on `purchased_by`.
+Without specific schema, ""purchased"" is often treated as the event or relation. Let's assume a direct relation `purchased` exists between Product and Customer. The phrase ""purchased by"" suggests the direction of the action is Customer -> Product. So if we are at Product, we look for the source of that action? No, usually constraints filter the current set.
+""Products [that satisfy: there exists a customer C such that C purchased P]"".
+If relation is `purchases` (Customer -> Product), then `Product` has an incoming edge from `Customer`. So `<R> purchases </R> backward to <ES> ... Customer ... </ES>`.
+
+Let's use `purchased` as the relation name for simplicity, assuming it links Product to Customer directly in the direction of the query path if we define it that way, or stick to standard ""agent -> action"" logic.
+Standard KG pattern: `Customer --[purchases]--> Product`.
+Query: Find Products. Constraint: There is a Customer who purchased them.
+Path: Product <-[purchases]- Customer.
+So from Product's perspective, the relation `purchases` comes from the Customer. This is `backward` traversal if we consider the edge direction Customer->Product.
+Wait, if I am at Product, and I want to find the Customer who purchased it, I follow the incoming edge. If the edge is defined as `purchases` (Customer -> Product), then following it backwards leads to Customer.
+So: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>`
+
+Let's double check the ""purchased by"" wording.
+""Products that have been purchased by...""
+This is passive voice. Active: Customer purchased Products.
+Relation: `purchases`. Direction: Customer -> Product.
+We start with `<C> product </C>`. We need to link it to a Customer via `purchases`. Since the edge points TO the product, we must traverse BACKWARD from the product to find the customer.
+
+Final Sequence:
+what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+28,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,12.0712,True,stop,3139,0.024784,1709,11.583622,147.5359,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product -> Customer` means ""Product was purchased by Customer"". Or more standardly in knowledge graphs like Wikidata/DBpedia, it might be `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the relation goes from Product to Customer (Product is the subject of the passive verb 'purchased', but semantically the link is between them).
+    *   If we assume a relation `purchased` exists such that `<Product> --[purchased]--> <Customer>`, then to find products given a customer, we go `backward` from Customer? No, we are filtering the Product set.
+    *   Let's define the constraint on the Product EntitySet: ""that <R> purchased <DIR> to <ES> Customer ... </ES>"".
+    *   If the relation is `purchased` (Product -> Customer), then from Product to Customer is `forward`.
+    *   Wait, let's look at standard patterns. ""Actors of movie Inception"". Movie -> Actor is usually `actor` or `starring`. Direction: Actor --[starring]--> Movie? Or Movie --[cast]--> Actor?
+    *   Let's assume the relation name is `purchased` and it connects Product to Customer.
+    *   Constraint on `<C> product </C>`: ""that <R> purchased </R> forward to <ES> ... </ES>"".
+4.  **Customer EntitySet**: We need to identify the customer with ID 'USR-99'.
+    *   Base: `<C> customer </C>`.
+    *   Constraint: ""whose <A> id </A> is <V> USR-99 </V>"".
+5.  **Assembly**:
+    *   Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+
+Let's refine the relation direction. If I say ""Give me products purchased by Customer X"", and the graph has edges `Customer --[purchases]--> Product`, then to get from Product back to Customer, we go `backward` on `purchases`.
+However, if the edge is `Product --[was_purchased_by]--> Customer`, we go `forward` on `was_purchased_by`.
+Without a specific schema, ""purchased"" is ambiguous. However, usually, relations are named from the perspective of the source node in the query construction or standard ontology.
+Let's assume the relation is `purchased` connecting Product to Customer (Product -> Customer). Then direction is `forward`.
+Alternatively, if the relation is `purchases` connecting Customer to Product (Customer -> Product), then from Product we go `backward`.
+Let's stick to the phrasing ""products ... purchased by ..."". This suggests the edge originates at Product. So `Product --[purchased]--> Customer`. Direction: `forward`.
+
+Let's double check with the ""actors of Inception"" example.
+Input: ""Give me the actors of the movie Inception.""
+Output used: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This implies the relation `actor` goes from Actor to Movie? No, if it's backward from Movie to Actor, then the edge is `Actor --[actor]--> Movie`.
+So, if we have ""Products purchased by Customer"", and we assume a similar structure where the relation name is `purchased` (or `purchase`), does it go Product->Customer or Customer->Product?
+If we use the logic from the example:
+""Actors of Inception"" -> Actor set constrained by relation to Inception.
+Relation `actor` connects Actor to Movie. Direction from Actor to Movie is `forward`. So from Movie to Actor is `backward`.
+Here: ""Products purchased by Customer"".
+If we assume a relation `purchased` connects Product to Customer (Product -> Customer), then from Customer to Product is `backward`.
+So the constraint on Product would be: ""that <R> purchased </R> forward to ...""? No, if we are filtering Products, we say ""Products that have a 'purchased' link going forward to Customer"".
+Wait, if the edge is Product -> Customer, then from Product it is `forward`.
+If the edge is Customer -> Product (e.g. `purchases`), then from Product it is `backward` on `purchases`.
+
+Let's assume the relation name is `purchased` and it points from Product to Customer.
+Constraint: `<C> product </C> that <R> purchased </R> forward to <ES> ... </ES>`.
+
+Customer part: `<C> customer </C>` with attribute `id` equal to `USR-99`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> forward to <ES> <C> customer </C> whose <A> id </A> is <V> USR-99 </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+29,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,6.094694,True,stop,3139,0.024645,835,5.624597,148.4551,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are looking for Products that have been purchased *by* a Customer. In a graph where edges go from Subject to Object (e.g., Customer -> Purchases -> Product), finding products bought by a customer means traversing the ""purchased"" relation backward from the product to the customer? Or is the relation defined as `purchase` from Customer to Product?
+    *   Standard KBpedia/DBpedia style: `Customer` --(purchased)--> `Product`.
+    *   If we start with `<C> product </C>`, and want to constrain it by the customer, we need a constraint that links the product back to the customer.
+    *   Constraint structure: ""that <R> purchased </R> backward to <ES> ... </ES>"".
+    *   The inner EntitySet is the customer with ID 'USR-99'. This is an attribute constraint on the concept `customer`.
+    *   Inner EntitySet: `<C> customer </C>` whose `<A> id </A>` ""is"" ""USR-99"".
+4.  **Relation Direction**: If the relation is `purchased` (Customer -> Product), then from the perspective of the Product, the relation to the Customer is backward. So, `<R> purchased </R> backward`.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchased </R> backward to <ES> <C> customer </C> whose <A> id </A> is ""USR-99"" </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchased""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""id""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           └── ""<V>""
+        │           │               └── ""USR-99""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+30,Q12,Give me the products that have been purchased by the customer with ID 'USR-99'.,qwen3.6:35b,False,0.025,9.659487,True,stop,3139,0.024756,1358,9.16884,148.1103,"<thinking>
+The user wants to find products associated with a specific customer identified by an ID.
+1.  **Root Query**: The request asks for ""products"", which are entities. So, `EntityQuery`.
+2.  **Target EntitySet**: `<C> product </C>`.
+3.  **Constraint**: The products must be linked to the customer with ID 'USR-99'.
+    *   Relation: ""purchased"" (or similar, e.g., ""purchase""). Let's assume the relation is `purchased` connecting Product to Customer.
+    *   Direction: We are starting from Products and going to Customers. If the edge is `Product --[purchased]--> Customer`, then we traverse `forward`. If the edge is `Customer --[purchases]--> Product`, we traverse `backward`. Usually, ""purchased by"" implies the customer is the agent. Let's assume a relation `purchased` where `Product` has attribute `purchased_by` pointing to `Customer`. Or more standardly in KGs: `Customer --[purchases]--> Product`.
+    *   Let's look at the phrasing: ""products that have been purchased by the customer"". This implies the Customer is the source of the action ""purchase"" and the Product is the object. So, `Customer --[purchases]--> Product`.
+    *   We want Products. So we start with `<C> product </C>` and constrain it by a relation going *to* the Customer.
+    *   Relation: `purchases` (or `purchase`). Let's use `purchased` as the relation name for simplicity, or `purchases`. Let's assume the relation is `purchased` (Product is purchased by Customer). If the schema has `Customer --[purchases]--> Product`, then from Product's perspective, it is connected via `purchases` *backward* to Customer.
+    *   Let's refine: ""products ... purchased by customer"".
+    *   EntitySet 1: `<C> product </C>`.
+    *   Constraint: `that <R> purchases </R> backward to <ES> <E> USR-99 </E> filtered by attribute ID = 'USR-99' </ES>`.
+    *   Wait, the customer is identified by ID. So we need to find the Customer entity first or constrain the target EntitySet.
+    *   Target: `<C> customer </C>` whose `<A> ID </A>` `is` `<V> string ""USR-99"" </V>`.
+    *   Relation direction: From Product to Customer. If the edge is `Customer --[purchases]--> Product`, then from Product to Customer is `backward`.
+    *   So: `<ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is <V> string ""USR-99"" </V> </ES> </ES>`.
+
+Let's double check the relation direction.
+If `Customer` has a property/edge `purchases` pointing to `Product`, then:
+`Customer --(purchases)--> Product`.
+Query: Find Products.
+Constraint on Product: It must be connected to a Customer via the `purchases` edge. Since the edge points *from* Customer *to* Product, traversing from Product *to* Customer is `backward`.
+
+So the structure is:
+`what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is <V> string ""USR-99"" </V> </ES> </ES>`
+
+Let's verify the types.
+`<C> product </C>`: Concept.
+`<R> purchases </R>`: Relation.
+`<C> customer </C>`: Concept.
+`<A> ID </A>`: Attribute.
+`<V> string ""USR-99"" </V>`: Value.
+
+Representation 1: what is <ES> <C> product </C> that <R> purchases </R> backward to <ES> <C> customer </C> whose <A> ID </A> is <V> string ""USR-99"" </V> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""product""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""purchases""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""customer""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""ID""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is""
+        │           │       └── Value
+        │           │           ├── VTYPE
+        │           │           │   └── ""string""
+        │           │           ├── ""<V>""
+        │           │           ├── ""USR-99""
+        │           │           └── ""</V>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"

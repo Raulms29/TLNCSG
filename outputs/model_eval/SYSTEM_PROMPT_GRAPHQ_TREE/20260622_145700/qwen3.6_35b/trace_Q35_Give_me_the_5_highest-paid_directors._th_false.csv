@@ -1,0 +1,1569 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,9.386612,True,stop,3129,0.184352,1286,8.741396,147.1161,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the natural language ""5 highest"". However, GraphQ IR typically handles the selection logic.
+    *   Standard SelectQuery structure: `which one has the [SOP] <A> attr </A> among <C> concept </C>`.
+    *   To get the top 5, we might need a CountQuery wrapper or just express the selection of the attribute. But usually, ""Give me the X highest Y"" is treated as a SelectQuery where the system returns the top N results matching the superlative on the attribute.
+    *   Let's look at the grammar: `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`. This returns *one* entity.
+    *   However, often in these parsers, if a number is specified (""5""), it might be part of a CountQuery or just a parameter to the SelectQuery. But strictly following the provided grammar, `SelectQuery` returns one.
+    *   Let's re-read the prompt's examples. ""Which one has the largest area..."" -> SelectQuery.
+    *   If I must stick strictly to the provided grammar, I cannot easily express ""top 5"" as a single node return unless I use a ValueQuery with aggregation or assume the ""SelectQuery"" can be pluralized in implementation.
+    *   Alternatively, is it an AttributeQuery? ""What is the salary of the highest paid directors?"" No, it asks for the *directors*.
+    *   Let's look at `CountQuery`. ""How many..."" -> Count.
+    *   Let's look at `EntityQuery`. ""What are..."" -> EntitySet.
+    *   Maybe the query is: ""What are the directors with the highest salary?""
+    *   If I use `SelectQuery`, it asks for ""which one"".
+    *   If I use `AttributeQuery`, it asks for the attribute value.
+    *   Let's consider that ""Give me the 5 highest-paid directors"" implies retrieving the entities.
+    *   Perhaps the best fit is an `EntityQuery` with a constraint? No, EntityQuery doesn't support sorting in the basic grammar provided.
+    *   Let's look at the `SelectQuery` definition again: `which one has the largest <A> area among <C> city </C>`.
+    *   If the user asks for ""5"", it's a limit. The core semantic is finding the directors with the maximum salary.
+    *   I will formulate this as a `SelectQuery` focusing on the superlative aspect, acknowledging that ""5"" is a post-processing limit in many systems, or I can try to fit it into the structure.
+    *   Actually, a common pattern for ""Top N"" in GraphQ-like languages is often just a SelectQuery where the system returns the top N matches for the superlative condition if N > 1, or simply asking for the attribute of the entity with the max value.
+    *   Let's try to map it to `SelectQuery` as it captures the ""highest"" (SOP) logic best. The ""5"" might be implicit in the user intent to get a list, but structurally, the query is about identifying the entities with the maximal attribute.
+    *   Wait, is there a better way? What if I use `AttributeQuery` to get the salaries, then filter? No.
+    *   Let's stick to `SelectQuery` for the superlative logic. The ""5"" is likely a parameter not explicitly in the AST nodes provided in the grammar (which lacks a `LIMIT` node). However, I must output the AST based on the grammar.
+    *   If I strictly follow the grammar, I can only ask for ""which one"".
+    *   Let's look at `ValueQuery`. Can I get the salary? No, I want the directors.
+    *   Let's assume the question implies finding the entities that satisfy the condition of having the highest salary.
+    *   I will use `SelectQuery` with `largest` (or `maximum`) and `<A> salary </A>`.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+    
+    *Self-Correction*: The user asked for ""5"". If I can't represent ""5"" in the AST, I will focus on the semantic core: finding directors with the highest salary.
+
+    Let's refine the Relation/Attribute. Directors have a `salary` attribute.
+    
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+2,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,6.267675,True,stop,3129,0.042324,847,5.757211,147.1198,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Target Concept**: The entities are ""directors"". So, `<C> director </C>`.
+3.  **Sorting/Filtering Attribute**: We need to sort by ""salary"" (or ""pay""). Let's use `<A> salary </A>`.
+4.  **Order**: ""Highest-paid"" implies descending order of the attribute value. In GraphQ IR, superlatives are often handled by `SOP` (Superlative Operator) like ""largest"" or ""maximum"". However, standard `SelectQuery` grammar in the prompt examples shows `which one has the [SOP] [Attribute]`. To get the *top 5*, we usually interpret this as finding the entities with the maximum salary values. Since the grammar doesn't explicitly support a limit clause like `LIMIT 5` in the sequence representation, I will formulate it as finding the directors associated with the highest salaries. A common interpretation for ""highest-paid"" in these schemas is using `maximum` or `largest` on the attribute.
+5.  **Representation 1 Construction**:
+    *   Root: `SelectQuery`
+    *   Phrase: ""which ones have the largest"" (or similar)
+    *   Attribute: `<A> salary </A>`
+    *   Among: `<C> director </C>`
+    *   Wait, the prompt example for ""Which one has the largest area among cities?"" uses `SelectQuery`.
+    *   Sequence: `which ones have the largest <A> salary </A> among <C> director </C>`
+    *   Note: The grammar defines `SOP` as ""largest"" or ""smallest"". It doesn't explicitly define a limit. I will assume the system handles the top-k retrieval based on the superlative context or that ""largest salary"" implies the highest value.
+
+Let's refine the sequence to match the grammar strictly:
+`which ones have the largest <A> salary </A> among <C> director </C>`
+
+Wait, looking at the `SelectQuery` definition in the grammar:
+`S := ... | SelectQuery`
+The example shows:
+`which one has the largest <A> area </A> among <C> city </C>`
+
+So for ""5 highest-paid directors"":
+Sequence: `which ones have the largest <A> salary </A> among <C> director </C>`
+
+Let's build the AST.
+Root: `SelectQuery`
+Children:
+1. `""which ones have the""` (or just `""which one has the""` if singular, but here plural. The grammar example uses `""which one has the""`. I will stick to the structure provided.)
+2. `SOP` -> `""largest""`
+3. `Attribute` -> `<A> salary </A>`
+4. `""among""`
+5. `EntitySet` -> `<C> director </C>`
+
+Actually, usually ""highest-paid"" might imply a relation like `paid` or attribute `salary`. I will use attribute `salary`.
+
+Representation 1: `which ones have the largest <A> salary </A> among <C> director </C>`
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which ones have the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+3,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,8.823992,True,stop,3129,0.024437,1228,8.335297,147.3253,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` (or similar, like `income`). Let's use `salary`.
+4.  **Superlative Operator**: ""Highest"" maps to `maximum` or `largest`. In the context of a list of top N, it's often handled by the `SelectQuery` structure with a limit, but the grammar provided for `SelectQuery` uses `SOP` (largest/smallest).
+5.  **Limit**: The user specifies ""5"". While the basic grammar doesn't explicitly show a `LIMIT` clause in the tree structure examples, standard GraphQ implementations often include this. However, looking at the provided grammar for `SelectQuery`: `which one has the [SOP] [Attribute] among [EntitySet]`. It doesn't explicitly define a limit node in the AST example. I will stick to the core semantic of ""highest salary"" and assume the system handles the top-N retrieval or that the prompt implies the *set* of highest paid. However, usually, ""Give me the 5..."" implies a count/limit. Since `CountQuery` is for aggregations and `SelectQuery` is for superlatives, I will use `SelectQuery`. The grammar example `Which one has the largest area among cities?` suggests the structure. For ""5 highest-paid"", it's slightly different from ""the single highest"". But without a specific `LIMIT` node in the grammar definition, I will focus on the attribute and concept. *Correction*: Often ""Give me the 5..."" is treated as a selection with a limit. If the grammar doesn't support limit explicitly in the AST nodes shown, I might just output the top 1 logic or assume the ""highest"" implies the ranking. However, looking at standard GraphQ extensions, limits are often part of the query execution but not always the semantic tree if the tree is purely logical. Let's look at the `SelectQuery` definition again: `S := ... | SelectQuery`. `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`. It doesn't have a slot for ""5"".
+    *   Alternative interpretation: Maybe it's an `AttributeQuery` asking for the salaries? No, it asks for the *directors*.
+    *   Let's check if `CountQuery` can help? No.
+    *   Let's assume the question implies retrieving the entities associated with the maximum salary attribute.
+    *   Actually, a common way to handle ""Top N"" in these strict grammars is to just specify the superlative and let the engine handle the count, or perhaps the prompt implies a `ValueQuery` for the salaries? No, ""Give me the ... directors"".
+    *   I will construct the `SelectQuery` for the director with the highest salary. If the system supports limits, they are usually implicit or added as a modifier. Given the strict grammar provided, I will map ""highest-paid"" to `maximum` of `salary`. The ""5"" is a constraint on the result set size, which might not be representable in this specific AST schema if it lacks a `Limit` node. However, I must follow the grammar. I will produce the query for the highest paid director, as that is the core semantic. *Wait*, looking at similar tasks, sometimes ""Give me the 5 X"" is just a request for a list. I will stick to the `SelectQuery` structure for the superlative attribute.
+
+    Let's refine:
+    - Query Type: `SelectQuery`
+    - SOP: `largest` (or `maximum`)
+    - Attribute: `<A> salary </A>`
+    - EntitySet: `<C> director </C>`
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+    *Self-Correction*: The prompt asks for ""5"". If I can't represent ""5"", I might be missing a node. But looking at the grammar, there is no `Limit` or `Count` node in `SelectQuery`. I will proceed with the superlative structure.
+
+    Wait, is there a better way? Maybe `AttributeQuery` to get the salaries? No, it asks for directors.
+    
+    Let's look at the `VerifyQuery` example. It returns boolean.
+    Let's look at `CountQuery`. Returns number.
+    
+    I will use `SelectQuery`.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+    *Note*: The ""5"" is likely a post-processing filter or handled by the interface, not the semantic graph in this specific simplified grammar. I will output the AST for the superlative selection.
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+4,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,14.778051,True,stop,3129,0.024027,2093,14.286603,146.5009,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the ""5"" in natural language, though GraphQ IR often separates the selection logic from the limit. However, looking at the grammar provided:
+    *   `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+    *   The prompt asks for ""the 5 highest-paid"". This is a top-k query.
+    *   Standard GraphQ IR often handles ""top k"" by selecting the attribute and ordering, but the specific grammar provided for `SelectQuery` seems to focus on single entity selection (""which one"").
+    *   However, let's look at `CountQuery` or `ValueQuery`. Neither fits perfectly.
+    *   Let's re-read the `SelectQuery` definition: `SOP := ""largest"" | ""smallest""`.
+    *   If I strictly follow the provided grammar, `SelectQuery` returns a single entity (""which one""). To get 5, I might need to interpret this as finding the directors with the maximum salary.
+    *   Actually, usually in these parsers, ""Give me the 5 X"" is treated as a selection of entities filtered by a superlative condition or simply a ranked list.
+    *   Let's look at the structure: `what is <ES> ... </ES>` for EntityQuery.
+    *   If I use `EntityQuery`, I can't easily express ""highest paid"" without an attribute constraint.
+    *   Let's try to map ""highest-paid"" to a superlative selection.
+    *   Query: ""Which directors have the largest salary?""
+    *   Representation 1: which ones have the largest <A> salary </A> among <C> director </C>
+    *   Wait, the grammar for `SelectQuery` is `which one has the SOP Attribute among EntitySet`. It doesn't explicitly support ""ones"" (plural) in the root definition provided in the examples, but `EntitySet` can contain multiple.
+    *   Let's look at the `VerifyQuery` example: `whether <E> London </E> ...`.
+    *   Let's look at `CountQuery`: `how many <ES> ... </ES>`.
+    *   The most appropriate type for ""Give me the X"" where X is a set of entities defined by a property is often an `EntityQuery` with a constraint, or a `SelectQuery` if it's strictly superlative.
+    *   However, ""highest-paid"" implies an ordering. GraphQ IR doesn't have an explicit `ORDER BY` in the basic grammar provided, but `SOP` (Superlative Operator) is part of `SelectQuery`.
+    *   If I must use `SelectQuery`, it returns ""which one"". To get 5, this is tricky with the strict grammar.
+    *   Alternative: Use `EntityQuery` and filter by a high value? No, we don't know the threshold.
+    *   Let's assume the question implies finding the directors associated with the maximum salary attribute.
+    *   Actually, a common pattern for ""Top N"" in these simplified IRs is to use `SelectQuery` for the single best, or just return the entities if the system handles ranking externally. But here I must generate the IR.
+    *   Let's look at the `AttributeQuery` example: `what is the attribute <A> population </A> of ...`.
+    *   Let's look at `ValueQuery`: `what is sum of ...`.
+    *   If I treat ""highest-paid"" as a constraint on the salary attribute being maximal, it's hard to express ""maximal"" without comparison.
+    *   Let's reconsider the `SelectQuery` definition: `which one has the largest <A> area among <C> city </C>`. This returns the city with the largest area.
+    *   If I want 5 directors, I might need to output an `EntityQuery` that selects directors, and perhaps the ""highest-paid"" part is a constraint? No, constraints are equality or inequality (`is`, `larger than`).
+    *   Perhaps the best fit is `SelectQuery` but acknowledging it returns the top entity, or the prompt implies a list. Given the strict grammar, I will formulate it as finding the directors with the largest salary. Since ""5"" is specific, and the grammar doesn't have a `limit` keyword, I will focus on the semantic core: Directors with high salary.
+    *   However, often ""Give me the 5..."" is mapped to an `EntityQuery` where the concept is filtered. But how to filter by ""highest""?
+    *   Let's look at the `SelectQuery` again. It uses `SOP`.
+    *   If I use `SelectQuery`, I get one director.
+    *   Is there a way to get 5? Maybe the user just wants the list of directors, and ""highest-paid"" is descriptive? No, it's a filter.
+    *   Let's assume the standard interpretation for this specific IR format: Use `SelectQuery` for superlatives. If the count ""5"" is critical and not supported by SOP, I might have to approximate or use `EntityQuery` with a hypothetical high threshold (which is wrong).
+    *   Actually, let's look at the `CountQuery`. No.
+    *   Let's look at `AttributeQuery`. No.
+    *   Let's assume the question asks for the directors who are the highest paid. I will use `SelectQuery` to find the director with the largest salary. If the system expects a list, it might be an extension, but based on the provided grammar, `SelectQuery` is the only one handling superlatives.
+    *   Wait, could it be `EntityQuery`? ""What are the directors?"" -> `<ES> <C> director </C> </ES>`. How to add ""highest paid""?
+    *   Maybe: `what is <ES> <C> director </C> that have <A> salary </A> larger than ...`? No value.
+    *   Let's stick to `SelectQuery` as it captures the ""highest"" intent best, even if the count ""5"" is lost in the strict grammar (or implied by the user asking for a list from the top). I will formulate it as finding the director(s) with the largest salary. To be safe and cover the ""directors"" plural, I'll use `SelectQuery` which targets an entity type.
+    *   Actually, looking at similar datasets (like DBpedia or Wikidata queries), ""Top 5"" is often a limit on a ranked list. Without a `limit` operator in the grammar, I will generate the query for the superlative attribute.
+    *   Let's try to map it to: `which one has the largest <A> salary </A> among <C> director </C>`.
+    *   But the user asked for 5.
+    *   Is there a `ValueQuery` option? No.
+    *   I will provide the `SelectQuery` structure as it is the most semantically aligned with ""highest-paid"".
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+    Wait, if I must return 5, and the grammar doesn't support it, I might be missing a pattern.
+    Let's check `EntityQuery` again.
+    `what is <ES> <C> director </C> ...`
+    If I can't express ""top 5"", I will express ""directors with high salary"" or just the superlative.
+    Given the constraints, I'll use `SelectQuery`.
+
+    *Self-Correction*: The prompt asks for ""the 5 highest-paid directors"".
+    If I look at `CountQuery`, it counts.
+    If I look at `EntityQuery`, it retrieves.
+    Maybe the intent is just to retrieve directors, and the ""highest-paid"" is a filter?
+    Let's assume the IR supports `SelectQuery` for this.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+    (Note: The ""5"" is likely a post-processing limit in the application layer, as GraphQ IR grammar provided doesn't have a `limit` token).
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+5,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,5.595453,True,stop,3129,0.024774,750,5.099576,147.0711,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The criterion is ""highest-paid"", which implies sorting by the attribute `<A> salary </A>` using the superlative operator `SOP` ""largest"" (or ""highest"").
+4.  **Limitation**: The user specifies ""5"". In GraphQ IR, limits are often handled implicitly or via specific syntax not explicitly defined in the basic grammar provided for `SelectQuery` structure, but usually, the core semantic is the selection of the superlative attribute. However, looking at the grammar for `SelectQuery`: `which one has the [SOP] [Attribute] among [EntitySet]`. The ""5"" part is a limit. Standard GraphQ IR often handles limits in the execution layer or via specific extension syntax. Given the strict grammar provided, I will focus on the semantic structure of selecting the directors with the largest salary. If a limit is strictly required in the AST, it might be an attribute of the query node, but the grammar doesn't show a `Limit` node type. I will stick to the core semantic: Selecting directors with the largest salary.
+5.  **Representation 1**: ""which one has the largest <A> salary </A> among <C> director </C>"" (Note: ""directors"" plural implies we want the set, but `SelectQuery` grammar says ""which one"". Usually, this covers the top-k selection in semantic parsers). Let's refine Representation 1 to match the grammar: `which one has the largest <A> salary </A> among <C> director </C>`.
+
+Wait, the prompt asks for ""5 highest-paid directors"".
+Representation 1: which one has the largest <A> salary </A> among <C> director </C> (with limit 5).
+Since the grammar doesn't explicitly define a `Limit` node in the tree structure examples, I will construct the AST based on the provided grammar for `SelectQuery`.
+
+Structure:
+S -> SelectQuery
+  - ""which one has the""
+  - SOP -> ""largest""
+  - Attribute -> ""<A> salary </A>""
+  - ""among""
+  - EntitySet -> Concept -> ""<C> director </C>""
+
+Let's double check if ""highest-paid"" maps to `salary`. Yes.
+Let's double check directionality. We are selecting directors, so we look at the concept `director`. We filter/sort by their attribute `salary`.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+6,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,3.893694,True,stop,3129,0.023001,501,3.416136,146.6569,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` with the superlative operator `SOP` ""largest"" (or ""highest"").
+4.  **Limitation**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the `SelectQuery` returning a ranked list, but strictly speaking, the grammar provided doesn't have an explicit `LIMIT` operator in the core definition. However, standard interpretation of ""Give me the 5..."" in this context usually implies a `SelectQuery` for the top N. I will construct the query for the highest paid directors.
+5.  **Structure**:
+    *   Query: `which one has the largest <A> salary </A> among <C> director </C>` (repeated or implied limit).
+    *   Since the grammar example for ""Which one has the largest..."" uses `SelectQuery`, I will follow that pattern. The ""5"" is a parameter of the execution, but structurally it's a selection based on the attribute.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+(Note: While ""5"" is requested, the core semantic structure is selecting directors by max salary. I will output the AST for the superlative selection.)
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+7,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,6.677956,True,stop,3129,0.024268,906,6.19141,146.3318,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Root**: `which one has the` + `SOP` (largest) + `Attribute` (salary) + `among` + `EntitySet`.
+3.  **EntitySet**: The entities are directors (`<C> director </C>`).
+4.  **Constraint/Filter**: We need to filter for ""highest"" salary. In GraphQ IR, superlatives are often handled by the `SelectQuery` structure itself or by constraining the set if specific thresholds were given. Here, ""5 highest-paid"" implies a ranking selection. The standard way to express ""highest paid"" in this grammar is using `SOP` (largest) on the attribute within the `SelectQuery`.
+5.  **Representation 1**: ""which one has the largest <A> salary </A> among <C> director </C>"" (Note: The grammar example for SelectQuery uses ""which one has the largest..."". To get 5, usually, a limit is applied externally or implied by the context of ""top N"", but strictly following the provided grammar for `SelectQuery`, it returns the single best match. However, looking at the prompt's examples, `SelectQuery` handles superlatives. If the user asks for ""5 highest"", it's technically a ranked list. But given the strict grammar provided, `SelectQuery` is the closest fit for superlative attribute queries. Let's look at the grammar again.
+    *   `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`.
+    *   The prompt asks for ""5 highest-paid"". The grammar doesn't explicitly support a limit parameter in the AST structure shown in examples. However, usually, natural language to IR tasks map ""highest paid"" to `SelectQuery` with `largest`. If I must stick strictly to the provided grammar, I will construct the query for the superlative attribute.
+    *   Wait, is there a better way? Maybe `AttributeQuery` on a constrained set? No, that doesn't sort.
+    *   Let's re-read the `SelectQuery` definition: `""which one has the"" SOP Attribute ""among"" EntitySet`.
+    *   The query asks for 5 items. The grammar provided is limited. I will formulate it as a `SelectQuery` for the attribute, assuming the ""5"" is a post-processing step or that the system handles top-k. Or, perhaps more accurately, since I cannot add a limit node in the AST based on the provided grammar rules, I will focus on the semantic core: finding directors with the largest salary.
+    *   Actually, let's look at `CountQuery` or others. No.
+    *   Let's assume the question implies retrieving the top 5. Since the AST format is rigid, I will generate the AST for ""Who has the largest salary among directors"" as the core semantic unit, or potentially interpret ""highest-paid"" as a constraint if it were a threshold. But ""highest"" is superlative.
+    *   Let's stick to `SelectQuery` with `largest`.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+    *Self-Correction*: The user asked for ""5 highest-paid"". The grammar doesn't have a `limit` operator. I will output the query for the superlative attribute as defined by the `SelectQuery` rule, which captures the ""highest paid"" intent.
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+8,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,3.996121,True,stop,3129,0.024657,514,3.50063,146.8307,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Target Concept**: The entities requested are ""directors"". So, the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Attribute**: The criterion is ""highest-paid"", which implies sorting by the attribute `<A> salary </A>` using the superlative operator `SOP` ""largest"" (or ""maximum"").
+4.  **Limit**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the selection of the top N from the sorted set. The core semantic structure is selecting the ones with the largest attribute value among the concept.
+5.  **Representation 1 Construction**: ""which one has the largest <A> salary </A> among <C> director </C>"" (Note: ""which one"" is used for singular selection in the grammar example, but for multiple, it's still a SelectQuery structure. The grammar defines `SelectQuery` as returning entities based on an attribute).
+    *   Sequence: `what are the 5 directors with the largest salary` -> mapped to SelectQuery structure: `which one has the largest <A> salary </A> among <C> director </C>` (The ""5"" is a post-processing limit, but the semantic query is about the superlative selection).
+
+Let's refine Representation 1 based on the grammar for SelectQuery:
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+So: `which one has the largest <A> salary </A> among <C> director </C>`
+
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+9,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.535661,True,stop,3129,0.024725,597,4.062253,146.9628,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The sorting criterion is ""salary"" (`<A> salary </A>`).
+4.  **Operator**: ""highest-paid"" implies the `maximum` value operator or simply selecting the top ones based on the attribute. In GraphQ IR for superlatives, we typically use `SelectQuery` with a `SOP` (Superlative Operator) like ""largest"" or ""highest"" associated with the attribute.
+5.  **Limit**: The user specifies ""5"". While standard GraphQ IR often handles limits in the execution layer, some representations allow specifying the count or just asking for the superlative. Given the grammar provided, `SelectQuery` handles ""which one has the [SOP] [Attribute]"". To get exactly 5, it's often implied by the application logic, but strictly following the grammar, we construct the superlative query.
+6.  **Representation 1**: ""which ones have the largest <A> salary </A> among <C> director </C>"" (Note: ""highest-paid"" maps to ""largest salary"").
+
+Let's refine Representation 1 based on the `SelectQuery` grammar:
+`S := SelectQuery`
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+Since we want multiple (5), ""which ones"" is semantically appropriate, but the grammar says ""which one"". I will stick to the grammar structure for the superlative.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+Wait, the prompt asks for ""5 highest-paid"". The AST doesn't explicitly have a `LIMIT` node in the provided grammar. I will generate the query for the superlative attribute.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+10,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.119613,True,stop,3129,0.024513,534,3.638903,146.7475,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Root**: `which one has the` + `SOP` (largest) + `Attribute` (salary) + `among` + `EntitySet`.
+3.  **EntitySet**: The entities are directors (`<C> director </C>`).
+4.  **Constraint/Filter**: We need to filter for ""highest"" salary. In GraphQ IR, superlatives are often handled by the `SelectQuery` structure itself or by constraining the set if specific thresholds were given. Here, ""5 highest-paid"" implies a ranking selection. The standard way to express ""highest paid"" in this grammar is using `SOP` (largest) on the attribute within the `SelectQuery`.
+5.  **Representation 1**: `which one has the largest <A> salary </A> among <C> director </C>` (Note: The grammar example for SelectQuery shows ""Which one has the largest..."". To get the top 5, usually, the system handles the limit, but the semantic core is selecting the entity with the maximum attribute value. I will formulate it as a selection of the entity with the largest salary among directors).
+
+Let's refine Representation 1 based on the grammar:
+`which one has the largest <A> salary </A> among <C> director </C>`
+
+Wait, the prompt asks for ""5 highest-paid"". The `SelectQuery` in the example returns ""Which one..."". If I need to return a list, it's still fundamentally a selection based on superlative attributes. I will stick to the `SelectQuery` structure as defined.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+11,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,5.761298,True,stop,3129,0.024188,772,5.260164,146.7635,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` (or similar, like `income`). Let's use `salary`. The operator is ""largest"" (superlative).
+4.  **Limit**: The user specifies ""5"". In GraphQ IR, limits are often handled by the `SelectQuery` structure or implied by the superlative context, but strictly speaking, the grammar provided for `SelectQuery` focuses on the attribute and the set. The standard interpretation of ""highest-paid"" is a selection based on the maximum value of an attribute.
+5.  **Representation 1 Construction**:
+    *   ""Which one has the largest"" -> `which one has the largest`
+    *   Attribute: `<A> salary </A>`
+    *   Among: `<C> director </C>`
+    *   Note: The grammar for `SelectQuery` is `which one has the [SOP] [Attribute] among [EntitySet]`.
+    *   Sequence: `which one has the largest <A> salary </A> among <C> director </C>`
+
+Let's refine the ""highest-paid"" part. Usually, this implies finding the directors with the highest salaries. The query asks for the *directors*, not the salary amount itself. So `SelectQuery` is correct.
+
+Representation 1: `which one has the largest <A> salary </A> among <C> director </C>`
+
+Wait, the prompt asks for ""5 highest-paid directors"". The grammar provided doesn't explicitly show a `LIMIT` clause in the `SelectQuery` definition (`S := ... | SelectQuery`). However, standard GraphQ implementations often append limiters. Given the strict grammar provided:
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+
+I will stick to the core semantic structure defined by the grammar. The ""5"" is a post-processing constraint usually, but if I must include it in the IR, it might be outside the standard `S` definition provided. However, looking at the examples, superlatives are handled via `SelectQuery`. I will generate the AST for the core selection logic.
+
+Let's double check if ""highest-paid"" could be an attribute constraint. No, ""highest"" is a superlative operator `SOP`.
+
+So:
+1.  SOP: ""largest""
+2.  Attribute: `<A> salary </A>`
+3.  EntitySet: `<C> director </C>`
+
+Representation 1: `which one has the largest <A> salary </A> among <C> director </C>`
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+12,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,8.417815,True,stop,3129,0.021895,1163,7.936011,146.5472,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the ""5"" in natural language, though GraphQ IR often separates the selection logic from the limit. However, looking at the provided grammar for `SelectQuery`, it doesn't explicitly have a `LIMIT` clause definition. Usually, ""Give me the 5..."" implies a `SelectQuery` followed by a count or just the selection of the top ones. Let's look at the structure: `which one has the [SOP] <A> attr among <C> type`.
+    *   Wait, the prompt asks for ""the 5 highest-paid"". This is a ranked list.
+    *   Standard GraphQ IR for ""top N"" often uses `SelectQuery` with a superlative. If the system supports limits, it might be part of the query execution, but strictly following the provided grammar:
+    *   `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`.
+    *   The ""5"" is a cardinality constraint on the result set. Since the grammar doesn't explicitly define a `LIMIT` operator in the AST nodes for `SelectQuery`, I will focus on the semantic selection of the highest paid directors. If strict adherence to ""5"" is required as part of the IR structure, it might be outside the standard `SelectQuery` definition provided. However, often ""Give me the 5..."" is interpreted as selecting the top entities. Let's stick to the core semantic: Select directors with the largest salary.
+    *   Actually, let's re-read the grammar. `SOP := ""largest"" | ""smallest""`.
+    *   The query is ""Give me the 5 highest-paid directors"".
+    *   Root: `SelectQuery`.
+    *   Attribute: `<A> salary </A>` (or `pay`).
+    *   SOP: `largest` (since we want highest).
+    *   EntitySet: `<C> director </C>`.
+    *   What about the ""5""? The grammar provided doesn't have a specific node for limiting the number of results in the AST structure for `SelectQuery`. In many GraphQ implementations, the limit is an execution parameter. However, if I must represent it, I might need to check if `CountQuery` or another mechanism applies. But `CountQuery` returns a number. `SelectQuery` returns entities.
+    *   Let's assume the ""5"" is implicit in the user intent for the *result* but the IR structure focuses on the *selection criteria*. Or, perhaps I should use `AttributeQuery`? No, it asks for directors (entities).
+    *   Let's look at the example: ""Which one has the largest area among cities?"". This returns one entity.
+    *   For ""5 highest-paid"", it's a list. The grammar provided is limited. I will construct the `SelectQuery` for the highest paid directors. If the system expects the count to be part of the query, it might be a `ValueQuery` asking for the salary? No, it asks for the *directors*.
+    *   I will formulate it as a `SelectQuery` for the largest salary among directors. The ""5"" is typically handled by the client or an extension not in this specific grammar snippet. However, to be precise, I will map ""highest-paid"" to `largest <A> salary`.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+    
+    *Self-Correction*: The prompt asks for ""the 5"". If I can't represent ""5"" in the AST, I will just represent the selection logic. But wait, is there a way to express ""top 5""? Not in the provided grammar. I will proceed with the `SelectQuery` structure which captures the semantic of ""highest paid"".
+
+    Let's refine the attribute name. ""salary"" or ""pay"". ""salary"" is more standard for directors/actors.
+    
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+13,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.279613,True,stop,3129,0.02457,557,3.792911,146.8529,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Entity**: The target entities are ""directors"". So, the base Concept is `<C> director </C>`.
+3.  **Sorting Attribute**: The sorting criterion is ""highest-paid"", which implies the attribute `<A> salary </A>` (or potentially `income` or `earnings`, but `salary` is standard for employment roles).
+4.  **Operator**: ""Highest"" corresponds to the superlative operator `maximum`.
+5.  **Limit**: The user specifies ""5"". In GraphQ IR, limits are often handled by the query type or implicit in the selection of the top N. However, the grammar provided for `SelectQuery` focuses on the attribute and the set. The standard interpretation for ""Give me the 5 highest..."" is a SelectQuery over the Concept filtered by the Attribute's maximum value.
+6.  **Representation 1 Construction**:
+    *   ""Which one has the largest"" (or ""highest"") `<A> salary </A>` among `<C> director </C>`.
+    *   Since it asks for ""5"", it implies a list of results from this selection. The core semantic structure is selecting the directors with the maximum salary.
+    *   Sequence: `which one has the largest <A> salary </A> among <C> director </C>`
+
+Let's refine the Representation 1 to match the grammar for `SelectQuery`:
+`which one has the largest <A> salary </A> among <C> director </C>`
+
+Wait, the prompt asks for ""5 highest-paid"". The grammar example `Which one has the largest area among cities?` maps to `SelectQuery`. I will follow that pattern.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+14,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,7.089612,True,stop,3129,0.02455,958,6.610042,144.931,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The sorting criterion is salary (`<A> salary </A>`).
+4.  **Operator**: ""Highest"" implies the `maximum` superlative operator (`SOP`).
+5.  **Limit**: The user asks for the ""5 highest"", which implies a limit of 5. In GraphQ IR, limits are often implicit in the selection or handled by the engine, but the core semantic is selecting the entity with the maximum attribute value among the set. The standard `SelectQuery` structure handles the superlative aspect.
+6.  **Representation 1 Construction**: ""which one has the largest <A> salary </A> among <C> director </C>"" (Note: ""largest"" is used for values/amounts in the grammar examples, though ""highest"" is natural language. The grammar defines `SOP` as ""largest"" or ""smallest"").
+7.  **Refinement**: Since it asks for the *top 5*, strictly speaking, a simple superlative query returns one. However, without a specific `limit` operator in the provided grammar, we map the core intent of finding the highest paid directors. The prompt asks for ""the 5 highest-paid"", which is a ranked list. In many IRs, this is handled by returning the top-k results of a sort. Given the strict grammar provided, I will construct the SelectQuery for the superlative attribute. If the system supports limits, it would be an additional constraint, but based on the provided grammar, `SelectQuery` with `SOP` is the correct structural mapping for ""highest"".
+
+Let's refine Representation 1:
+""which one has the largest <A> salary </A> among <C> director </C>""
+
+Wait, looking at the examples, `SelectQuery` returns ""which one..."". If I need 5, it's a list of such queries or a specific limit constraint. Since the grammar doesn't explicitly show a `limit` keyword in the AST structure for `SelectQuery`, I will stick to the superlative definition. However, usually, ""top N"" implies sorting and limiting. Let's look at the grammar again.
+`SOP := ""largest"" | ""smallest""`
+The example ""Which one has the largest area among cities?"" maps to `SelectQuery`.
+For ""5 highest-paid"", it is effectively asking for the directors with the maximum salaries. I will formulate it as a SelectQuery on the attribute salary for the concept director.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+Actually, to be more precise about ""directors"" (plural) and ""5"", standard GraphQ might use a `CountQuery` or just return the set sorted. But `SelectQuery` is defined for superlatives. I will use `SelectQuery` as it captures the ""highest-paid"" semantic best among the choices.
+
+Let's double check if there's a better fit.
+- `AttributeQuery`: Returns the value (salary).
+- `EntityQuery`: Returns the entity, but no sorting specified.
+- `SelectQuery`: Specifically for superlatives (""largest"", ""smallest"").
+
+So, `SelectQuery` is the correct root.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+(Note: The grammar example uses ""largest"" for area. For salary, ""largest"" or ""highest"" value is appropriate. The grammar restricts SOP to ""largest"" or ""smallest"".)
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+15,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.956135,True,stop,3129,0.024382,662,4.50019,147.1049,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The sorting criterion is ""salary"" (`<A> salary </A>`).
+4.  **Operator**: ""highest-paid"" implies the `maximum` value operator or simply selecting the top ones based on the attribute. In GraphQ IR for superlatives, we typically use `SelectQuery` with a `SOP` (Superlative Operator) like ""largest"" or ""highest"" associated with the attribute.
+5.  **Limit**: The user specifies ""5"". While standard GraphQ IR often handles limits in the execution layer, the semantic intent is to select the top entities. The grammar provided for `SelectQuery` is `which one has the [SOP] [Attribute] among [EntitySet]`. It doesn't explicitly have a limit parameter in the root structure shown in examples, but ""highest-paid"" maps to `largest` or `maximum` on the attribute.
+6.  **Representation 1 Construction**:
+    *   Root: `SelectQuery`
+    *   Phrase: ""which one has the largest"" (or ""highest"")
+    *   Attribute: `<A> salary </A>`
+    *   Scope: among `<C> director </C>`
+    *   Note: ""Highest-paid"" usually implies sorting by salary descending. The `SOP` ""largest"" fits this context for numeric attributes like salary.
+
+Let's refine the Representation 1 sequence based on the grammar:
+`which one has the largest <A> salary </A> among <C> director </C>`
+
+Wait, the prompt asks for ""5 highest-paid directors"". The grammar example `Which one has the largest area among cities?` returns a single entity. However, usually, these parsers handle the count/limit implicitly or the user expects the top N. Given the strict grammar provided:
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+
+I will construct the sequence for the top director (singular form in grammar structure) but acknowledge the intent is a list. The AST will follow the `SelectQuery` structure.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+16,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.010733,True,stop,3129,0.024351,519,3.53672,146.7461,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Target Concept**: The entities requested are ""directors"". So, the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Attribute**: The criterion is ""highest-paid"", which implies sorting by the attribute `<A> salary </A>` using the superlative operator `SOP` ""largest"" (or ""maximum"").
+4.  **Limit**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the selection of the top N from the sorted set. The core semantic structure is selecting the ones with the largest attribute value among the concept.
+5.  **Representation 1 Construction**: ""which one has the largest <A> salary </A> among <C> director </C>"" (Note: ""which one"" is used for singular selection in the grammar example, but for multiple, it's still a SelectQuery structure. The grammar defines `SelectQuery` as returning entities based on an attribute).
+
+Let's refine Representation 1:
+""what are the directors with the largest salary among directors"" -> mapped to SelectQuery structure: ""which one has the largest <A> salary </A> among <C> director </C>"". The ""5"" is a limit parameter, but structurally it fits the SelectQuery pattern of finding superlatives.
+
+Wait, looking at the grammar for `SelectQuery`:
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+
+So:
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+17,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,8.093707,True,stop,3129,0.02648,1089,7.591519,143.4496,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the ""5"" in natural language, though GraphQ IR often separates the selection logic from the limit. However, looking at the provided grammar for `SelectQuery`, it doesn't explicitly have a `LIMIT` clause in the root definition `S := ... | SelectQuery`. But standard GraphQ implementations usually allow limits on SelectQueries. Let's look at the structure: `which one has the [SOP] <A> attr among <C> concept`.
+5.  **Refining the Query**: ""Give me the 5 highest-paid directors.""
+    *   Root: `SelectQuery`
+    *   SOP: `largest` (or `maximum`)
+    *   Attribute: `<A> salary </A>`
+    *   EntitySet: `<C> director </C>`
+    *   Limit: The ""5"" is a constraint on the result set size. In many GraphQ parsers, this might be part of the `SelectQuery` parameters or handled by a `CountQuery` wrapper if it were just counting. However, since we want the *entities*, it's a `SelectQuery`. I will include the limit in the sequence representation if possible, or assume the parser handles ""5"" as a limit on the selection. The grammar doesn't explicitly show a limit operator in the AST nodes for SelectQuery, but natural language ""Give me the 5..."" implies a limit. I will formulate the sequence to reflect the superlative nature and the entity type.
+
+    Sequence: `which one has the largest <A> salary </A> among <C> director </C>` (Note: The ""5"" is often implicit in the UI or handled by a separate limit parameter, but strictly following the provided grammar for `SelectQuery`, it focuses on the superlative attribute. I will stick to the core semantic structure defined in the examples).
+
+    Wait, the example `Which one has the largest area among cities?` returns *one*. The prompt asks for *5*.
+    If the system supports limits, it would be `which ones have the largest <A> salary </A> among <C> director </C>` with a limit of 5.
+    Let's look at the grammar again.
+    `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+    It doesn't explicitly support plural ""ones"" or limits in the provided snippet. However, ""Give me the 5..."" is clearly a request for multiple entities. I will assume the standard interpretation of such queries in GraphQ contexts where `SelectQuery` can return a list if not restricted to ""one"", or that the limit is an external parameter. For the purpose of this IR generation, I will map it to the `SelectQuery` structure focusing on the attribute and concept.
+
+    Representation 1: `which one has the largest <A> salary </A> among <C> director </C>` (with an implicit understanding that the client requests top 5). To be more precise with the ""5"", some GraphQ variants use `top 5`. But sticking to the provided grammar strictly:
+    `S := ... | SelectQuery`
+    `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+
+    I will generate the AST for the superlative selection.
+
+    Sequence: `which one has the largest <A> salary </A> among <C> director </C>`
+
+    Let's double check if ""highest-paid"" maps to `largest` or `maximum`. The grammar defines `SOP := ""largest"" | ""smallest""`. So I will use `largest`.
+
+    Final Sequence: `which one has the largest <A> salary </A> among <C> director </C>`
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+18,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,11.806316,True,stop,3129,0.025583,1650,11.349133,145.3856,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the natural language ""5 highest"". However, GraphQ IR typically handles the selection logic.
+    *   Standard SelectQuery structure: `which one has the [SOP] <A> attr </A> among <C> concept </C>`.
+    *   To get the top 5, we might need a CountQuery wrapper or just express the selection of the attribute. But usually, ""Give me the X highest Y"" is treated as a SelectQuery returning the entities.
+    *   Let's look at the grammar: `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`. This returns *one* entity.
+    *   If we need 5, it's often a combination or just asking for the attribute values? No, ""Give me the ... directors"" asks for the entities.
+    *   Let's stick to the `SelectQuery` pattern for the superlative logic, but since the grammar provided for `SelectQuery` is singular (""which one""), and there isn't a specific ""Top-N SelectQuery"" defined in the simplified grammar above, I will interpret this as asking for the attribute values (salary) or just using the standard SelectQuery structure to identify the *concept* of the query.
+    *   Actually, often in these parsers, ""Give me the top 5 X"" is mapped to a `SelectQuery` where the result is the EntitySet, potentially with a limit not explicitly in the AST but implied by the natural language, OR it's treated as an AttributeQuery on the salary if the user wanted salaries. But they want *directors*.
+    *   Let's look at `AttributeQuery`: ""what is the attribute ... of ..."".
+    *   Let's look at `ValueQuery`: ""what is sum/average..."".
+    *   The most appropriate mapping for ""Give me the [Count] [Superlative] [Attribute] [Entity]"" in this specific restricted grammar is often a `SelectQuery` if it asks for the entity, or an `AttributeQuery` if it asks for the value. Since it asks for the *directors* (entities), I will use `SelectQuery`. The ""5"" part is a limit parameter not explicitly in the core AST nodes provided in the grammar examples, but the structure remains `which one has the largest <A> salary </A> among <C> director </C>`. Wait, if I must return 5, maybe it's better to frame it as retrieving the salaries? No, ""Give me the directors"".
+    *   Let's re-read the grammar. `SelectQuery` returns ""which one..."". It doesn't support lists natively in the provided snippet. However, `AttributeQuery` can return a list of attributes if the EntitySet is plural.
+    *   Alternative interpretation: The user wants the directors. This is an `EntityQuery` filtered by a superlative? No, `EntityQuery` doesn't have sorting.
+    *   Let's assume the standard approach for ""Top N"" in this schema is to use `SelectQuery` for the logic of ""highest"", even if the count '5' isn't a node. Or, perhaps more accurately, since I cannot express '5' in the AST nodes provided (no LIMIT operator), I will focus on the semantic core: finding directors with the highest salary.
+    *   Actually, looking at `AttributeQuery`: ""what is the attribute <A> salary </A> of <ES> <C> director </C> ..."". This would return salaries.
+    *   Let's try to map it to `SelectQuery` as it captures the ""highest"" intent best. The ""5"" is a constraint on the result set size, which might be outside the scope of this specific AST definition, but I will include the superlative logic.
+    *   Wait, is there a way to express ""top 5""? No explicit `LIMIT` node.
+    *   Let's look at the example: ""Which one has the largest area among cities?"".
+    *   If I must output an AST, and the grammar doesn't support LIMIT, I will construct the query for the highest paid directors (singular conceptually in terms of relation traversal) or just the attribute.
+    *   However, a common pattern for ""Give me the X Ys"" where Y has a property Z is to ask for the entities that have the maximum Z.
+    *   Let's use `SelectQuery` with `largest` and `<A> salary </A>` among `<C> director </C>`.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+    *Self-Correction*: The prompt asks for ""5 highest-paid directors"". If I can't express '5', I should probably express the attribute query for the salaries to allow sorting, or just stick to the SelectQuery structure which implies the ranking logic. Given the constraints, `SelectQuery` is the best fit for the *intent* of superlatives.
+
+    Let's refine Representation 1:
+    ""which one has the largest <A> salary </A> among <C> director </C>""
+
+    Wait, if I want the *directors*, not just the one with the absolute max, but the top 5... this is tricky with the given grammar.
+    Let's look at `AttributeQuery`. ""what is the attribute <A> salary </A> of <ES> <C> director </C>"". This gets all salaries.
+    Let's look at `ValueQuery`. No.
+
+    Let's assume the question implies finding the entities. I will use `SelectQuery` as it is the only one handling superlatives (`largest`). The ""5"" is likely a post-processing step or ignored in this specific IR abstraction if no LIMIT node exists.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+    
+    Actually, let's look at the `AttributeQuery` again. If I ask ""what is the attribute salary of directors"", I get a list. I can't sort it in the IR.
+    
+    Let's stick to the `SelectQuery` pattern for superlatives.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+19,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,7.971727,True,stop,3129,0.0248,1096,7.43633,147.3845,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The sorting criterion is ""salary"" (`<A> salary </A>`).
+4.  **Operator**: ""highest-paid"" implies the `maximum` value operator or simply selecting the top ones based on the attribute. In GraphQ IR for superlatives, we typically use `SelectQuery` with a `SOP` (Superlative Operator) like ""largest"" or ""highest"" associated with the attribute.
+5.  **Limit**: The user specifies ""5"". While standard GraphQ IR often handles limits in the execution layer, some representations allow specifying the count or just asking for the superlative. Given the grammar provided, `SelectQuery` handles ""Which one has the largest..."". For a specific number like ""5 highest"", it's often interpreted as asking for the entities that satisfy the superlative condition relative to the set. However, strictly following the provided grammar examples, `SelectQuery` is defined as `which one has the [SOP] [Attribute]`. It doesn't explicitly have a slot for ""limit 5"" in the root structure shown in the example. But usually, ""Give me the 5 highest..."" implies a ranked list. Let's look at the grammar again.
+    *   `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet` (implied from example).
+    *   The example ""Which one has the largest area among cities?"" returns the entity with the max area.
+    *   To get the ""5 highest"", we are essentially asking for the entities that have the top 5 values of salary.
+    *   Let's construct the sequence: ""which ones have the largest <A> salary </A> among <C> director </C>"". The ""5"" is a constraint on the result set size, which might be implicit or handled by the `SOP` if we consider ""largest"" as the operator. However, standard GraphQ IR often separates the logical query from the physical limit. I will formulate it as asking for the directors with the largest salary among all directors. The ""5"" is a post-processing step usually, but if I must include it in the IR, I might need to check if `CountQuery` or another structure fits. No, `SelectQuery` is for retrieving entities based on superlatives.
+    *   Let's stick to the core semantic: Find directors sorted by salary descending.
+    *   Sequence: ""which ones have the largest <A> salary </A> among <C> director </C>""
+
+Refining the Representation 1:
+""which ones have the largest <A> salary </A> among <C> director </C>""
+
+Wait, looking at the grammar for `SelectQuery`:
+`S := ... | SelectQuery`
+The example shows: `Which one has the largest area among cities?` -> `SelectQuery`.
+The structure is: `which one has the` + `SOP` + `Attribute` + `among` + `EntitySet`.
+
+So for ""5 highest-paid directors"":
+Root: `SelectQuery`
+SOP: `largest` (or `highest`)
+Attribute: `<A> salary </A>`
+EntitySet: `<C> director </C>`
+
+The ""5"" is a limit. In many IRs, this is not part of the logical tree but a parameter. However, if I must represent it, I could potentially use a `CountQuery` logic? No, that returns a number. The user wants the *directors*.
+I will assume the standard GraphQ IR for superlatives retrieves the top entity/entities. If the system supports limits, they are often external. But looking at the prompt's strict grammar, there is no explicit ""limit"" node in `SelectQuery`. I will proceed with the superlative structure.
+
+Representation 1: which ones have the largest <A> salary </A> among <C> director </C>
+
+Let's double check if ""highest-paid"" maps to a specific relation or attribute. Usually, salary is an attribute of the person (director). So `<A> salary </A>` is correct.
+
+Final Sequence: `which ones have the largest <A> salary </A> among <C> director </C>`
+
+</thinking>
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which ones have the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+20,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,10.472252,True,stop,3129,0.024817,1466,9.982138,146.8623,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So, the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` (or potentially `income` or `earnings`, but `salary` is standard for employment relations). The operator is ""largest"" (superlative).
+4.  **Limit**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism, but structurally, we are selecting the top ones from a set. The grammar provided doesn't explicitly have a `LIMIT` keyword in the AST structure for `SelectQuery`, but the sequence representation should reflect the selection of the top 5. However, looking at the `SelectQuery` example: ""Which one has the largest area among cities?"", the structure is `which one has the [SOP] [Attribute] among [EntitySet]`.
+5.  **Refining the Sequence**: ""what are the 5 directors with the largest salary"". Or more formally following the grammar: ""which ones have the largest <A> salary </A> among <C> director </C>"". The ""5"" is a constraint on the result set size, but structurally it's a selection based on the superlative attribute.
+6.  **Representation 1 Construction**:
+    *   Query Type: `SelectQuery`
+    *   Phrase: ""which ones have the largest <A> salary </A> among <C> director </C>""
+    *   Note: The grammar for `SelectQuery` is `which one has the SOP Attribute among EntitySet`. Since we want multiple (5), ""which ones"" is appropriate natural language, but the core structure remains the superlative selection.
+
+Let's double check if it could be an `AttributeQuery` returning a list? No, it asks for the *directors* (entities), not their salaries.
+Let's double check if it could be a `ValueQuery`? No, we want the entities.
+
+So, Representation 1: `which ones have the largest <A> salary </A> among <C> director </C>`
+
+Wait, the grammar for `SelectQuery` is defined as:
+`S := ... | SelectQuery`
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+
+The example shows: `which one has the largest <A> area </A> among <C> city </C>`
+
+For ""5 highest-paid directors"", I will adapt the sequence to fit the semantic intent while adhering to the structural constraints of the AST. The AST will reflect the superlative selection.
+
+Representation 1: `which ones have the largest <A> salary </A> among <C> director </C>`
+
+Now, constructing the AST.
+Root: `SelectQuery`
+Children:
+- ""which ones have the"" (or ""which one has the"" per grammar strictness? The prompt says ""Follow the GRAMMAR strictly"". The grammar defines `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`. I should probably stick to the grammar's literal string for the start, or interpret ""which ones"" as the natural language equivalent. Given the example uses ""which one"", I will use ""which ones have the"" in the sequence for clarity but map it to the `SelectQuery` node. Actually, looking at the AST structure in the example:
+```
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    ...
+```
+The literal string is part of the tree. I will use ""which ones have the"" in the sequence to match the plural input, but in the AST, I must follow the grammar definition if it's rigid. However, usually, these parsers allow slight variations in the leaf strings for naturalness. Let's look at the example again.
+Example: `Which one has the largest area among cities?` -> `""which one has the""`.
+My Input: `Give me the 5 highest-paid directors.`
+This is plural. I will use `""which ones have the""` in the sequence. In the AST, I will place the string literal accordingly.
+
+Let's refine the Attribute. ""highest-paid"" -> attribute is `salary` or `pay`. Let's use `<A> salary </A>`.
+Concept: `<C> director </C>`.
+SOP: `largest`.
+
+AST Structure:
+`SelectQuery`
+  - `""which ones have the""` (or `""which one has the""`? I'll stick to the grammar's defined terminal if possible, but ""5"" implies plural. I will use `""which ones have the""` as the leaf node string).
+  - `SOP` -> `""largest""`
+  - `Attribute` -> `<A> salary </A>`
+  - `""among""`
+  - `EntitySet` -> `<C> director </C>`
+
+Wait, does ""5"" need to be represented? The grammar doesn't have a limit node. I will ignore the specific number '5' in the AST structure as it's likely a post-processing constraint, but I will include it in the Sequence representation if allowed, or just focus on the superlative nature. The prompt asks for GraphQ IR. Usually, limits are separate. I will focus on the semantic selection.
+
+Sequence: `which ones have the largest <A> salary </A> among <C> director </C>`
+
+AST:
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which ones have the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which ones have the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+21,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,9.002014,True,stop,3129,0.024634,1250,8.524006,146.6447,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the ""5"" in natural language, though GraphQ IR often separates the selection logic from the limit. However, looking at the provided grammar for `SelectQuery`, it doesn't explicitly have a `limit` clause in the root definition `S := ... | SelectQuery`. But standard top-N queries are often represented as selecting the entity with the maximum attribute. To get exactly 5, we might need to interpret ""highest-paid"" as the ordering criterion.
+    *   Let's look at the `SelectQuery` structure: `which one has the [SOP] <A> attr ...`.
+    *   The prompt asks for ""the 5 highest-paid"". This implies a ranked list.
+    *   Representation 1: ""what are the 5 directors with the largest salary"" or ""which directors have the largest salary among directors"".
+    *   Let's stick to the `SelectQuery` pattern for superlatives. The ""5"" is a limit, which might be outside the strict IR scope if not defined, but often ""highest-paid"" maps to `SOP: largest`.
+    *   Let's formulate it as: `which directors have the largest salary among directors`. The ""5"" is an implementation detail of the retrieval (LIMIT 5), but semantically it's a selection based on the superlative attribute.
+    *   Wait, the grammar for `SelectQuery` is `which one has the SOP Attribute ...`. It doesn't explicitly support a count in the root. However, `CountQuery` exists. But this isn't asking ""how many"". It's asking ""who"".
+    *   Let's assume the standard interpretation: Select entities of type Director, ordered by Salary descending.
+    *   Representation 1: `which directors have the largest salary among <C> director </C>`? No, that returns one.
+    *   Let's look at the example: ""Which one has the largest area among cities?"".
+    *   For ""5 highest-paid"", we can phrase it as: `what are the directors with the largest salary among <C> director </C>`.
+    *   Actually, a more precise GraphQ IR for top-N often involves a `SelectQuery` combined with a limit, or just the selection logic. Given the strict grammar provided, I will use `SelectQuery` to identify the attribute and the set. The ""5"" is likely an external parameter, but I must represent the semantic query.
+    *   Let's try: `which directors have the largest salary among <C> director </C>`.
+    *   Wait, is there a better way? Maybe `AttributeQuery`? No, that returns values.
+    *   Let's use `SelectQuery`.
+    *   Root: `SelectQuery`
+    *   Phrase: ""which directors have the largest salary among <C> director </C>""
+    *   Actually, usually ""highest-paid"" implies we are looking for the entity with the max value. To get 5, it's a ranked list. I will represent the core semantic intent: selecting directors based on the maximum salary attribute.
+
+    Let's refine Representation 1:
+    `which <C> director </C> have the largest <A> salary </A> among <C> director </C>`?
+    The grammar for SelectQuery is: `which one has the SOP Attribute ...`.
+    So: `which <C> director </C> has the largest <A> salary </A> among <C> director </C>`.
+    
+    However, the user asked for ""5"". If I can't express ""5"" in the AST per the strict grammar provided (no LIMIT node defined), I will focus on the superlative selection.
+    
+    Let's check if `CountQuery` or `ValueQuery` fits? No.
+    
+    Let's construct the AST for: `which <C> director </C> has the largest <A> salary </A> among <C> director </C>`
+
+    Wait, the grammar says:
+    `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+    
+    So:
+    1. ""which one has the""
+    2. SOP: ""largest""
+    3. Attribute: `<A> salary </A>`
+    4. ""among""
+    5. EntitySet: `<C> director </C>`
+
+    The result type is implicitly the entity set in ""among"".
+
+</thinking>
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+22,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,5.120411,True,stop,3129,0.024779,680,4.631297,146.8271,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Root**: `which one has the` + `SOP` (largest) + `Attribute` (salary) + `among` + `EntitySet`.
+3.  **EntitySet**: The entities are directors (`<C> director </C>`).
+4.  **Constraint/Filter**: We need to filter for ""highest"" salary. In GraphQ IR, superlatives are often handled by the `SelectQuery` structure itself or by constraining the set if specific thresholds were given. Here, ""5 highest-paid"" implies a ranking selection. The standard way to express ""highest paid"" in this grammar is using `SOP` (largest) on the attribute within the `SelectQuery`.
+5.  **Representation 1**: `which one has the largest <A> salary </A> among <C> director </C>` (Note: The grammar example for SelectQuery doesn't explicitly handle a count like ""5"", but usually, the system returns the top N. I will construct the base query for the superlative).
+    *   Wait, the prompt asks for ""the 5 highest-paid"". The `SelectQuery` definition in the grammar is `which one has the SOP Attribute among EntitySet`. It doesn't explicitly have a slot for a count limit in the sequence definition provided in the examples. However, standard interpretation of ""highest"" implies sorting. I will stick to the core superlative structure defined in the grammar example: `which one has the largest <A> salary </A> among <C> director </C>`. If a count is strictly required by the output format not shown in the grammar rules for SelectQuery, it might be implicit or handled by the consumer. Given the strict grammar provided, I will map ""highest-paid"" to `largest` attribute `salary`.
+
+Let's refine Representation 1 based on the specific `SelectQuery` grammar:
+`which one has the largest <A> salary </A> among <C> director </C>`
+
+Wait, looking at the previous examples, `SelectQuery` is used for ""Which one..."". For ""Give me the 5..."", it's still a selection. The count ""5"" is an implementation detail of the retrieval, but semantically it's asking for the entities with the maximum salary attribute among directors.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+23,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.860726,True,stop,3129,0.024335,643,4.367987,147.2074,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` and the superlative operator `SOP` ""largest"" (or ""highest"").
+4.  **Limitation**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the `SelectQuery` returning a ranked list, but strictly speaking, the grammar provided doesn't have an explicit `LIMIT` operator in the core definition. However, standard interpretation of ""Give me the 5..."" in this context usually implies a `SelectQuery` for the top N. I will construct the query for the superlative selection.
+5.  **Representation 1 Construction**:
+    *   ""Which one has the largest"" -> `which one has the largest`
+    *   Attribute: `<A> salary </A>`
+    *   Among: `<C> director </C>`
+    *   Note: The prompt asks for ""5 highest-paid"". While the grammar doesn't explicitly support a numeric limit in the AST structure shown in examples, the core semantic request is the selection based on the superlative attribute. I will formulate it as a SelectQuery for the largest salary among directors.
+
+Let's refine Representation 1:
+""which one has the largest <A> salary </A> among <C> director </C>""
+
+Wait, ""directors"" is plural. The grammar example `Which one has the largest...` uses singular ""one"". However, for multiple results, it's often still framed as a selection query. Let's stick to the structure:
+`which ones have the largest <A> salary </A> among <C> director </C>` (Using plural ""ones"" if allowed, or just following the pattern of `SelectQuery`). The grammar defines `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`. I will follow this strictly.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+24,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,9.350699,True,stop,3129,0.022055,1298,8.863492,146.4434,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the ""5"" in natural language, though GraphQ IR often separates the selection logic from the limit. However, looking at the provided grammar for `SelectQuery`, it doesn't explicitly have a `LIMIT` clause in the root definition `S := ... | SelectQuery`. But standard GraphQ implementations usually allow limits on SelectQueries. Let's look at the structure: `which one has the [SOP] <A> attr among <C> concept`.
+5.  **Refining the Query**: ""Give me the 5 highest-paid directors.""
+    *   Root: `SelectQuery`
+    *   SOP: `largest` (or `maximum`)
+    *   Attribute: `<A> salary </A>`
+    *   EntitySet: `<C> director </C>`
+    *   Limit: The ""5"" is a constraint on the result set size. In many GraphQ parsers, this might be part of the `SelectQuery` parameters or handled by a `CountQuery` wrapper if it were just counting. However, since we want the *entities*, it's a `SelectQuery`. I will include the limit in the sequence representation if possible, or assume the parser handles ""5"" as a limit on the selection. The grammar doesn't explicitly show a limit operator in the AST nodes for SelectQuery, but natural language ""Give me the 5..."" implies a limit. I will formulate the sequence to reflect the superlative nature.
+
+    Sequence: `which one has the largest <A> salary </A> among <C> director </C>` (Note: The ""5"" is often an external parameter or part of the specific implementation's limit clause, but strictly following the provided grammar for `SelectQuery`, it focuses on the attribute and concept. I will stick to the core semantic structure defined in the examples).
+
+    Wait, the example `Which one has the largest area among cities?` returns a single entity. ""Give me the 5..."" implies a list. The grammar provided doesn't have a specific node for `LIMIT`. However, usually, these queries are parsed as `SelectQuery` with an implicit or explicit limit. I will generate the AST for the superlative selection.
+
+    Let's re-read the grammar carefully.
+    `S := EntityQuery | AttributeQuery | RelationQuery | QualifierQuery | CountQuery | VerifyQuery | ValueQuery`
+    Wait, `SelectQuery` is listed in the ""Root Query Selection"" instructions but NOT in the `S := ...` line in the GRAMMAR section?
+    Ah, looking at the examples:
+    Input: Which one has the largest area among cities?
+    Output: `S └── SelectQuery ...`
+    
+    So `SelectQuery` IS a valid root.
+
+    Structure for ""5 highest-paid directors"":
+    1.  SOP: `largest` (or `maximum`)
+    2.  Attribute: `<A> salary </A>`
+    3.  EntitySet: `<C> director </C>`
+    
+    The ""5"" is a limit. If the grammar doesn't support limits in the AST nodes shown, I might just output the selection logic. However, often `SelectQuery` allows a count/limit. Let's look at the `ValueQuery` example with `sum`. It uses `VOP`.
+    
+    Actually, let's look at the `AttributeQuery` or `EntityQuery` for lists. ""Give me the directors..."" is an `EntityQuery`. ""Highest-paid"" adds a sorting constraint.
+    
+    Let's try to map it to `SelectQuery` as per the example.
+    Sequence: `which one has the largest <A> salary </A> among <C> director </C>`
+    
+    If I must include ""5"", and there is no explicit limit node in the grammar, I will assume the prompt implies a standard top-k query which is semantically a SelectQuery. I will produce the AST for the selection criteria.
+
+    Representation 1: `which one has the largest <A> salary </A> among <C> director </C>`
+    
+    (Self-correction: The prompt asks for ""5"". If the system supports limits, it should be there. Since the grammar provided is strict and doesn't show a limit node, I will stick to the semantic core of ""highest paid"" which is the superlative attribute query.)
+
+    Let's double check if `AttributeQuery` can handle sorting? No, `AttributeQuery` is ""what is the attribute X of Y"".
+    
+    So `SelectQuery` is the correct type.
+
+    Representation 1: `which one has the largest <A> salary </A> among <C> director </C>`
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+25,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,5.385353,True,stop,3129,0.024482,722,4.90911,147.0735,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` with the superlative operator `SOP` ""largest"" (or ""highest"").
+4.  **Limitation**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the `SelectQuery` returning a ranked list, but strictly speaking, the grammar provided doesn't have an explicit `LIMIT` keyword in the core structure for `SelectQuery`. However, standard interpretation of ""Give me the 5..."" implies a top-k selection. The core semantic structure is selecting the entity with the largest attribute value among a set.
+5.  **Structure**:
+    *   Query: `which one has the largest <A> salary </A> among <C> director </C>` (repeated or implied for top 5).
+    *   Since the grammar defines `SelectQuery` as `which one has the SOP Attribute among EntitySet`, I will construct it for the general case of finding the highest paid. The ""5"" is a post-processing constraint usually, but if forced into the IR, it might be part of the value or just implicit in the request for ""the 5"". Given the strict grammar, `SelectQuery` returns the entity with the max/min attribute. I will formulate it as finding the directors with the largest salary.
+
+Let's refine the Representation 1:
+""which one has the largest <A> salary </A> among <C> director </C>"" (Note: ""which one"" is singular in grammar, but ""Give me the 5"" implies a list. I will stick to the grammatical structure for the superlative selection).
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+
+Wait, looking at the examples, `SelectQuery` is used for ""Which one..."". For ""Give me the 5..."", it's still a selection based on a superlative. I will use `SelectQuery`.
+
+Steps:
+1. Identify Query Type: `SelectQuery`.
+2. Attribute: `<A> salary </A>`.
+3. Superlative: `largest`.
+4. EntitySet: `<C> director </C>`.
+
+Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+26,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,20.367979,True,stop,3129,0.041788,2902,19.864501,146.0898,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The criterion is ""salary"" or ""pay"". Let's use `<A> salary </A>`.
+4.  **Operator**: ""highest-paid"" implies `maximum` or `largest`. In the context of `SelectQuery` for top-N, we usually specify the attribute and the superlative operator. The grammar example shows `which one has the largest <A> area ...`. For a list, it's similar but with a count constraint implicitly handled by the ""5"" in natural language, though GraphQ IR often separates the selection logic from the limit. However, looking at the grammar provided:
+    *   `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+    *   The prompt asks for ""the 5 highest-paid"". This is a top-k query.
+    *   Standard GraphQ IR often handles ""top k"" by selecting the attribute and ordering, but the specific grammar provided for `SelectQuery` seems to focus on single entity selection (""which one"").
+    *   However, let's look at `CountQuery` or `ValueQuery`. Neither fits perfectly.
+    *   Let's re-read the `SelectQuery` definition: `SOP := ""largest"" | ""smallest""`.
+    *   If I strictly follow the provided grammar, `SelectQuery` returns a single entity (""which one""). To get 5, I might need to interpret this as finding the directors with the maximum salary.
+    *   Actually, usually in these parsers, ""Give me the 5 X"" is treated as a selection of entities filtered by a superlative condition or just a ranked list.
+    *   Let's look at the structure: `what is <ES> ... </ES>` for lists? No, that's EntityQuery.
+    *   If I use `EntityQuery`, I can't easily sort by salary in the basic grammar provided (no ORDER BY clause defined).
+    *   However, `SelectQuery` is explicitly for superlatives. ""Which one has the largest salary"".
+    *   To get 5, it's often a limitation of the specific IR subset or requires a `CountQuery` on a range, but typically ""Give me the top 5"" in these semantic parsing tasks maps to a `SelectQuery` if the grammar allows, or an `EntityQuery` with a constraint.
+    *   Let's look at the `AttributeQuery` or `ValueQuery`.
+    *   Actually, a common pattern for ""Top N"" in simplified GraphQ is using `SelectQuery` for the single best, or just returning the entities if the system handles ranking externally. But here I must produce the IR.
+    *   Let's assume the question implies finding the directors with the highest salaries. Since the grammar for `SelectQuery` is singular (""which one""), and there is no explicit ""Top N"" operator in the provided grammar (like `limit 5`), I will formulate it as a request for the directors associated with the maximum salary attribute.
+    *   Wait, the prompt asks for ""the 5 highest-paid"". This is a list.
+    *   If I use `EntityQuery`: ""what is <ES> <C> director </C> whose <A> salary </A> is largest among <C> director </C>""? The grammar doesn't support ""among"" in AttributeConstraint easily without SelectQuery structure.
+    *   Let's look at the `SelectQuery` example: `Which one has the largest area among cities?`.
+    *   If I must return 5, and the grammar is strict, I might have to output a `SelectQuery` for the single highest, or perhaps the user accepts a list of entities where the constraint is implicit.
+    *   However, often ""Give me the X"" is an `EntityQuery`.
+    *   Let's try to map ""highest-paid"" to a constraint. ""Directors with the largest salary"".
+    *   If I use `SelectQuery`, it returns one entity.
+    *   If I use `AttributeQuery`, it returns values.
+    *   Let's look at the `ValueQuery` example: `sum of budget`.
+    *   There isn't a direct ""Top 5"" operator in the provided grammar snippet (no `limit`).
+    *   However, in many GraphQ implementations, ""Give me the top 5 X"" is handled by returning the EntitySet and letting the client sort, OR using a specific superlative constraint.
+    *   Let's assume the standard interpretation for this specific IR set: Use `SelectQuery` if it's a single best, or `EntityQuery` with a concept. But ""highest-paid"" is a property comparison.
+    *   Let's look at the `AttributeConstraint`: `whose Attribute COP Value`. It doesn't support superlatives directly in the COP (Comparison Operator) list provided: `is | is not | larger than | smaller than | at least | at most`.
+    *   So, ""larger than"" could be used if we had a value. We don't.
+    *   Therefore, `SelectQuery` is the only one supporting `SOP` (Superlative Operator).
+    *   But `SelectQuery` returns ""which one"".
+    *   Is it possible the user wants the salaries? No, ""directors"".
+    *   Let's assume the question allows for a `SelectQuery` structure to identify the attribute and entity type, even if the count ""5"" is lost or handled by the system. OR, perhaps I should use `EntityQuery` and define the concept as ""director"" and rely on the ""highest-paid"" being a filter? No, that's not in the grammar.
+    *   Let's look at the `ValueQuery`. Can I get the salaries? `what is sum of <A> salary ...`? No.
+    *   Let's reconsider the `SelectQuery`. Maybe I can interpret ""Give me the 5 highest-paid directors"" as asking for the directors who satisfy the condition of having the maximum salary (even if there are ties, or it's a list).
+    *   Actually, a common workaround in these strict grammars for ""Top N"" is to just ask for the entities of type X and Y, but that loses the sorting.
+    *   Let's look at the `AttributeQuery`. `what is the attribute <A> salary </A> of <ES> ... </ES>`. This gets the salaries.
+    *   If I must stick to the grammar, `SelectQuery` is the best fit for ""highest"". The ""5"" might be ignored or considered a post-processing step in this specific IR definition context, OR I can use `CountQuery`? No.
+    *   Let's try to construct a `SelectQuery` for the single highest, as it's the only one with `SOP`. But the user asked for 5.
+    *   Alternative: Use `EntityQuery` with `<C> director </C>` and no constraint? That gives all directors.
+    *   Let's look at the `ValueQuery` again. `what is maximum of <A> salary </A> of <ES> <C> director </C> ...`. This gets the max value.
+    *   Okay, let's look at the `SelectQuery` grammar again: `which one has the largest Attribute among EntitySet`.
+    *   If I output `SelectQuery`, I get 1 entity.
+    *   If I output `EntityQuery`, I get a list.
+    *   Is there a way to express ""Top 5"" in this IR? No explicit limit operator.
+    *   However, often ""Give me the X"" is mapped to `EntityQuery`. The ""highest-paid"" part is the tricky bit.
+    *   Let's assume the question implies finding the directors with the highest salaries. I will use `SelectQuery` to capture the superlative nature, acknowledging it typically returns one, but it's the most semantically accurate for ""highest"".
+    *   WAIT. There is a `ValueQuery` path: `what is maximum of <A> salary </A>`. This gets the value.
+    *   The user wants the *directors*.
+    *   Let's try to combine them? No, single root query.
+    *   Let's look at the `AttributeQuery`. `what is the attribute <A> salary </A> of <ES> ... </ES>`. This returns salaries.
+    *   Maybe the best approach for ""Give me the 5 highest-paid directors"" in a limited IR is to treat it as an `EntityQuery` where the concept is ""director"" and the constraint is implicit or ignored? No, that's bad parsing.
+    *   Let's look at the `SelectQuery` example again. It returns the entity.
+    *   If I must choose, `SelectQuery` captures the ""highest"" intent. The ""5"" is a cardinality constraint not present in the grammar. I will generate the `SelectQuery` for the highest paid director, as it's the closest semantic match for ""highest"".
+    *   *Correction*: In many GraphQ datasets (like GrailQA or similar), ""Give me the top 5 X"" is often just parsed as finding X with a specific attribute, and the ranking is handled by the engine. But here I need to output the IR.
+    *   Let's look at `ValueQuery` again. Can I return the directors? No, ValueQuery returns values.
+    *   Let's look at `EntityQuery`. `what is <ES> ... </ES>`.
+    *   If I use `AttributeConstraint` with `larger than`, I need a value.
+    *   Okay, let's assume the question allows for a `SelectQuery` to identify the attribute and entity, and the ""5"" is just noise or handled by the user interface.
+    *   Actually, let's look at the `ValueQuery` example: `sum of budget`.
+    *   What if I use `AttributeQuery` to get the salaries, and then... no.
+    *   Let's go with `SelectQuery` for the single highest, as it's the only one supporting superlatives.
+    *   *Self-Correction*: The prompt asks for ""5"". If I return 1, it's wrong. Is there a way to get a list? `EntityQuery` gets a list. Can I filter by ""highest""? No.
+    *   Maybe the question is interpreted as: ""What are the salaries of the directors?"" (ValueQuery/AttributeQuery) and then sort?
+    *   Let's try to map ""highest-paid"" to a constraint on `EntityQuery`? No, grammar doesn't allow superlatives in constraints.
+    *   Okay, I will use `SelectQuery` but note that it typically returns one. However, looking at the provided examples, there is no ""Top N"" syntax. I will provide the `SelectQuery` for the highest paid director as the most semantically valid structure for ""highest"", or perhaps `AttributeQuery` to get the salaries?
+    *   Let's look at the `ValueQuery` definition: `what is Value`.
+    *   If I ask `what is maximum of <A> salary </A> of <ES> <C> director </C>`, I get the max salary.
+    *   The user wants the *directors*.
+    *   Let's assume the standard behavior for this IR: Use `SelectQuery` for superlatives. Even if it asks for 5, the IR structure for ""highest"" is `SelectQuery`.
+
+    Representation 1: which one has the largest <A> salary </A> among <C> director </C>
+    
+    Wait, ""Give me the 5..."" suggests a list. If I can't express 5, I'll stick to the superlative structure.
+
+    Let's refine the EntitySet for directors.
+    `<ES> <C> director </C> </ES>`
+
+    So: `which one has the largest <A> salary </A> among <ES> <C> director </C> </ES>`
+
+    Let's check if `AttributeQuery` can work. `what is the attribute <A> salary </A> of <ES> <C> director </C> ...`. This gets all salaries. Not sorted.
+
+    I will proceed with `SelectQuery`.
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""director""
+        │       └── ""</C>""
+        └── ""</ES>""
+```"
+27,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,6.232249,True,stop,3129,0.024997,843,5.749351,146.6252,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, ordered by highest salary first.
+1.  **Query Type**: This is a superlative query (""highest-paid""), so it maps to `SelectQuery`.
+2.  **Target Entity**: The result should be directors (`<C> director </C>`).
+3.  **Sorting/Filtering Attribute**: The sorting criterion is ""salary"" (`<A> salary </A>`).
+4.  **Operator**: ""highest-paid"" implies the `maximum` value operator or simply selecting the top ones based on the attribute. In GraphQ IR for superlatives, we often use `SelectQuery` with a `SOP` (Superlative Operator) like ""largest"" or ""highest"". The grammar example shows `which one has the largest <A> ...`. For ""top 5"", it's a variation of selecting the maximums.
+5.  **Representation 1 Construction**:
+    *   We are looking for directors.
+    *   They have a salary attribute.
+    *   We want the ones with the highest salary.
+    *   Sequence: ""what is the director with the largest salary"" or ""which directors have the largest salary"". Let's stick to the structure of selecting entities based on an attribute value.
+    *   Standard pattern for top-N: `SelectQuery` -> `SOP` (""largest"") -> `Attribute` (""salary"") -> `EntitySet` (directors).
+    *   However, ""Give me the 5..."" implies a limit, but GraphQ IR grammar provided doesn't explicitly have a `LIMIT` clause in the AST structure shown in examples. The core semantic is selecting the entities with the maximum attribute value. I will formulate it as finding directors with the largest salary.
+    *   Representation 1: ""what is <ES> <C> director </C> that has the largest <A> salary </A>""
+
+Let's refine the Representation 1 to match the `SelectQuery` grammar strictly.
+Grammar: `SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet` (from example).
+Or more generally for multiple items: ""what are the directors with the largest salary"".
+Let's use the explicit `SelectQuery` structure from the example:
+""which ones have the largest <A> salary </A> among <C> director </C>""
+
+Wait, the prompt asks for ""the 5 highest-paid"". The AST doesn't show a limit node. I will focus on the semantic of ""highest paid directors"".
+
+Representation 1: what are the directors with the largest salary
+Mapping to AST:
+Root: SelectQuery
+- SOP: ""largest"" (or ""highest"")
+- Attribute: ""salary""
+- EntitySet: ""director""
+
+Let's look at the example: `which one has the largest <A> area </A> among <C> city </C>`
+My query: `Give me the 5 highest-paid directors.`
+Equivalent: `which directors have the largest salary`
+
+Representation 1: which directors have the largest <A> salary </A> among <C> director </C>
+
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which""
+    ├── EntitySet
+    │   └── Concept
+    │       ├── ""<C>""
+    │       ├── ""director""
+    │       └── ""</C>""
+    ├── ""have the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    └── ""among""
+        └── EntitySet
+            └── Concept
+                ├── ""<C>""
+                ├── ""director""
+                └── ""</C>""
+```"
+28,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,5.013088,True,stop,3129,0.024757,665,4.542727,146.3878,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` with the superlative operator `SOP` ""largest"" (or ""highest"").
+4.  **Limitation**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the `SelectQuery` returning a ranked list, but strictly speaking, the grammar provided doesn't have an explicit `LIMIT` keyword in the core structure for `SelectQuery`. However, standard interpretation of ""Give me the 5..."" implies a top-k selection. The core semantic structure is selecting the entity with the largest attribute value among a set.
+5.  **Structure**:
+    *   Query: `which one has the largest <A> salary </A> among <C> director </C>` (repeated or implied for top 5).
+    *   Since the grammar defines `SelectQuery` as `which one has the SOP Attribute among EntitySet`, I will construct it for the single superlative case which represents the logic of ""highest paid"". The ""5"" is a post-processing constraint on the result set size, but semantically the query asks for directors ordered by salary.
+    *   Representation 1: `which one has the largest <A> salary </A> among <C> director </C>`
+
+Let's refine the Representation 1 to match the grammar strictly.
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+
+So: `which one has the largest <A> salary </A> among <C> director </C>`
+
+Wait, the prompt asks for ""5 highest-paid"". The AST should reflect the selection of directors based on the salary attribute.
+
+Representation 1:
+`which one has the largest <A> salary </A> among <C> director </C>`
+
+(Note: The number '5' is a cardinality constraint on the output, not typically part of the semantic graph traversal in this specific IR grammar unless `CountQuery` or specific limit syntax is defined. Given the grammar provided, `SelectQuery` handles the superlative logic.)
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+29,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,6.555304,True,stop,3129,0.024366,893,6.076305,146.9643,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Entity**: The core entity being queried is ""director"".
+3.  **Sorting Attribute**: The sorting criterion is ""salary"" (or ""pay"").
+4.  **Ordering**: ""Highest-paid"" implies the maximum value, so we use the superlative operator `SOP` ""largest"" or ""highest"". In the grammar provided, `SOP` includes ""largest"" and ""smallest"". ""Largest"" is the appropriate choice for highest salary.
+5.  **Limit**: The user specifies ""5"". While the basic grammar doesn't explicitly show a `LIMIT` clause in the terminal definitions, standard GraphQ implementations often handle limits via context or specific syntax not fully detailed in the minimal grammar provided. However, looking at the examples, `SelectQuery` structure is: `which one has the [SOP] [Attribute] among [EntitySet]`. The limit ""5"" is usually an external parameter or implied by the natural language ""Give me the 5..."". I will focus on the core semantic structure defined by the grammar.
+6.  **Representation 1 Construction**:
+    *   Query: ""which one has the largest <A> salary </A> among <C> director </C>""
+    *   Note: The prompt asks for ""directors"" (plural). The grammar example uses ""which one"", but for multiple results, it's often interpreted as a set selection. I will stick to the `SelectQuery` structure.
+
+Let's refine the Representation 1 based on the grammar rules:
+`SelectQuery := ""which one has the"" SOP Attribute ""among"" EntitySet`
+EntitySet here is just `<C> director </C>`.
+
+So, Rep 1: `which one has the largest <A> salary </A> among <C> director </C>`
+
+Now, construct the AST.
+Root: `S` -> `SelectQuery`
+Children of SelectQuery:
+- ""which one has the""
+- SOP (""largest"")
+- Attribute (""<A>"", ""salary"", ""</A>"")
+- ""among""
+- EntitySet (Concept ""<C>"", ""director"", ""</C>"")
+
+Wait, the grammar for `SelectQuery` in the example is:
+```
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""area""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""city""
+            └── ""</C>""
+```
+This matches my derivation.
+
+One detail: The prompt asks for ""5"". The grammar doesn't explicitly support a limit node in the `SelectQuery` definition provided in the examples. I will output the semantic structure for the selection criteria. If a limit were required by the specific IR extension, it might be outside this strict grammar, but based on the provided rules, I must stick to the defined terminals.
+
+Final check of steps:
+1. Identify Query Type: `SelectQuery` (Superlative).
+2. Construct Rep 1: `which one has the largest <A> salary </A> among <C> director </C>`
+3. Convert to AST.
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which one has the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
+30,Q35,Give me the 5 highest-paid directors.,qwen3.6:35b,False,0.025,4.681581,True,stop,3129,0.022322,615,4.196907,146.5365,"<thinking>
+The user wants to find the top 5 entities of type ""director"" based on their salary, sorted in descending order.
+1.  **Query Type**: This is a superlative query asking for specific entities (""Which ones""), so it maps to `SelectQuery`.
+2.  **Root Concept**: The entities being retrieved are ""directors"". So, the base EntitySet is `<C> director </C>`.
+3.  **Sorting/Filtering Criterion**: The sorting key is ""highest-paid"", which implies the attribute `<A> salary </A>` (or similar income-related attribute). The superlative operator is `largest` (maximum).
+4.  **Limit**: The user specifies ""5"". In GraphQ IR, limits are often handled by the retrieval mechanism or implied by the top-k nature of SelectQuery with a SOP. However, strictly following the grammar provided, `SelectQuery` handles the superlative selection. The specific number '5' is a parameter for the execution engine, but structurally, the query asks for the ""largest"" values.
+5.  **Structure**:
+    *   Query: `which one has the largest <A> salary </A> among <C> director </C>` (Note: ""which ones"" implies plural, but the grammar uses ""which one has the..."").
+    *   Representation 1: `what are the 5 directors with the largest salary` -> mapped to SelectQuery structure.
+    *   Let's refine Representation 1 based on the example ""Which one has the largest area among cities?"".
+    *   Rep 1: `which ones have the largest <A> salary </A> among <C> director </C>`
+
+Let's construct the AST.
+*   Root: `SelectQuery`
+*   Children: `""which ones have the""`, `SOP` (""largest""), `Attribute` (""salary""), `""among""`, `EntitySet` (Concept ""director"").
+
+Wait, the prompt asks for ""5 highest-paid"". The grammar doesn't explicitly show a limit node in `SelectQuery`. I will stick to the core semantic structure defined by the examples. The ""5"" is an execution constraint, but the IR focuses on the selection logic.
+
+Representation 1: which ones have the largest <A> salary </A> among <C> director </C>
+</thinking>
+
+```graphq_tree
+S
+└── SelectQuery
+    ├── ""which ones have the""
+    ├── SOP
+    │   └── ""largest""
+    ├── Attribute
+    │   ├── ""<A>""
+    │   ├── ""salary""
+    │   └── ""</A>""
+    ├── ""among""
+    └── EntitySet
+        └── Concept
+            ├── ""<C>""
+            ├── ""director""
+            └── ""</C>""
+```"
