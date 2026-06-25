@@ -1,0 +1,3388 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,27.065114,True,length,2978,0.036052,3072,26.439151,116.1913,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <R> pay </R> backward to <E> ones </E> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""5 highest-paid directors combined"":
+The target is a sum of an attribute.
+The set being summed is: the top 5 directors by pay.
+The constraint on the actors: their father has money > that sum.
+
+Let's re-structure based on Grammar:
+Root: EntityQuery (what is <ES>...)
+EntitySet: <C> actor </C> constrained by RelationConstraint (<R> father </R> forward to <ES> ...)
+The target EntitySet for the relation 'father' is a set of people whose attribute 'money' > Value.
+Value = sum of Attribute 'money' of (the 5 largest-paid directors).
+
+Refined Representation 1:
+what is <ES> <C> actor </E> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+
+Actually, the grammar for ""largest"" is a Superlative (SOP) within a Constraint.
+The constraint on directors: ""that pay [is] largest 5"". This is tricky with the provided grammar.
+Let's use: <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> ... no, ""largest 5"" isn't a standard grammar unit.
+Let's use: <ES> <C> director </C> that <R> pay </R> backward to <E> ones </E> that <SOP> largest </SOP> 5 </ES>.
+
+Wait, the grammar for RelationConstraint is: `that Relation DIR to (COP Value?)? EntitySet`.
+The ""5 highest-paid directors"" can be seen as an EntitySet.
+Let's try:
+what is <ES> <C> actor </C> that <R> father </E> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+
+Actually, looking at the grammar:
+`Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?`
+`AttributeConstraint := ""whose"" Attribute COP Value | ""that"" ""have"" SOP Attribute`
+`RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet | ""that"" Relation DIR ""to"" SOP EntitySet`
+
+So:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+Wait, ""5"" is a value. The grammar says `SOP EntitySet`.
+Let's use: `<ES> <C> director </C> that <R> pay </R> backward to <E> ones </E> that <SOP> largest </SOP> 5 </ES>`? No, the grammar doesn't support ""largest 5"" directly as a number.
+But I can use `Value` for the comparison.
+
+Let's simplify:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+Actually, the grammar for `RelationConstraint` allows `to SOP EntitySet`.
+So: `<R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES>` is not quite right.
+Let's use: `<R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> <E> 5 </E> </ES>`? No, 5 is a value.
+
+Let's try this structure:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </A> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+Wait, the grammar for `Value` includes `Attribute ""of"" EntitySet`.
+The comparison `is larger than` needs a `Value`.
+So: `<A> money </A> is larger than <V> sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </V>`
+
+Let's refine the ""5 highest-paid directors"" part.
+`EntitySet := <ES> Concept EntitySet </ES>`
+`Constraint := RelationConstraint ...`
+`RelationConstraint := ""that"" Relation DIR ""to"" SOP EntitySet`
+So: `<ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES>` is still messy.
+
+Let's use the most direct interpretation of the grammar:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+Wait, `5` must be a `<V>`.
+Let's use:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> <V> 5 </V> </ES> </ES> </ES>
+Actually, the grammar for `RelationConstraint` says: `that Relation DIR to SOP EntitySet`.
+So I need an `EntitySet` there.
+`<R> pay </R> backward to <ES> <C> director </CS> that <SOP> largest </SOP> 5 </ES>`... the grammar doesn't allow a number as an EntitySet directly unless it's a Concept or Entity.
+
+Let's assume ""5"" is the size of the set.
+The most compliant way:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+(I will treat the number 5 as a terminal node in the EntitySet logic).
+
+Final attempt at Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <E> person </E> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+Wait, `person` should be a `<C>`.
+And the comparison: `is larger than` is a `COP`.
+The value being compared to is `sum of ...`.
+
+Let's look at `Value`: `VOP ""of"" Value`.
+So: `sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES>`
+This fits.
+The constraint on the person: `whose <A> money </A> is larger than [Value]`.
+
+Final Sequence:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES> </ES> </ES>
+Wait, `5` isn't an EntitySet. I will use `<E> 5 </E>` to satisfy the grammar for a terminal node in the set.
+
+Actually, let's look at: `RelationConstraint := ""that"" Relation DIR ""to"" SOP EntitySet`.
+So: `<R> pay </R> backward to <ES> <C> director </C> that <SOP> largest </SOP> 5 </ES>` is valid if `5` is an EntitySet. I'll use `<E> 5 </E>`.
+
+One more check: `AttributeConstraint := ""whose"" Attribute COP Value`.
+So: `<A> money </A> is larger than [Value]`.
+This works.
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── Concept
+        │           │   ├── ""<C>""
+        │           │   ├── ""person""
+        │           │   └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── RelationConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── Relation
+        │           │                   │       │   ├── ""<R>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</R>""
+        │           │                   │       ├── DIR
+        │           │                   │       │   └── ""backward""
+        │           │                   │       ├── ""to""
+        │           │                   │       └── EntitySet
+        │           │                   │           ├── ""<ES>""
+        │           │                   │           ├── Concept
+        │           │                   │           │   ├── ""<C>""
+        │           │                   │           │   ├── ""director""
+        │           │                   │           │   └── ""</C>""
+        │           │                   │           ├── Constraint
+        │           │                   │           │   └── RelationConstraint
+        │           │                   │           │       ├── ""that""
+        │           │                   │           │       ├── Relation
+        │           │                   │           │       │   ├── ""<R>""
+        │           │                   │           "
+2,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,14.108992,True,stop,2978,0.054756,1536,13.088848,117.3518,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+3,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.730672,True,stop,2978,0.058037,1536,13.084939,117.3869,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+4,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.727878,True,stop,2978,0.05812,1536,13.060826,117.6036,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+5,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.665224,True,stop,2978,0.057916,1536,13.021201,117.9615,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+6,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.808721,True,stop,2978,0.059609,1536,13.156975,116.7442,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+7,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.709494,True,stop,2978,0.057701,1536,13.060137,117.6098,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+8,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.841065,True,stop,2978,0.059619,1536,13.185727,116.4896,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+9,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.771219,True,stop,2978,0.057946,1536,13.096225,117.2857,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+10,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.760294,True,stop,2978,0.057818,1536,13.097531,117.274,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+11,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.845671,True,stop,2978,0.058078,1536,13.175768,116.5776,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+12,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.804134,True,stop,2978,0.058898,1536,13.179869,116.5414,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+13,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.786556,True,stop,2978,0.058586,1536,13.145277,116.8481,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+14,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.787198,True,stop,2978,0.095839,1536,13.084304,117.3926,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+15,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.759109,True,stop,2978,0.074216,1536,13.100038,117.2516,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+16,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.834786,True,stop,2978,0.059509,1536,13.195491,116.4034,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+17,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.683379,True,stop,2978,0.057743,1536,13.030544,117.8769,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+18,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.71665,True,stop,2978,0.057175,1536,13.051501,117.6876,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+19,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.737925,True,stop,2978,0.069268,1536,13.048925,117.7108,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+20,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.937768,True,stop,2978,0.109616,1536,13.255658,115.875,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+21,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.74844,True,stop,2978,0.058928,1536,13.09794,117.2703,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+22,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.77588,True,stop,2978,0.056172,1536,13.118676,117.085,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+23,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.742305,True,stop,2978,0.059596,1536,13.124662,117.0316,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+24,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.882406,True,stop,2978,0.060634,1536,13.254444,115.8857,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+25,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.790023,True,stop,2978,0.060544,1536,13.133508,116.9528,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+26,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.823753,True,stop,2978,0.109073,1536,13.111293,117.1509,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+27,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.773635,True,stop,2978,0.058793,1536,13.112865,117.1369,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+28,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.840302,True,stop,2978,0.059075,1536,13.177947,116.5584,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+29,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.986301,True,stop,2978,0.060818,1536,13.323135,115.2882,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"
+30,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,13.787456,True,stop,2978,0.059054,1536,13.130673,116.978,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <R> pay </R> backward to <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES> </ES>
+
+Wait, let's refine the logic for ""the 5 highest-paid directors combined"":
+The query asks for actors whose father has more money than a specific value (the sum of money of the top 5 directors).
+
+Let's re-evaluate:
+Root: EntityQuery
+Target: <ES> <C> actor </C> ... </ES>
+Constraint on Actor: <R> father </R> forward to <ES> <C> person </ES> that <A> money </A> is larger than [Value]
+Value: sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>
+
+Wait, ""the 5 highest-paid directors"" implies a selection/limit. The grammar supports `SOP` (superlative) and `AttributeConstraint`.
+The constraint on the father's money: `<A> money </A> is larger than <V> ... </V>`
+The value to compare against: `sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES>`
+
+Let's check the grammar for ""largest 5"". The grammar has `SOP` (largest/smallest) but doesn't explicitly have a 'limit' keyword, however, it allows `AttributeConstraint` with `Value`. I will represent the sum of the top 5 as an aggregated value.
+
+Refined Representation 1:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </E> is largest 5 </ES> </ES> </ES>
+Actually, the grammar for `Value` allows `VOP ""of"" Value`.
+The comparison `is larger than` is a `COP`.
+
+Let's structure it:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> that <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+Wait, the grammar for `RelationConstraint` is: `that Relation DIR to (COP Value?)? EntitySet`.
+The constraint on the father (the person) is an `AttributeConstraint`: `whose Attribute COP Value`.
+
+Let's try again:
+what is <ES> <C> actor </C> that <R> father </R> forward to <ES> <C> person </C> whose <A> money </A> is larger than sum of <A> money </A> of <ES> <C> director </C> that <A> pay </A> is largest 5 </ES> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""father""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""forward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           ├── ""<ES>""
+        │           ├── EntitySet
+        │           │   └── Concept
+        │           │       ├── ""<C>""
+        │           │       ├── ""person""
+        │           │       └── ""</C>""
+        │           ├── Constraint
+        │           │   └── AttributeConstraint
+        │           │       ├── ""whose""
+        │           │       ├── Attribute
+        │           │       │   ├── ""<A>""
+        │           │       │   ├── ""money""
+        │           │       │   └── ""</A>""
+        │           │       ├── COP
+        │           │       │   └── ""is larger than""
+        │           │       └── Value
+        │           │           ├── VOP
+        │           │           │   └── ""sum""
+        │           │           ├── ""of""
+        │           │           └── Value
+        │           │               ├── Attribute
+        │           │               │   ├── ""<A>""
+        │           │               │   ├── ""money""
+        │           │               │   └── ""</A>""
+        │           │               ├── ""of""
+        │           │               └── EntitySet
+        │           │                   ├── ""<ES>""
+        │           │                   ├── EntitySet
+        │           │                   │   └── Concept
+        │           │                   │       ├── ""<C>""
+        │           │                   │       ├── ""director""
+        │           │                   │       └── ""</C>""
+        │           │                   ├── Constraint
+        │           │                   │   └── AttributeConstraint
+        │           │                   │       ├── ""that""
+        │           │                   │       ├── ""have""
+        │           │                   │       ├── Attribute
+        │           │                   │       │   ├── ""<A>""
+        │           │                   │       │   ├── ""pay""
+        │           │                   │       │   └── ""</A>""
+        │           │                   │       └── QualifierConstraint
+        │           │                   │           ├── <Q>
+        │           │                   │           ├── ""largest""
+        │           │                   │           └── </Q>
+        │           │                   │           ├── COP
+        │           │                   │           │   └── ""is""
+        │           │                   │           └── Value
+        │           │                   │               ├── VTYPE
+        │           │                   │               ├── ""number""
+        │           │                   │               ├── <V>
+        │           │                   │               ├── ""5""
+        │           │                   │               └── </V>
+        │           │                   │       └── (Note: 5 is a value)
+        │           │                   └── ""</ES>""
+        │           └── ""</ES>""
+        └── ""</ES>""
+```"

@@ -12,58 +12,39 @@ The IR must be:
 
 **Step 1. Identify Targets**
 
-* `target`: Identify the elements the user is actually asking for. This must be a primitive identifier (`ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`) or a simple collection/value (`LIST`, `EXPRESSION`, `CONDITION`). 
-* **Mandatory JSON Array Structure**: The `target` MUST always be a valid JSON array containing ONLY flat identifiers (e.g., `["e1"]`) OR exactly one SemGIR construct (e.g., `[{"list": ...}]`). **STRICTLY FORBID** mixing target types, using raw objects as targets, returning unwrapped primitive values, or placing multiple distinct constructs in the array.
-* **Flat Retrieval Default**: For standard entity, relationship, or attribute retrieval queries ("find", "list", "show", "which"), the `target` MUST default to a flat array of direct identifiers (e.g., `["e1"]`) or simple attribute projections (`EXPRESSION -> ATTRIBUTE`). **STRICTLY FORBID** wrapping standard retrievals in `LIST`, `COUNT`, or `SCALAR_AGGREGATE` unless the natural language explicitly requests a collated set, ranked output, or computed value.
-* **Target Purity & Aggregation Boundary**: The `target` defines *what* is returned. All selection logic belongs EXCLUSIVELY in the `constraint` block. **STRICTLY FORBID** using aggregation constructs (e.g., `MAX`, `SUM`) inside the target array to retrieve an entity ID; aggregations return scalar values, not entities. To retrieve the specific entity that possesses a maximum/minimum value, the target must be a flat `ENTITY_ID` and the logic MUST be implemented via `order_by` and `limit`.
-* **Existence Query Format**: For "Whether" or existence queries, use a valid `CONDITION` or `EXPRESSION` as the target. **Literal booleans (e.g., `[true]`) are strictly forbidden.**
-* **Strict Key Prohibition**: The `target` array MUST ONLY contain flat identifiers or valid SemGIR constructs. Ad-hoc JSON structures and map_expressions nested directly inside the target array are strictly forbidden.
+* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `RELATIONSHIP`), a `CONDITION` or a `LIST`.
 
-**Step 2. Identify Entities & Enforce Semantic Boundaries**
+**Step 2. Identify Entities**
 
-* Identify all distinct entities mentioned and assign each a unique, non-descriptive `id` (e.g., `e1`, `r2`). A descriptive ID does NOT substitute for an explicit constraint.
-* **Absolute Ontological Type Boundary**: The `type` field MUST strictly preserve the high-level semantic class/category explicitly named or structurally implied in the prompt. **ABSOLUTELY FORBID** downgrading to generic placeholders (`Person`, `Entity`, `Item`) when specific categories are provided, or deriving types from instance names, roles, professions, titles, or product names (e.g., treating "Tesla" or "OpenAI" as a semantic type instead of a value). Types are ontological categories only; all instance-specific data belongs EXCLUSIVELY in the `constraint` block as attribute comparisons.
-* **Type Fidelity Preservation**: When querying paths, chains, or multi-hop connections, you MUST preserve the exact ontological types specified in the prompt for each hop. **STRICTLY FORBID** changing or downgrading specific categories along traversal edges without explicit logical warrant from the input.
-* **Constraint Integrity**: Constraints must ONLY reflect explicit query requirements. **STRICTLY FORBID** introducing unrequested logical predicates, implied counts, arbitrary thresholds (e.g., `sales > 0`), or auxiliary entities not explicitly warranted by the natural language input.
+* Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
+* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
+* Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
+* If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
 
-**Step 3. Enforce Topology & Extract Relationships**
+**Step 3. Extract Relationships & Paths**
 
-* `relationships`: Extract explicit semantic edges using ROLE-BASED labels. Ensure directionality matches the grammatical flow of the prompt (`from` = subject/promoter, `to` = object/target).
-* **Multi-Participant Anti-Self-Loop Rule**: When a query implies connections between two or more distinct entities (e.g., "relationships between", "influences"), you MUST declare each participant as a separate `ENTITY` node connected via explicit `RELATIONSHIP`s. **ABSOLUTELY FORBID** modeling inter-entity relationships as self-loops (`from == to`) on a single entity. Collapse participants into one node ONLY when explicitly warranted by the prompt.
-* **Topological Integrity Mandate**: All relational concepts—including events, locations, jurisdictions, affiliations, and demographic attributes (e.g., nationality, origin, gender) are structural graph elements. They MUST be modeled as separate `ENTITY` nodes connected via explicit `RELATIONSHIP`s. 
-* **Anti-Simulation Rule (No Topology Bypass)**: **ABSOLUTELY FORBID** simulating graph topology using non-structural means. This includes:
-    1. **Attribute Invention**: Inventing attributes (e.g., 'kingdom', 'reign_order', 'rank') to replace entities or relationship properties.
-    2. **Role Hallucination**: Inventing generic placeholder roles (e.g., 'any', 'related_to', 'connection') to force a link between entities when no specific semantic role is provided in the text.
-    All structural logic must rely on explicitly declared relationships and existing attributes.
-* **Direct Edge Preference**: For any known single-hop or fixed-degree connection between specific entities, use a direct `RELATIONSHIP`. **STRICTLY FORBID** inventing `PATH` objects, intermediate nodes, or auxiliary entities to model logic that can be expressed via a simple relationship. Reserve `paths` ONLY for traversals where the hop count is unknown, variable, or explicitly multi-hop.
-* **Graph Connectivity & Reference Integrity**: All declared entities and relationships MUST form a single, logically connected subgraph with correct directional flow. Verify that `from` and `to` strictly align with semantic roles implied by the context. **STRICTLY FORBID** disconnected components, redundant edges, arbitrary self-loops (`from == to`), or reversed directionality. Every `ENTITY_ID`, `RELATIONSHIP_ID`, or `PATH_ID` used MUST be explicitly declared before reference.
-* **Relationship Attributes**: Data belonging strictly to a connection (e.g., release date, weight, duration, marriage year) MUST be an attribute of the `RELATIONSHIP_ID`, never the `ENTITY_ID`.
+* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels.(e.g., `built`, `wrote`, `acted_in`,`knows`).
+* `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections).A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`, and evaluate its length (hops) or weight (attributes) by applying `COUNT` or `SCALAR_AGGREGATE`.
 
-**Step 4. Build Constraints & Shape Results**
+**Step 4. Build Constraints**
 
-* `constraint`: Filter block combining attribute comparisons, logical operators, and topology checks. 
-* **COMPARISON vs Logical Operator Boundaries (Critical)**: A `COMPARISON` structure is strictly binary and MUST ONLY contain the keys `left`, `operator`, and `right`. **STRICTLY FORBID** placing logical operators (`and_conditions`, `or_conditions`, `not_condition`) or complex structural definitions as siblings to `left`/`right` within a `COMPARISON`. Logical groupings must be standalone `CONDITION` wrappers (`{ and_conditions: [...] }`, etc.) at the root of the `constraint` block.
-* **Scoping & Filter Placement**: Filters that apply exclusively to elements inside a `LIST` MUST be placed in the list's `filter` key. Global constraints apply ONLY to the target entities/relationships. **STRICTLY FORBID** leaking list-scoped predicates (e.g., demographic filters, affiliation checks) into the root `constraint`, and NEVER place global target constraints inside a `LIST.filter`.
-* **Expression Integrity**: The `left` and `right` keys of a `COMPARISON` must be scalar `EXPRESSION` objects (Numbers, Strings, Attributes). Do NOT use logic blocks or structural definitions as operands in a comparison.
-* **Superlatives & Ranking**: Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` only when explicitly demanded by the natural language for sorting, ranking, pagination, or deduplication. **MANDATORY**: Any superlative requirement ("highest", "most", "top-N", "best") MUST be implemented as a combination of `order_by` (sorting by the relevant attribute) AND `limit`. **STRICTLY FORBID** using `limit` for ranking without an accompanying `order_by`.
+* `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
 
-**Step 5. Apply Quantifiers and Aggregations (Lists)**
+**Step 5. Shape Results**
 
-* Always define the set of elements first using a `LIST` and apply filters before aggregating or quantifying.
-* **Strict LIST Wrapper Grammar**: The value of the `list` key must be exactly one extraction construct: `CREATE_LIST`, `NODES{...}`, or `RELATIONS{...}`. **STRICTLY FORBID** nesting a raw `LIST` object inside another `list` key, and NEVER place scoping variables (`node_id`, `rel_id`) directly inside a plain `LIST` object. These keys are exclusively valid ONLY within their respective extraction wrappers.
-* **Direct Check Preference for Existence/Negation**: For simple relational existence or negation (e.g., "works with", "not married to anyone"), prefer direct `RELATIONSHIP_ID` checks combined with logical operators (`AND`, `NOT`) in the constraint. Avoid complex quantifier wrappers when a direct edge comparison is structurally sufficient and less error-prone.
+* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
+
+**Step 6. Apply Quantifiers and Aggregations (Lists)**
+
+* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
 * **Aggregations** (produce a value):
-  * `COUNT`: counts elements in a `LIST`. 
-  * **SCALAR_AGGREGATE Structure**: Keys `aggregate_kind` and `map_expression` MUST be strictly siblings to the `list` key within the `SCALAR_AGGREGATE` object. NEVER nest them inside the list wrapper or place them as children of the list construct. The valid structure is exactly: `{ aggregate_kind: "AGGREGATE_KIND", map_expression: EXPRESSION, list: LIST }`.
-* **Quantification** (is a `CONDITION`):
-  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS`, or `NONE` of a plain `LIST` satisfy a condition. Place directly in the `constraint` block.
-  * **Boundary**: NEVER nest `COUNT` or `SCALAR_AGGREGATE` inside a `QUANTIFIER_PREDICATE`. If numeric comparison is needed, place the aggregation in the `left` or `right` field of a `COMPARISON`.
+  * `COUNT`: counts the number of elements in a `LIST`.
+  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
+* **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
+  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
 
-**Step 6. Form Hypotheses & Isolate Logic**
-
-Output multiple hypotheses ONLY for genuine syntactic/topological ambiguity.
-* **Mandatory Hypothesis Isolation (Union vs Intersection)**: If the natural language presents disjoint alternatives, independent scenarios, or requests for different datasets based on distinct criteria (e.g., "Find X from city A AND Y from city B"), you MUST output separate `QUERY` entries in `HYPOTHESES_SET`. **STRICTLY FORBID** merging these into a single query using `AND`, as this creates a logical intersection filter that forces simultaneous satisfaction of independent conditions (which usually results in an empty set) rather than the intended union.
-* Merge hypotheses ONLY when the conditions explicitly describe concurrent, unified requirements over the same target scope.
+**Step 7. Form Hypotheses**
+Output multiple hypotheses ONLY for genuine syntactic or topological ambiguity. If straightforward, output only one hypothesis.
 
 ---
 

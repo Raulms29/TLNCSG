@@ -1,0 +1,3541 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.384171,True,stop,3140,0.182043,1727,11.738749,147.1196,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+2,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.247752,True,stop,3140,0.022706,1727,11.767895,146.7552,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+3,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.218658,True,stop,3140,0.024674,1727,11.749037,146.9908,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+4,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.478036,True,stop,3140,0.025929,1727,11.98927,144.0455,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+5,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.269407,True,stop,3140,0.043909,1727,11.771995,146.7041,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+6,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.168392,True,stop,3140,0.024673,1727,11.691776,147.7107,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+7,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.189445,True,stop,3140,0.023811,1727,11.706059,147.5304,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+8,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.166167,True,stop,3140,0.022706,1727,11.722808,147.3197,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+9,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.172467,True,stop,3140,0.024792,1727,11.687597,147.7635,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+10,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.229448,True,stop,3140,0.025162,1727,11.732792,147.1943,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+11,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.167106,True,stop,3140,0.0249,1727,11.716671,147.3968,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+12,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.203262,True,stop,3140,0.040299,1727,11.697429,147.6393,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+13,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.398755,True,stop,3140,0.025314,1727,11.916644,144.9234,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+14,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.289014,True,stop,3140,0.025358,1727,11.804917,146.295,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+15,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.271129,True,stop,3140,0.023856,1727,11.774742,146.6699,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+16,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.300002,True,stop,3140,0.024074,1727,11.813036,146.1944,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+17,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.302889,True,stop,3140,0.025425,1727,11.808138,146.2551,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+18,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.464608,True,stop,3140,0.043556,1727,11.96833,144.2975,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+19,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.216998,True,stop,3140,0.025167,1727,11.734446,147.1735,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+20,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.247548,True,stop,3140,0.024845,1727,11.754719,146.9197,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+21,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.214558,True,stop,3140,0.024857,1727,11.733861,147.1809,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+22,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.227585,True,stop,3140,0.025017,1727,11.757975,146.879,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+23,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.171957,True,stop,3140,0.025091,1727,11.69024,147.7301,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+24,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.233838,True,stop,3140,0.025206,1727,11.757642,146.8832,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+25,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.262809,True,stop,3140,0.039978,1727,11.776972,146.6421,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+26,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.181063,True,stop,3140,0.024995,1727,11.72131,147.3385,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+27,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.225814,True,stop,3140,0.024803,1727,11.753984,146.9289,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+28,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.211997,True,stop,3140,0.024792,1727,11.74317,147.0642,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+29,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.262525,True,stop,3140,0.024956,1727,11.777302,146.638,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"
+30,Q18,Give me the actors who earn more than 2000€ or have appeared in Alien.,qwen3.6:35b,False,0.0,12.157355,True,stop,3140,0.025006,1727,11.692485,147.7017,"<thinking>
+Representation 1: what is <ES> <C> actor </C> that <R> earn </R> forward to <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Let's refine the structure. We are looking for actors (Concept).
+Condition 1: They earn more than 2000€. This is an AttributeConstraint on the Actor entity. ""whose <A> salary </A> larger than <V> 2000 </V>"" (assuming 'salary' or 'earnings' is the attribute for earning money, but usually in these schemas, relations like 'earn' might link Actor to Money/Amount. However, the prompt says ""earn more than"", which implies a value comparison. Let's assume there is an attribute `salary` or we use a relation `earn` linking to a Value node. Given the grammar `AttributeConstraint := ""whose"" Attribute COP Value`, it suggests attributes hold values directly. If the schema uses relations for money, it would be `RelationConstraint`. Let's look at standard Wikidata-like schemas. Often `salary` is an attribute. Or `earnings` is a relation to a monetary value.
+Let's assume a simpler interpretation often found in these tasks: ""earn"" is a relation to a monetary amount? No, usually ""earn"" isn't a direct edge type in simple KGs unless specified. Let's look at the second part: ""appeared in Alien"". This is clearly `Actor` --(appear in)--> `Movie`.
+For the first part ""earn more than 2000€"", if we treat it as an attribute constraint, we need an attribute like `salary`. If we treat it as a relation, we need a node type for money.
+Let's stick to the most robust interpretation: The user asks for actors satisfying *either* condition.
+Condition A: Actor has salary > 2000.
+Condition B: Actor appeared in Alien.
+
+Let's assume `salary` is an attribute of `actor`.
+Constraint A: whose <A> salary </A> larger than <V> 2000 </V>
+Constraint B: that <R> appear in </R> backward to <E> Alien </E>
+
+The EntitySet is the union (OR) of these two sets.
+<ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> or <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES>
+
+Wait, the grammar for LOP inside EntitySet is:
+`EntitySet := ""<ES>"" EntitySet LOP EntitySet ""</ES>""`
+So we have two EntitySets combined by OR.
+Set 1: <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V>
+Set 2: <C> actor </C> that <R> appear in </R> backward to <E> Alien </E>
+
+Let's verify the ""earn"" part. If ""earn"" is not an attribute but a relation, it might be `Actor` --(earned)--> `Money`. But comparing money nodes directly is complex. Usually, ""salary"" is an attribute. I will use `salary` as the attribute. If the schema doesn't have salary, this might fail, but without schema info, `salary` is the standard attribute for earnings.
+
+Let's re-read carefully: ""actors who earn more than 2000€"".
+If I assume `earn` is a relation to a value node, it would be:
+`that <R> earn </R> forward to <V> 2000 </V>`? No, that checks equality or existence. ""More than"" implies comparison. Attributes support comparison (`larger than`). Relations generally do not in this simplified grammar unless they link to comparable values which is rare for simple IRs. So `AttributeConstraint` is the best fit.
+
+So:
+1. EntityQuery
+2. Root EntitySet with LOP ""or""
+3. Left Child: EntitySet filtered by Concept ""actor"" and AttributeConstraint (salary > 2000)
+4. Right Child: EntitySet filtered by Concept ""actor"" and RelationConstraint (appear in backward to Alien)
+
+Representation 1: what is <ES> <ES> <C> actor </C> whose <A> salary </A> larger than <V> 2000 </V> </ES> or <ES> <C> actor </C> that <R> appear in </R> backward to <E> Alien </E> </ES> </ES>
+
+Let's double check the nesting.
+`<ES>` (Root)
+  `EntitySet` (Left)
+    `<ES>` (Inner Left)
+      `Concept` ""actor""
+      `Constraint`
+        `AttributeConstraint`
+          ""whose""
+          `Attribute` ""salary""
+          ""larger than""
+          `Value` ""2000""
+    `LOP` ""or""
+  `EntitySet` (Right)
+    `<ES>` (Inner Right)
+      `Concept` ""actor""
+      `Constraint`
+        `RelationConstraint`
+          ""that""
+          `Relation` ""appear in""
+          ""backward""
+          ""to""
+          `EntitySet`
+            `Entity` ""Alien""
+
+This looks correct according to the grammar.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── AttributeConstraint
+        │   │       ├── ""whose""
+        │   │       ├── Attribute
+        │   │       │   ├── ""<A>""
+        │   │       │   ├── ""salary""
+        │   │       │   └── ""</A>""
+        │   │       ├── COP
+        │   │       │   └── ""larger than""
+        │   │       └── Value
+        │   │           └── ""<V>""
+        │   │               ├── ""2000""
+        │   │               └── ""</V>""
+        │   └── ""</ES>""
+        ├── LOP
+        │   └── ""or""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""actor""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""appear in""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Alien""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        └── ""</ES>""
+```"

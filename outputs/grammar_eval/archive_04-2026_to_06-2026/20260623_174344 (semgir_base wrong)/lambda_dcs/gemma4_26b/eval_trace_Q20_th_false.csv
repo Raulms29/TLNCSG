@@ -1,0 +1,1842 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+lambda_dcs,1,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,10.760157,True,stop,1686,0.033761,1191,10.152122,117.3154,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(Actor.In.x <0xE2><0x8A><0x93> BornIn.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. However, since I must follow the grammar strictly and the grammar uses `RELATION.SET` for joins:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.In.x <0xE2><0x8A><0x93> BornIn.Oviedo)
+```
+
+Actually, looking at the provided examples like ""authors who have written more than 5 books"", I should use the relation to link the movie to the actor's property. The most accurate way within the grammar for ""at least one"" is to find movies that satisfy the existence of the condition through a join:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(ActorIn.m.a <0xE2><0x8A><0x93> BornIn.a.Oviedo))
+```
+Wait, I must stick *strictly* to the grammar provided. The grammar does not have `∃`. It has `RELATION.SET`. To express ""Movies where an actor is from Oviedo"", I can traverse: `Movie <0xE2><0x8A><0x93> (λm.HasActor.(Actor <0xE2><0x8A><0x93> BornIn.Oviedo))`. But `HasActor` isn't a fixed relation, it's a property of the movie. Let's use the reverse operator or dot notation.
+
+If a Movie has an Actor, and that Actor is from Oviedo:
+`Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)` -> This doesn't work because `BornIn.Oviedo` is a set of people.
+
+Let's use the pattern from ""the books written by George Orwell"": `Book <0xE2><0x8A><0x81> WrittenBy.GeorgeOrwell`.
+Here: `Movie <0xE2><0x8A><0x93> (λm.HasActor.(Actor <0xE2><0x8A><0x93> BornIn.Oviedo))` is not quite right because `HasActor` isn't a simple relation in the grammar unless we treat it as an implicit join.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)
+```
+Wait, if `R[HasActor].m` returns the set of actors in movie `m`, then we intersect that set with the set of people born in Oviedo. If that intersection is not empty, the movie qualifies. However, the grammar doesn't have a ""non-empty"" operator. 
+
+But looking at the example: `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`.
+I can use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(count(R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)).GreaterThan.0)
+```
+
+Actually, the simplest way to represent ""Movies in which an actor is from Oviedo"" using the provided `RELATION.SET` and `R[...]` logic:
+The set of actors from Oviedo is `(Actor <0xE2><0x8A><0x93> BornIn.Oviedo)`.
+We want movies that have at least one such actor.
+Using the pattern `WrittenBy.GeorgeOrwell`:
+If we reverse `HasActor` to `ActorIn`, then `ActorIn.Movie` gives the movie.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)
+```
+Wait, I'll use the most direct interpretation of the grammar:
+```lambda-dcs
+(λm.count(R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)).GreaterThan.0
+```
+But the target is `Movie`.
+
+Let's try:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)
+```
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, if I treat the relation as a filter:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> BornIn.Oviedo)` is not valid because `HasActor` needs an object.
+
+Let's use the lambda to check the intersection:
+```lambda-dcs
+(λm.count(R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)).GreaterThan.0
+```
+Wait, the target must be a SET or VALUE. The query asks for ""the movies"". So the result must be a SET of Movies.
+
+Final attempt at logic:
+`Movie <0xE2><0x8A><0x93> (λm.(count(R[HasActor].m <0xE2><0x8A><0x93> BornIn.Oviedo)).GreaterThan.0)`
+
+Wait, I can simplify this. If an actor is from Oviedo, then that actor belongs to the set `(Actor <0xE2><0x8A><0x93> BornIn.Oviedo)`. We want movies that are related to this set via `HasActor`.
+Using the reverse operator:
+`R[HasActor].(Actor <0xE2><0x8A><0x93> BornIn.Oviedo)`
+
+This returns the set of all movies that have an actor from Oviedo.
+
+```lambda-dcs
+R[HasActor].(Actor <0xE2><0x8A><0x93> BornIn.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.1,0.1,Q20,"The Candidate contains a severe syntax error: it uses an invalid, non-grammatical symbol '<0xE2><0x8A><0x93>' (which appears to be a corrupted representation of the intersection operator <0xE2><0x8A><0x93>) instead of the defined mathematical operators. Additionally, it uses the Reverse operator R[...] on HasActor, which incorrectly reverses the direction of the relationship from Movie to Actor, making the logic structurally unsound compared to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate contains a severe syntax error: it uses an invalid, non-grammatical symbol '<0xE2><0x8A><0x93>' (which appears to be a corrupted representation of the intersection operator <0xE2><0x8A><0x93>) instead of the defined mathematical operators. Additionally, it uses the Reverse operator R[...] on HasActor, which incorrectly reverses the direction of the relationship from Movie to Actor, making the logic structurally unsound compared to the Ground Truth."",
+  ""score"": 0.2
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),R[HasActor].(Actor <0xE2><0x8A><0x93> BornIn.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,2,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.153863,True,stop,1686,0.096041,646,5.449256,118.5483,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo.x).InSet(Movie)
+```
+Actually, looking at Step 4 and the examples, the simplest way to express ""at least one"" without an `exists` operator is to use the relation directly on the set of actors:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(HasActor.a ∧ Actor.From.Oviedo).m) 
+```
+Wait, I must stick *strictly* to the grammar provided. The grammar allows `RELATION.SET`. To find movies where at least one actor is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, let's look at the ""Authors who have written more than 5 books"" example: `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`.
+
+For ""Movies in which at least one actor is from Oviedo"", I can express this as:
+The set of movies that have an actor who is from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, the most direct way using the provided `RELATION.SET` and `R[...]` logic:
+
+```lambda-dcs
+(λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).InSet(Movie)
+```
+Wait, I'll use the intersection of Movies and the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the grammar doesn't have a way to ""check"" if a set is non-empty other than through the relation itself. If I say `Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`, it implies there exists an actor in that intersection that satisfies the `HasActor` relation for the movie.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.45,0.45,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference, but more importantly, it contains encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>). However, the underlying logical structure and set operations are mathematically equivalent to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference, but more importantly, it contains encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>). However, the underlying logical structure and set operations are mathematically equivalent to the Ground Truth."",
+  ""score"": 0.9
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,3,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.37651,True,stop,1686,0.015015,450,3.77483,119.2107,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`
+
+Let's check if `HasActor` can take a set. The grammar says `RELATION.SET`. If `SET` is `(Actor <0xE2><0x8A><0x81> From.Oviedo)`, then `HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)` works.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.375,0.375,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS."",
+  ""score"": 0.75
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,4,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.301989,True,stop,1686,0.015317,427,3.718443,114.833,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`
+
+Let's check if `HasActor` can take a set. The grammar says `RELATION.SET`. If I provide a set of actors, it works.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.375,0.375,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS."",
+  ""score"": 0.75
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,5,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.832378,True,stop,1686,0.014392,624,5.25766,118.684,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of movies that satisfy the condition:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So `HasActor.m` where `m` is a movie.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor]` on a Movie returns its Actors. So `R[HasActor].m` is the set of actors in movie `m`. If we intersect that with `From.Oviedo`, and check if it's not empty:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).count.GreaterThan.0)
+```
+Wait, the grammar for `count` is `count(SET)`. Let's use the most direct interpretation of the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the example `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.25,0.25,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces significant syntax errors: it uses an invalid operator '<0xE2><0x8A><0x93>' (likely a corrupted representation of intersection <0xE2><0x8A><0x93>) and uses 'From.Oviedo' instead of the ground truth relation 'BornIn.Oviedo'. While the logic of counting reversed relations is present, the corruption of the primary set operator makes the string technically invalid.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces significant syntax errors: it uses an invalid operator '<0xE2><0x8A><0x93>' (likely a corrupted representation of intersection <0xE2><0x8A><0x93>) and uses 'From.Oviedo' instead of the ground truth relation 'BornIn.Oviedo'. While the logic of counting reversed relations is present, the corruption of the primary set operator makes the string technically invalid."",
+  ""score"": 0.5
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,6,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,9.319495,True,stop,1686,0.014973,1036,8.78147,117.9757,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. Let's use the most direct path:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)) -> No, I must use the provided symbols.
+
+Let's use:
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the `WrittenBy` example: `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`.
+The simplest valid construction for ""Movies with an actor from Oviedo"" is:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor].m` is a set of actors. The intersection of a set of actors and the property ""From Oviedo"" isn't quite right in the grammar. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, looking at `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Wait, `From.Oviedo` is not a set, it's a relation/entity. Let's use the most robust interpretation:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Wait, `Actor.From.Oviedo` is not a valid type/entity combo in the grammar unless I reify it. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, the simplest way to express ""Movies that have an actor from Oviedo"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, if `R[HasActor].m` returns a set of actors, and we intersect it with the property/entity `From.Oviedo`, it works if we treat `From.Oviedo` as the set of people from Oviedo.
+
+Let's try:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, I will use the most direct semantic mapping allowed by the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Wait, `Actor.From.Oviedo` is not a single entity. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Actually, the simplest way to express ""at least one"" in this grammar is via a non-zero count of the intersection.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.325,0.325,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains significant encoding errors (hexadecimal representations of the intersection operator) and introduces an unnecessary level of complexity by using a lambda abstraction where a simple set intersection/join would suffice. While the logic holds, the syntax is corrupted.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains significant encoding errors (hexadecimal representations of the intersection operator) and introduces an unnecessary level of complexity by using a lambda abstraction where a simple set intersection/join would suffice. While the logic holds, the syntax is corrupted."",
+  ""score"": 0.65
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,7,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,9.803034,True,stop,1686,0.10792,1058,9.124025,115.9576,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo.x).InSet(Movie)
+```
+Actually, looking at Step 4 and the examples, the simplest way to express ""at least one"" using the provided `RELATION.SET` or `INTERSECTION` logic is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(HasActor.a <0xE2><0x8A><0x93> Actor.From.Oviedo).In(m))
+```
+Wait, I must use only the grammar provided. The grammar allows `RELATION.SET`. To find movies where there exists an actor from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+Actually, let's look at how ""WrittenBy.GeorgeOrwell"" works. It is `Relation.Entity`. To find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the most direct way using the grammar's `RELATION.SET` and `R[...]`:
+
+```lambda-dcs
+(λm.m <0xE2><0x8A><0x93> R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo))
+```
+Let's simplify to the most robust interpretation of the provided rules:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can express this as:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the grammar doesn't have a way to bind the movie `m` inside the intersection unless I use `µ`. Let's use the pattern from ""Tell me the authors who have written more than 5 books"":
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, even simpler:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the `RELATION.SET` syntax is `Relation.Set`. If I want movies that have an actor from Oviedo:
+
+```lambda-dcs
+(λm.m <0xE2><0x8A><0x93> R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo))
+```
+Let's try to find a way that uses the existing examples like `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, I will use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the `m` is not defined in the top level. Let's use the intersection of Movies and the set of movies that have an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `Employee <0xE2><0x8A><0x93> µx.Salary.GreaterThan.Salary.Manager.x`, I can use `µ`.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> µm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo
+```
+Wait, the simplest valid string is:
+
+```lambda-dcs
+(λm.m <0xE2><0x8A><0x93> R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo))
+```
+But a query must evaluate to a SET. The set of movies that satisfy this:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Let's use the most standard interpretation of the grammar provided for ""at least one"":
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.375,0.375,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains significant encoding errors (hexadecimal representations of the intersection operator) and introduces an unnecessary variable binding (m) that complicates the logic compared to the simpler set-based approach in the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains significant encoding errors (hexadecimal representations of the intersection operator) and introduces an unnecessary variable binding (m) that complicates the logic compared to the simpler set-based approach in the Ground Truth."",
+  ""score"": 0.75
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,8,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.146259,True,stop,1686,0.097425,646,5.468305,118.1353,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo.x).InSet(Movie)
+```
+Actually, looking at Step 4 and the examples, the simplest way to express ""at least one"" without an `exists` operator is to use the relation directly on the set of actors:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(HasActor.a ∧ Actor.From.Oviedo).m) 
+```
+Wait, I must stick *strictly* to the grammar provided. The grammar allows `RELATION.SET`. To find movies where at least one actor is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, let's look at the ""Authors who have written more than 5 books"" example: `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`.
+
+For ""Movies in which at least one actor is from Oviedo"", I can express this as:
+The set of movies that have an actor who is from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, the most direct way using the provided `RELATION.SET` and `R[...]` logic:
+
+```lambda-dcs
+(λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).InSet(Movie)
+```
+Wait, I'll use the intersection of Movies and the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the grammar doesn't have a way to ""check"" if a set is non-empty other than through the relation itself. If I say `Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`, it implies there exists an actor in that intersection that satisfies the `HasActor` relation for the movie.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,9,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.946421,True,stop,1686,0.015634,735,6.334627,116.0289,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor.x` where `x` is an actor from Oviedo:
+
+```lambda-dcs
+(λm.m <0xE2><0x8A><0x93> (λx.HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo))
+```
+
+Let's stick to the most direct interpretation of ""Movies that have an actor from Oviedo"" using the provided primitives:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Actually, looking at the `WrittenBy.GeorgeOrwell` example, I can use the reverse relation to traverse from the actor back to the movie:
+
+```lambda-dcs
+(λx.R[HasActor].x) <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the target must be a single set. The most robust way to express ""Movies that have an actor from Oviedo"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+However, the simplest valid construction in this grammar for ""Movies where [condition]"" is to filter the `Movie` type:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Let's use the most direct path:
+
+```lambda-dcs
+(λx.R[HasActor].x) <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can do:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar says `RELATION.SET`. If `SET` is `Actor <0xE2><0x8A><0x93> From.Oviedo`, then `R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)` returns the set of movies.
+
+Final check: `R[HasActor]` is a relation, `(Actor <0xE2><0x8A><0x93> From.Oviedo)` is a set. The result of `RELATION.SET` is a set.
+
+```lambda-dcs
+R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.1,0.1,Q20,"The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie rather than from a movie to its actors in this context. The structure fails both grammatically and semantically.",,"```json
+{
+  ""rationale"": ""The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie rather than from a movie to its actors in this context. The structure fails both grammatically and semantically."",
+  ""score"": 0.2
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,10,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.193678,True,stop,1686,0.014712,427,3.582509,119.1902,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`
+
+Let's check if `HasActor` can take a set. The grammar says `RELATION.SET`. If I provide a set of actors, it works.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.45,0.45,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference, but more importantly, it contains encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>). However, the underlying logical structure and set operations are mathematically equivalent to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference, but more importantly, it contains encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>). However, the underlying logical structure and set operations are mathematically equivalent to the Ground Truth."",
+  ""score"": 0.9
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,11,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.161578,True,stop,1686,0.01467,427,3.5844,119.1273,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`
+
+Let's check if `HasActor` can take a set. The grammar says `RELATION.SET`. If I provide a set of actors, it works.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.375,0.375,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is that the intersection operator (<0xE2><0x8A><0x93>) has been corrupted by encoding errors (represented as hex escape sequences), making the string technically invalid raw λ-DCS."",
+  ""score"": 0.75
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,12,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,7.716387,True,stop,1686,0.014461,839,7.103188,118.116,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+
+Actually, looking at the `RELATION` definition and `Implicit Join`, the most accurate way to represent ""Movies that have an actor from Oviedo"" using only the provided grammar is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(HasActor.a <0xE2><0x8A><0x93> Actor.From.Oviedo).m)
+```
+Wait, I must use the grammar exactly. The grammar allows `RELATION.SET`. Let's use the property of the movie having an actor who is from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+Actually, a simpler way to express ""Movies where at least one actor is from Oviedo"" using the provided `RELATION.SET` and `R[...]`:
+
+```lambda-dcs
+(λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0) <0xE2><0x8A><0x93> Movie
+```
+Wait, I'll use the most direct path allowed by the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+Actually, let's look at `WrittenBy.GeorgeOrwell`. This is `Relation.Entity`.
+So, `HasActor.ActorFromOviedo` where `ActorFromOviedo` is a set.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Wait, the grammar says `RELATION.SET`. Let's use:
+
+```lambda-dcs
+(λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0 <0xE2><0x8A><0x93> Movie
+```
+Actually, looking at the example `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0)
+```
+But even simpler, the set of movies that have an actor from Oviedo is just the intersection of Movies and the set of movies satisfying the condition.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Wait, `R[HasActor].m` is a SET. The intersection of a SET and a SET is a SET. This works.
+
+Final check: `Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)` evaluates to the set of movies that have an intersection with the set of actors from Oviedo via the `HasActor` relation.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo))
+```
+Actually, I will use the most standard interpretation of the grammar provided:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.325,0.325,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces several issues: first, it uses an undefined relation 'From' instead of 'BornIn'; second, it contains encoding errors (hexadecimal representations of the intersection operator); and third, it unnecessarily complicates the logic with a lambda abstraction where a simple set intersection/join would suffice.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces several issues: first, it uses an undefined relation 'From' instead of 'BornIn'; second, it contains encoding errors (hexadecimal representations of the intersection operator); and third, it unnecessarily complicates the logic with a lambda abstraction where a simple set intersection/join would suffice."",
+  ""score"": 0.65
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,13,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.640359,True,stop,1686,0.014953,718,6.036606,118.941,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+
+Actually, looking at the `RELATION` definition and `Implicit Join`, the most accurate way to represent ""Movies that have an actor from Oviedo"" using only the provided grammar is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(HasActor.a <0xE2><0x8A><0x93> Actor.From.Oviedo).m)
+```
+Wait, I must use the grammar exactly. The grammar allows `RELATION.SET`. Let's use the property of the movie having an actor who is from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+Actually, a simpler way to express ""Movies where at least one actor is from Oviedo"" using the provided `RELATION.SET` and `R[...]`:
+
+```lambda-dcs
+(λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0) <0xE2><0x8A><0x93> Movie
+```
+Wait, I'll use the most direct path allowed by the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+Actually, let's look at `WrittenBy.GeorgeOrwell`. This is `Relation.Entity`.
+So, `HasActor.ActorFromOviedo` where `ActorFromOviedo` is a set.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Wait, the grammar says `RELATION.SET`. Let's use:
+
+```lambda-dcs
+(λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0 <0xE2><0x8A><0x93> Movie
+```
+Actually, looking at the examples, the simplest way to express ""Movies that have an actor from Oviedo"" is to find movies that are part of the relation `HasActor` where the target is an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Wait, I will use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo).HasActor.x
+```
+Actually, the most standard way in this grammar for ""at least one"" is to check if the intersection of the movie's actors and the set of Oviedo actors is not empty.
+
+Let's try:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.325,0.325,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces several issues: first, it uses an undefined relation 'From' instead of 'BornIn'; second, it contains encoding errors (hexadecimal artifacts) for the intersection operator; and third, it unnecessarily complicates the logic with a lambda abstraction where a simple set intersection/join would suffice.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces several issues: first, it uses an undefined relation 'From' instead of 'BornIn'; second, it contains encoding errors (hexadecimal artifacts) for the intersection operator; and third, it unnecessarily complicates the logic with a lambda abstraction where a simple set intersection/join would suffice."",
+  ""score"": 0.65
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,14,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.914998,True,stop,1686,0.014765,514,4.320924,118.956,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor.x` where `x` is an actor from Oviedo:
+
+```lambda-dcs
+(λm.m <0xE2><0x8A><0x93> (λx.HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo))
+```
+
+Let's stick to the most direct interpretation of ""Movies that have an actor from Oviedo"" using the provided primitives:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Actually, looking at the `WrittenBy.GeorgeOrwell` example, I can use the reverse relation to traverse from the actor back to the movie:
+
+```lambda-dcs
+(λx.R[HasActor].x) <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the target must be a single set. The most robust way to express ""Movies that have an actor from Oviedo"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+However, the simplest valid construction in this grammar for ""Movies containing [condition]"" is to find the set of actors and reverse the relation:
+
+```lambda-dcs
+R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.1,0.1,Q20,"The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie rather than from a movie to its actors in this context. The structure fails both grammatically and semantically.",,"```json
+{
+  ""rationale"": ""The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie rather than from a movie to its actors in this context. The structure fails both grammatically and semantically."",
+  ""score"": 0.2
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,15,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.843888,True,stop,1686,0.014708,624,5.263435,118.5538,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of movies that satisfy the condition:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So `HasActor.m` where `m` is a movie.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor]` on a Movie returns its Actors. So `R[HasActor].m` is the set of actors in movie `m`. If we intersect that with `From.Oviedo`, and check if it's not empty:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).count.GreaterThan.0)
+```
+Wait, the grammar for `count` is `count(SET)`. Let's use the most direct interpretation of the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the example `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a complex lambda abstraction to express the existential quantifier ('at least one') via an aggregation (count > 0), which is mathematically equivalent to the Ground Truth's intersection logic. However, the Candidate contains encoding errors (hexadecimal representations of the intersection symbol) and introduces a structural error by using 'From.Oviedo' instead of the relation 'BornIn.Oviedo' used in the ground truth, though the core logic remains intact.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express the existential quantifier ('at least one') via an aggregation (count > 0), which is mathematically equivalent to the Ground Truth's intersection logic. However, the Candidate contains encoding errors (hexadecimal representations of the intersection symbol) and introduces a structural error by using 'From.Oviedo' instead of the relation 'BornIn.Oviedo' used in the ground truth, though the core logic remains intact."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,16,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.253448,True,stop,1686,0.014939,672,5.666047,118.6012,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Actually, looking at the `WrittenBy.GeorgeOrwell` example, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `From.Oviedo` is a property of an actor. Let's use the most direct path allowed by the grammar:
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> (R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo))
+```
+Actually, let's stick to the simplest valid construction:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `From.Oviedo` is not a set, it's a relation/entity. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Actually, the most robust way to express ""Movies where there exists an actor from Oviedo"" using only the provided grammar is:
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> (R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo))
+```
+Wait, I will use the pattern from `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.375,0.375,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains encoding errors (hexadecimal representations of the intersection operator <0xE2><0x8A><0x93>) and introduces an unnecessary complexity by using a lambda abstraction where a simple set intersection/join would suffice. While the logic holds, the syntax is corrupted by the encoding artifacts.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains encoding errors (hexadecimal representations of the intersection operator <0xE2><0x8A><0x93>) and introduces an unnecessary complexity by using a lambda abstraction where a simple set intersection/join would suffice. While the logic holds, the syntax is corrupted by the encoding artifacts."",
+  ""score"": 0.75
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,17,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.502235,True,stop,1686,0.014707,586,4.918976,119.1305,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. Let's use the most direct path:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)) -> No, I must use the provided symbols.
+
+Let's use:
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at Step 3 and Step 4, a simple chain or intersection works best for ""at least one"" if we treat the relation as the link:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, `From.Oviedo` is a property of an actor. Let's use the intersection of the set of actors from Oviedo and the set of actors in the movie.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Let's try to be even more precise with the grammar provided:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo))
+```
+(Note: In λ-DCS, if a relation returns a set, and we intersect it, we are checking for non-empty intersection).
+
+Let's use the most robust version allowed by the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.375,0.375,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains encoding errors (hexadecimal representations of the intersection operator) and introduces an unnecessary complexity by using a lambda abstraction where a simple set intersection/join would suffice. While the logic holds, the syntax is corrupted by the encoding artifacts.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it contains encoding errors (hexadecimal representations of the intersection operator) and introduces an unnecessary complexity by using a lambda abstraction where a simple set intersection/join would suffice. While the logic holds, the syntax is corrupted by the encoding artifacts."",
+  ""score"": 0.75
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,18,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.330876,True,stop,1686,0.014773,450,3.760548,119.6634,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`
+
+Let's check if `HasActor` can take a set. The grammar says `RELATION.SET`. If `SET` is `(Actor <0xE2><0x8A><0x81> From.Oviedo)`, then `HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)` works.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is the presence of encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>), which makes the string technically invalid as raw λ-DCS text. Despite this, the underlying logical structure and set operations are semantically equivalent to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is the presence of encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>), which makes the string technically invalid as raw λ-DCS text. Despite this, the underlying logical structure and set operations are semantically equivalent to the Ground Truth."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,19,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.846216,True,stop,1686,0.014768,624,5.264284,118.5346,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of movies that satisfy the condition:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So `HasActor.m` where `m` is a movie.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor]` on a Movie returns its Actors. So `R[HasActor].m` is the set of actors in movie `m`. If we intersect that with `From.Oviedo`, and check if it's not empty:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).count.GreaterThan.0)
+```
+Wait, the grammar for `count` is `count(SET)`. Let's use the most direct interpretation of the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the example `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.2,0.2,Q20,"The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification ('at least one'). While logically equivalent to the Ground Truth's nested intersection, the Candidate introduces significant syntax errors: it uses an invalid symbol '<0xE2><0x8A><0x93>' instead of the defined intersection operator '<0xE2><0x8A><0x93>', and it uses a non-existent relation 'From.Oviedo' instead of the ground truth's 'BornIn.Oviedo'. The use of lambda abstraction for this specific query is much more complex than necessary, but the primary failure is the broken syntax and incorrect relation naming.",,"```json
+{
+  ""rationale"": ""The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification ('at least one'). While logically equivalent to the Ground Truth's nested intersection, the Candidate introduces significant syntax errors: it uses an invalid symbol '<0xE2><0x8A><0x93>' instead of the defined intersection operator '<0xE2><0x8A><0x93>', and it uses a non-existent relation 'From.Oviedo' instead of the ground truth's 'BornIn.Oviedo'. The use of lambda abstraction for this specific query is much more complex than necessary, but the primary failure is the broken syntax and incorrect relation naming."",
+  ""score"": 0.4
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,20,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,4.374319,True,stop,1686,0.011301,452,3.790955,119.2312,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of Movie and the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So:
+`Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`
+
+Let's check if `HasActor` can take a set. The grammar says `RELATION.SET`. If `SET` is `(Actor <0xE2><0x8A><0x81> From.Oviedo)`, then `HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)` works.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is the presence of encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>), which makes the string technically invalid as raw λ-DCS text. Despite this, the underlying logical structure and set operations are semantically equivalent to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is the presence of encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>), which makes the string technically invalid as raw λ-DCS text. Despite this, the underlying logical structure and set operations are semantically equivalent to the Ground Truth."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,21,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.855044,True,stop,1686,0.014893,624,5.253704,118.7733,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of movies that satisfy the condition:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So `HasActor.m` where `m` is a movie.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor]` on a Movie returns its Actors. So `R[HasActor].m` is the set of actors in movie `m`. If we intersect that with `From.Oviedo`, and check if it's not empty:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).count.GreaterThan.0)
+```
+Wait, the grammar for `count` is `count(SET)`. Let's use the most direct interpretation of the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the example `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.2,0.2,Q20,"The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification ('at least one'). While logically equivalent to the Ground Truth's nested intersection, the Candidate introduces significant syntax errors: it uses an invalid symbol '<0xE2><0x8A><0x93>' instead of the defined intersection operator '<0xE2><0x8A><0x93>', and it uses a non-existent relation 'From.Oviedo' instead of the ground truth's 'BornIn.Oviedo'. The use of lambda abstraction for this specific query is much more complex than necessary, but the primary failure is the broken syntax and incorrect relation naming.",,"```json
+{
+  ""rationale"": ""The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification ('at least one'). While logically equivalent to the Ground Truth's nested intersection, the Candidate introduces significant syntax errors: it uses an invalid symbol '<0xE2><0x8A><0x93>' instead of the defined intersection operator '<0xE2><0x8A><0x93>', and it uses a non-existent relation 'From.Oviedo' instead of the ground truth's 'BornIn.Oviedo'. The use of lambda abstraction for this specific query is much more complex than necessary, but the primary failure is the broken syntax and incorrect relation naming."",
+  ""score"": 0.4
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,22,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,16.863579,True,stop,1686,0.014879,1909,16.281025,117.2531,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. Let's use the most direct path:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)) -> No, I must use the provided symbols.
+
+Let's use:
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the `WrittenBy` example: `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`.
+The simplest valid construction for ""Movies with an actor from Oviedo"" is:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor].m` is a set of actors. The intersection of a set of actors and the property ""From Oviedo"" isn't quite right in the grammar. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, looking at `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Wait, `From.Oviedo` is not a set, it's a relation/entity. Let's use the most robust interpretation:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Wait, `Actor.From.Oviedo` is not a valid type/entity combo in the grammar unless I reify it. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, the simplest way to express ""Movies that have an actor from Oviedo"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, if `R[HasActor].m` returns a set of actors, and we intersect it with the property/entity `From.Oviedo`, it works if we treat `From.Oviedo` as the set of people from Oviedo.
+
+Let's try:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, I will use the most direct semantic mapping allowed by the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Wait, `Actor.From.Oviedo` is not a single entity. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Actually, the simplest way to say ""Movies where an actor is from Oviedo"" is to find movies that have a relationship to an actor who has a relationship to Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo))
+```
+Wait, `From.Oviedo` is not a set. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> R[From].Oviedo)).GreaterThan.0)
+```
+Actually, the most standard way in this grammar for ""at least one"" is to use a count > 0 or simply rely on the intersection of the set of movies with the property of having such an actor.
+
+Final attempt at the cleanest string:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Wait, `From.Oviedo` is a relation/entity pair. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> R[From].Oviedo)).GreaterThan.0)
+```
+Actually, I will go with the simplest logical form that satisfies the grammar's constraints for ""at least one"":
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Wait, I'll use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> R[From].Oviedo)).GreaterThan.0)
+```
+Actually, looking at the `Author` example again, I can just do:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Wait, let's use the simplest possible version that is logically sound:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> R[From].Oviedo)).GreaterThan.0)
+```
+Actually, I will provide this:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Wait, `From.Oviedo` is not a set. Let's use the intersection of Actor and the relation to Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> R[From].Oviedo)).GreaterThan.0)
+```
+Actually, I will just use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Wait, the grammar says `RELATION.SET`. So `From.Oviedo` is a relation applied to an entity? No, it's `Relation.Entity`.
+
+Let's use:
+```lambda-CA
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> R[From].Oviedo)).GreaterThan.0)
+```
+Actually, I will provide the most direct one:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Wait, `From.Oviedo` is a valid relation/entity pair in the grammar. I'll use that.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the existential logic of the Ground Truth. However, the Candidate contains significant encoding errors (hexadecimal representations of the intersection operator <0xE2><0x8A><0x93>) and introduces an unnecessary level of complexity that deviates from the simpler, direct set-based approach used in the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the existential logic of the Ground Truth. However, the Candidate contains significant encoding errors (hexadecimal representations of the intersection operator <0xE2><0x8A><0x93>) and introduces an unnecessary level of complexity that deviates from the simpler, direct set-based approach used in the Ground Truth."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,23,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.453714,True,stop,1686,0.055786,646,5.465821,118.189,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λx.Actor.From.Oviedo.x).InSet(Movie)
+```
+Actually, looking at Step 4 and the examples, the simplest way to express ""at least one"" without an `exists` operator is to use the relation directly on the set of actors:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃a.(HasActor.a ∧ Actor.From.Oviedo).m) 
+```
+Wait, I must stick *strictly* to the grammar provided. The grammar allows `RELATION.SET`. To find movies where at least one actor is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, let's look at the ""Authors who have written more than 5 books"" example: `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`.
+
+For ""Movies in which at least one actor is from Oviedo"", I can express this as:
+The set of movies that have an actor who is from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, the most direct way using the provided `RELATION.SET` and `R[...]` logic:
+
+```lambda-dcs
+(λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).InSet(Movie)
+```
+Wait, I'll use the intersection of Movies and the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the grammar doesn't have a way to ""check"" if a set is non-empty other than through the relation itself. If I say `Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)`, it implies there exists an actor in that intersection that satisfies the `HasActor` relation for the movie.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is the presence of encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>), which makes the string technically invalid as raw λ-DCS text. Despite this, the underlying logical structure and set operations are semantically equivalent to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a different relation name ('From' instead of 'BornIn'), which is a minor semantic difference. However, the primary issue is the presence of encoding errors (hexadecimal representations of the intersection symbol <0xE2><0x8A><0x93>), which makes the string technically invalid as raw λ-DCS text. Despite this, the underlying logical structure and set operations are semantically equivalent to the Ground Truth."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,24,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,7.572841,True,stop,1686,0.014828,830,6.999092,118.5868,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> From.Oviedo)
+```
+But the target must be a set of Movies. Let's use the intersection of Movie with the property of having an actor from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Actually, looking at the `WrittenBy.GeorgeOrwell` example, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `From.Oviedo` is a property of an actor. Let's use the most direct path allowed by the grammar:
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> (R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo))
+```
+Actually, let's stick to the simplest valid construction:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `From.Oviedo` is not a set, it's a relation/entity combo. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Actually, the most robust way to express ""Movies where there exists an actor from Oviedo"" using only the provided grammar is:
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> (R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo))
+```
+Wait, I will use the pattern from `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0
+```
+
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can simply do:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, the grammar says `RELATION.SET`. If `From` is a relation and `Oviedo` is an entity:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+This is the most consistent with the provided examples.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.05,0.05,Q20,"The Candidate contains severe syntax errors, specifically using invalid Unicode characters (hex escapes) instead of the required intersection operator (<0xE2><0x8A><0x93>). Furthermore, it attempts to use a Lambda abstraction (λm) to define a condition that is structurally incorrect for this query; the Ground Truth correctly uses an existential join via dot notation on a set, whereas the Candidate's structure is mathematically incoherent and fails to follow the defined grammar.",,"```json
+{
+  ""rationale"": ""The Candidate contains severe syntax errors, specifically using invalid Unicode characters (hex escapes) instead of the required intersection operator (<0xE2><0x8A><0x93>). Furthermore, it attempts to use a Lambda abstraction (λm) to define a condition that is structurally incorrect for this query; the Ground Truth correctly uses an existential join via dot notation on a set, whereas the Candidate's structure is mathematically incoherent and fails to follow the defined grammar."",
+  ""score"": 0.1
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,25,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.697159,True,stop,1686,0.015247,605,5.090354,118.8522,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, let's look at the grammar again. The most direct way to express ""Movies that have an actor from Oviedo"" using the provided `RELATION.SET` and `Intersection` is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+However, since I must return a single set of entities (`Movie`), and the relation `HasActor` connects Movie to Actor, I can use the reverse operator on the actor's property:
+
+```lambda-dcs
+(λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But that returns actors. To return movies:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+Actually, the simplest valid construction under the grammar for ""Movies where [condition]"" is to use the intersection of the type and a property check. Since I cannot use `∃`, I will use the lambda abstraction to check if the set of actors for that movie intersects with the set of actors from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo))
+```
+Wait, `(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)` evaluates to a set of actors. A set cannot be used directly in an intersection with `Movie` unless it's a boolean check. The grammar says `SET <0xE2><0x8A><0x93> SET`. If the second set is empty, the intersection is empty.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.225,0.225,Q20,"The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification, which is mathematically valid for 'at least one'. However, it introduces several significant errors: 1) It uses an undefined relation 'From' instead of the ground truth 'BornIn'; 2) It fails to use the Reverse operator R[...] correctly when navigating from the movie 'm' to its actors; and 3) The syntax contains encoding errors (hexadecimal representations of symbols). While the logic of counting > 0 is a valid way to express existence, the structural deviations and relation hallucinations are substantial.",,"```json
+{
+  ""rationale"": ""The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification, which is mathematically valid for 'at least one'. However, it introduces several significant errors: 1) It uses an undefined relation 'From' instead of the ground truth 'BornIn'; 2) It fails to use the Reverse operator R[...] correctly when navigating from the movie 'm' to its actors; and 3) The syntax contains encoding errors (hexadecimal representations of symbols). While the logic of counting > 0 is a valid way to express existence, the structural deviations and relation hallucinations are substantial."",
+  ""score"": 0.45
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,26,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,8.536685,True,stop,1686,0.017072,935,7.915539,118.1221,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. Let's use the most direct path:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)) -> No, I must use the provided symbols.
+
+Let's use:
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the `WrittenBy` example: `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`.
+The simplest valid construction for ""Movies with an actor from Oviedo"" is:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor].m` is a set of actors. The intersection of a set of actors and the property ""From Oviedo"" isn't quite right in the grammar. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, looking at `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Wait, `From.Oviedo` is not a set, it's a relation/entity. Let's use the most robust interpretation:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Actually, `Actor.From.Oviedo` is not a standard type in my grammar unless I define it. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+
+Final check on the simplest valid form:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Wait, `Actor.From.Oviedo` is a single path. Let's use the intersection of the set of actors in the movie and the set of people from Oviedo.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+Actually, I'll use the most direct interpretation:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Wait, `Actor.From.Oviedo` is a valid way to express ""Actors from Oviedo"" in this grammar's style.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification ('at least one'). While logically equivalent to the Ground Truth's intersection of sets, it introduces several issues: 1. It uses 'From' instead of 'BornIn', which is a minor relation naming discrepancy. 2. The syntax for the lambda abstraction and its application within the intersection is structurally much more complex than necessary and relies on an ungrounded aggregation approach. However, the core logic of checking if the count of actors meeting the criteria is greater than zero correctly captures the 'at least one' semantics.",,"```json
+{
+  ""rationale"": ""The Candidate attempts to use a complex lambda abstraction with an aggregation (count) to represent existential quantification ('at least one'). While logically equivalent to the Ground Truth's intersection of sets, it introduces several issues: 1. It uses 'From' instead of 'BornIn', which is a minor relation naming discrepancy. 2. The syntax for the lambda abstraction and its application within the intersection is structurally much more complex than necessary and relies on an ungrounded aggregation approach. However, the core logic of checking if the count of actors meeting the criteria is greater than zero correctly captures the 'at least one' semantics."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,27,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,5.871151,True,stop,1686,0.015012,624,5.262165,118.5824,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of movies that satisfy the condition:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So `HasActor.m` where `m` is a movie.
+
+Let's use:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor]` on a Movie returns its Actors. So `R[HasActor].m` is the set of actors in movie `m`. If we intersect that with `From.Oviedo`, and check if it's not empty:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).count.GreaterThan.0)
+```
+Wait, the grammar for `count` is `count(SET)`. Let's use the most direct interpretation of the grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the example `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.325,0.325,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces significant syntax errors: it uses an invalid operator '<0xE2><0x8A><0x93>' (likely a corrupted representation of intersection <0xE2><0x8A><0x93>) and uses 'From.Oviedo' instead of the ground truth relation 'BornIn.Oviedo'. While the logic of counting reversed relations is clever, the corruption of the primary set operator makes the string technically invalid.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the Ground Truth's existential join. However, it introduces significant syntax errors: it uses an invalid operator '<0xE2><0x8A><0x93>' (likely a corrupted representation of intersection <0xE2><0x8A><0x93>) and uses 'From.Oviedo' instead of the ground truth relation 'BornIn.Oviedo'. While the logic of counting reversed relations is clever, the corruption of the primary set operator makes the string technically invalid."",
+  ""score"": 0.65
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0,outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,28,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,8.122886,True,stop,1686,0.014574,884,7.518436,117.5776,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. Let's use the most direct path:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)) -> No, I must use the provided symbols.
+
+Let's use:
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+
+Actually, looking at the `WrittenBy` example: `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`.
+The simplest valid construction for ""Movies with an actor from Oviedo"" is:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor].m` is a set of actors. The intersection of a set of actors and the property ""From Oviedo"" isn't quite right in the grammar. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Actually, looking at `Author <0xE2><0x8A><0x93> (λx.count(R[WrittenBy].x)).GreaterThan.5`, I can use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Wait, `From.Oviedo` is not a set, it's a relation/entity. Let's use the most robust interpretation:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+Actually, `Actor.From.Oviedo` is not a valid type/entity combo in the grammar unless I define it. Let's use:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo).GreaterThan.0)
+```
+Wait, `From.Oviedo` is a relation to an entity. The grammar says `RELATION.SET`. So `From.Oviedo` is not a set.
+
+Let's try:
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+This works. `Actor <0xE2><0x8A><0x93> From.Oviedo` is the set of actors from Oviedo.
+
+Final check:
+Input: ""Give me the movies in which at least one actor is from Oviedo.""
+Logic: Movies AND (the count of [actors belonging to movie] that are also [Actors from Oviedo] is > 0).
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.425,0.425,Q20,"The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the existential logic of the Ground Truth. However, the Candidate contains significant encoding errors (hexadecimal representations of the intersection operator <0xE2><0x8A><0x93>) and introduces an unnecessary level of complexity that deviates from the simpler, direct set-based approach used in the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate uses a complex lambda abstraction to express 'at least one' via a count greater than zero, which is semantically equivalent to the existential logic of the Ground Truth. However, the Candidate contains significant encoding errors (hexadecimal representations of the intersection operator <0xE2><0x8A><0x93>) and introduces an unnecessary level of complexity that deviates from the simpler, direct set-based approach used in the Ground Truth."",
+  ""score"": 0.85
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,29,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,9.033397,True,stop,1686,0.014971,988,8.411974,117.4516,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is to find movies that have an actor who is from Oviedo:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor` as a relation and filter the actors:
+
+```lambda-dcs
+(λm.HasActor.m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+But the target must be a SET of Movies. Let's use the intersection of movies that satisfy the property:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Actually, looking at `WrittenBy.GeorgeOrwell`, the relation is applied to the subject. So `HasActor.x` where `x` is a movie.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, if `m` is a Movie, `R[HasActor].m` returns the set of Actors in that movie. If we intersect that set with `From.Oviedo`, and check if it's not empty... but I don't have ""not empty"". 
+
+Let's use the most direct interpretation: A movie is part of the result if it has an actor from Oviedo. In λ-DCS, this is often expressed by traversing the relation.
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> HasActor.(Actor <0xE2><0x8A><0x93> From.Oviedo))
+```
+Actually, the simplest valid form under the grammar provided for ""Movies that have an actor from Oviedo"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)
+```
+Wait, `R[HasActor].m` is a set of actors. The intersection of a set of actors and the set of people from Oviedo is a set of actors. This doesn't return movies.
+
+Let's use:
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> (λx.HasActor.m <0xE2><0x8A><0x93> From.Oviedo).Exists) 
+```
+No `Exists` in grammar. Let's use the property of the movie itself. A movie is ""in"" if it has an actor from Oviedo.
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> (λx.HasActor.m <0xE2><0x8A><0x93> From.Oviedo).count.GreaterThan.0)
+```
+Wait, `count` is a VALUE. I can use the `(λx.count(...)).GreaterThan.0` pattern from the examples.
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.(count(R[HasActor].m <0xE2><0x8A><0x93> From.Oviedo)).GreaterThan.0)
+```
+
+Let's check if there is a simpler way. `HasActor.x` where `x` is an actor. If we want movies, we use the reverse: `R[HasActor]`.
+
+```lambda-dcs
+(λm.Movie <0xE2><0x8A><0x93> R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo))
+```
+Wait, if `R[HasActor]` is applied to a set of actors (those from Oviedo), it returns the set of movies. This is the most elegant and follows the grammar `RELATION.SET`.
+
+Final check: `R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)` evaluates to the set of Movies that have an actor in the set (Actor $\cap$ From Oviedo).
+
+```lambda-dcs
+R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.1,0.1,Q20,"The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie rather than from a movie to its actors in this context. The structure fails both grammatically and semantically.",,"```json
+{
+  ""rationale"": ""The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie rather than from a movie to its actors in this context. The structure fails both grammatically and semantically."",
+  ""score"": 0.2
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv
+lambda_dcs,30,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.025,6.816892,True,stop,1686,0.014865,735,6.203897,118.4739,"```lambda-dcs
+Movie <0xE2><0x8A><0x93> ∃x.(HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, looking at my grammar rules, I don't have an explicit `∃` (exists) operator in the provided grammar, but ""at least one"" is logically equivalent to a non-empty intersection or simply finding the set of movies that satisfy the condition via the relation. Let me refine this to strictly follow the provided grammar:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+Actually, a simpler way using the existing `RELATION.SET` and intersection logic for ""at least one"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Wait, the grammar allows `RELATION.SET`. If I use `HasActor.x` where `x` is an actor from Oviedo:
+
+```lambda-dcs
+(λm.m <0xE2><0x8A><0x93> (λx.HasActor.x <0xE2><0x8A><0x93> Actor.From.Oviedo))
+```
+
+Let's stick to the most direct interpretation of ""Movies that have an actor from Oviedo"" using the provided primitives:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Actually, looking at the `WrittenBy.GeorgeOrwell` example, I can use the reverse relation to traverse from the actor back to the movie:
+
+```lambda-dcs
+(λx.R[HasActor].x) <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the target must be a single set. The most robust way to express ""Movies that have an actor from Oviedo"" is:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.count(R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo).GreaterThan.0)
+```
+
+However, the simplest valid construction in this grammar for ""Movies where [condition]"" is to filter the `Movie` type:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> (λm.R[HasActor].m <0xE2><0x8A><0x93> Actor.From.Oviedo)
+```
+
+Let's use the most direct path:
+
+```lambda-dcs
+(λx.R[HasActor].x) <0xE2><0x8A><0x93> (Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Actually, looking at `Book <0xE2><0x8A><0x93> WrittenBy.GeorgeOrwell`, I can do:
+
+```lambda-dcs
+Movie <0xE2><0x8A><0x93> R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```
+
+Wait, the grammar says `RELATION.SET`. If `SET` is `Actor <0xE2><0x8A><0x93> From.Oviedo`, then `R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)` returns the set of movies.
+
+Final check: `R[HasActor]` is a relation, `(Actor <0xE2><0x8A><0x93> From.Oviedo)` is a set. The result of `RELATION.SET` is a set.
+
+```lambda-dcs
+R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo)
+```",EVAL_PROMPT_LAMBDA_DCS,Overall Translation Quality (Lambda DCS),1.0,0.1,0.1,Q20,"The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie, whereas the query requires navigating from a movie to its actors.",,"```json
+{
+  ""rationale"": ""The Candidate contains several critical errors: first, it uses an invalid/unsupported symbol '<0xE2><0x8A><0x93>' (representing '∃') instead of valid λ-DCS operators like intersection or union; second, it uses a non-existent relation 'From' instead of the ground truth 'BornIn'; and third, it incorrectly applies the Reverse operator R[...] to 'HasActor', which would navigate from an actor to a movie, whereas the query requires navigating from a movie to its actors."",
+  ""score"": 0.2
+}
+```",Movie ⊓ HasActor.(Actor ⊓ BornIn.Oviedo),R[HasActor].(Actor <0xE2><0x8A><0x93> From.Oviedo),outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714/gemma4_26b/trace_Q20_Give_me_the_movies_in_which_at_least_one_th_false.csv

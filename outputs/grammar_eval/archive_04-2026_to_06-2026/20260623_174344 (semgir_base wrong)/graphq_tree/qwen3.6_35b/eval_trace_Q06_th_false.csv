@@ -1,0 +1,4361 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,19.710092,True,stop,3137,0.216864,2784,19.026299,146.3238,"<thinking>
+The user is asking a Yes/No question (""whether...""), so I must use `VerifyQuery`.
+The core assertion to verify is: ""All actors of Matrix are taller than 160 cm"".
+This can be rephrased as: ""Is it true that for every actor of the movie Matrix, their height is greater than 160 cm?""
+
+In GraphQ IR, `VerifyQuery` checks if an EntitySet satisfies a Constraint. However, ""All X are Y"" is a universal quantification. Standard GraphQ `VerifyQuery` usually checks existence or specific property matches for a set.
+Let's look at the structure:
+Subject: Actors of Matrix.
+Condition: Height > 160 cm.
+
+If I use `VerifyQuery`, it typically returns true if the query finds instances matching the pattern. But ""All"" implies checking that *no* counter-examples exist, or that *all* members satisfy the condition.
+Often, ""Are all X Y?"" is mapped to verifying that there are no X that are NOT Y, or simply checking the property on the set if the schema supports universal checks. However, looking at the provided grammar and examples, `VerifyQuery` is defined as `whether EntitySet Constraint`. This usually implies ""Does this entity/set exist with this constraint?"".
+
+Let's refine the intent. The question asks for a boolean verification of a universal statement.
+A common way to handle ""All X are Y"" in logical query languages is to check if the set of X that are NOT Y is empty. But here we only have `VerifyQuery`.
+Alternatively, we can interpret the query as: ""Check the height attribute of actors of Matrix and verify it is larger than 160"".
+
+Let's look at the components:
+1. EntitySet: Actors of Matrix.
+   - `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+2. Constraint/Condition: Height is larger than 160 cm.
+   - Attribute: `<A> height </A>`
+   - COP: `larger than`
+   - Value: `160` (with unit or just number? The prompt says ""160 cm"". I will treat 160 as the numeric value).
+
+So the sequence would be:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V>`
+
+Wait, `VerifyQuery` grammar is `whether EntitySet Constraint`.
+The constraint here applies to the actors.
+So: `whether [Actors of Matrix] [have height > 160]`.
+
+Let's construct Representation 1:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V>`
+
+Note on ""All"": In many KG QA datasets, ""Are all X Y?"" is often simplified to checking the property of the set. If the system supports universal quantification explicitly, it might be different, but based on the provided grammar, `VerifyQuery` with a constraint on an EntitySet is the closest fit for verifying a property holds for a group.
+
+Let's double check the direction.
+""Actors of Matrix"".
+Relation: `actor`.
+From Actor to Movie is `actor forward`.
+From Movie to Actor is `actor backward`.
+We want the set of Actors. So we start with Concept `actor` and constrain it by being connected to `Matrix`.
+The constraint is: `<R> actor </R>` connecting the actor to `Matrix`.
+Since the actor is the source of the `actor` relation pointing to the movie, the direction from Actor to Movie is `forward`.
+So: `<ES> <C> actor </C> that <R> actor </R> forward to <E> Matrix </E> </ES>`.
+
+Wait, let's re-read the example: ""Give me the actors of the movie Inception."" -> `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`.
+Why backward?
+If the relation is `actor(Movie, Actor)`, then from Movie to Actor is forward? Or is the relation defined as `Actor -> Movie`?
+In DBpedia/Wikidata:
+`<Actor> dbo:starring <Movie>` or `<Movie> dbo:starring <Actor>`.
+Usually, ""actors of a movie"" means we find nodes of type Actor that are linked to the Movie.
+If the relation is `actor(Movie, Actor)`, then from Movie to Actor is forward.
+If the relation is `actor(Actor, Movie)`, then from Actor to Movie is forward.
+
+Let's look at the example again:
+""actors of the movie Inception"" -> `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`.
+This implies the relation `actor` goes from Actor to Movie (forward), so to get actors *from* the movie, we go *backward* along the `actor` edge? No, if `actor` is `Actor -> Movie`, then going backward from Movie gets us Actors. Yes.
+So, `<R> actor </R>` connects Actor to Movie. Direction from Actor to Movie is forward. Therefore, direction from Movie to Actor is backward.
+The query asks for Actors. So we start with Concept `actor` and constrain it by saying ""that has relation `actor` going *forward* to Matrix""? Or ""that is the target of `actor` coming *from* Matrix""?
+
+Let's trace:
+Path: `Actor --(actor)--> Movie`.
+We want Actors where `Movie == Matrix`.
+So we filter `Actor` by `exists (Actor --(actor)--> Matrix)`.
+In the constraint syntax: `that <R> actor </R> forward to <E> Matrix </E>`.
+This means: The current node (Actor) has an outgoing `actor` edge to Matrix. This matches `Actor -> Movie`.
+
+However, the example says: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`.
+If the direction is `backward`, it implies the relation is defined as `Movie --(actor)--> Actor`? Or the parser interprets ""backward to"" differently?
+Let's look at the second example: ""games developed by Valve"".
+`<ES> <C> game </C> that <R> developer </R> forward to <E> Valve </E> </ES>`.
+Here, `developer(Game, Developer)` or `developer(Developer, Game)`?
+Usually `developer` is a property of the game. `Game --(developer)--> Developer`.
+So from Game to Developer is forward.
+We want Games developed by Valve. So we filter `Game` by `exists (Game --(developer)--> Valve)`.
+This matches `forward to <E> Valve </E>`.
+
+Now back to Actors of Matrix.
+If the example uses `backward`, it implies the relation `actor` is defined as `Movie --(actor)--> Actor`.
+So, from Actor to Movie would be `backward`.
+Let's check the logic:
+If `actor` is `Movie -> Actor`:
+To find Actors connected to Matrix:
+Start with Concept `actor`.
+Constraint: `that <R> actor </R> backward to <E> Matrix </E>`.
+""Backward to Matrix"" means the edge comes *from* the current node (Actor) and goes *to* Matrix? No, ""backward"" usually means traversing the edge in reverse.
+If the edge is `Movie -> Actor`, traversing it backward from Actor gets you to Movie.
+So `Actor --(backward actor)--> Movie`.
+This means the constraint on Actor is: ""There exists an edge of type `actor` coming *from* Matrix"".
+This fits `Movie -> Actor`.
+
+Let's assume the standard Wikidata/DBpedia schema where relations are often typed.
+If I use the example's logic for ""actors of movie"":
+Use `backward` if the relation is defined as Movie->Actor? Or does the example imply the relation name is `actor` and it goes Actor->Movie, so we go backward from Movie to get Actors?
+Actually, the syntax `that <R> DIR to EntitySet` describes the relationship of the *current* node (the Concept) to the target EntitySet.
+If I say `<C> actor </C> that <R> actor </R> forward to <E> Matrix </E>`, it means: The Actor has an outgoing `actor` edge to Matrix.
+If I say `<C> actor </C> that <R> actor </R> backward to <E> Matrix </E>`, it means: The Actor has an incoming `actor` edge from Matrix (i.e., Matrix -> Actor).
+
+The example ""actors of Inception"" uses `backward`. This strongly suggests the schema defines `actor` as `Movie -> Actor`.
+Therefore, for ""Actors of Matrix"", I should use `backward` if I follow the example's schema assumption.
+HOWEVER, in many other contexts (like DBpedia), `dbo:starring` is `Movie -> Actor`. So `actor` relation might be `Movie -> Actor`.
+Let's stick to the example's pattern for ""actors of movie"": use `backward`.
+
+So, EntitySet: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+
+Now, the condition: ""taller than 160 cm"".
+Attribute: `height`.
+Value: `160`.
+Constraint on the EntitySet (the actors): `whose <A> height </A> is larger than <V> 160 </V>`.
+
+Full Sequence:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V>`
+
+One detail: ""cm"". The value type should probably be numeric. The unit is implicit in the attribute or ignored in the literal unless specified. I will use `<V> 160 </V>` with no specific VTYPE prefix other than default, or maybe `numeric`. The grammar allows `VTYPE ""<V>"" Literal ""</V>""`. I'll use `numeric` for clarity if needed, but standard is just `<V>`. Let's look at the example: ""larger than 160"". No unit in value.
+
+Final check on VerifyQuery structure:
+`whether EntitySet Constraint`
+EntitySet: Actors of Matrix.
+Constraint: Height > 160.
+
+Representation 1:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V>`
+
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        ├── AttributeConstraint
+        │   ├── ""whose""
+        │   ├── Attribute
+        │   │   ├── ""<A>""
+        │   │   ├── ""height""
+        │   │   └── ""</A>""
+        │   ├── COP
+        │   │   └── ""larger than""
+        │   └── Value
+        │       ├── ""<V>""
+        │       ├── ""160""
+        │       └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the relation to 'Matrix' and the attribute constraint for height. However, it contains a structural error by nesting the AttributeConstraint inside the EntitySet (as part of the same ES block) rather than as a separate Constraint node at the root level of the VerifyQuery, which is how the Ground Truth defines the structure for multi-constraint verification. Additionally, there is a minor discrepancy in the Value literal ('160' vs '160 cm'), though the logic remains intact.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the relation to 'Matrix' and the attribute constraint for height. However, it contains a structural error by nesting the AttributeConstraint inside the EntitySet (as part of the same ES block) rather than as a separate Constraint node at the root level of the VerifyQuery, which is how the Ground Truth defines the structure for multi-constraint verification. Additionally, there is a minor discrepancy in the Value literal ('160' vs '160 cm'), though the logic remains intact."",
+  ""score"": 0.85
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        ├── AttributeConstraint
+        │   ├── ""whose""
+        │   ├── Attribute
+        │   │   ├── ""<A>""
+        │   │   ├── ""height""
+        │   │   └── ""</A>""
+        │   ├── COP
+        │   │   └── ""larger than""
+        │   └── Value
+        │       ├── ""<V>""
+        │       ├── ""160""
+        │       └── ""</V>""
+        └── ""</ES>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,2,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.474747,True,stop,3137,0.042013,444,2.962625,149.8671,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained."",
+  ""score"": 0.95
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,3,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,16.560332,True,stop,3137,0.024478,2342,16.04429,145.9709,"<thinking>
+The user is asking a Yes/No question (""whether...""), so I must use `VerifyQuery`.
+The core assertion to verify is: ""All actors of Matrix are taller than 160 cm"".
+This can be rephrased as: ""Is it true that for every actor of the movie Matrix, their height is greater than 160 cm?""
+
+In GraphQ IR, `VerifyQuery` checks if an EntitySet satisfies a Constraint. However, ""All X are Y"" is a universal quantification. Standard GraphQ `VerifyQuery` usually checks existence or specific property matches for a set.
+Let's look at the structure:
+Subject: Actors of Matrix.
+Condition: Height > 160 cm.
+
+If I use `VerifyQuery`, I need to define the EntitySet and the Constraint.
+EntitySet: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+Constraint: The actors must have height > 160.
+
+However, `VerifyQuery` typically returns true if *any* entity in the set matches the constraint (existential) or if the query is structured as a boolean check on a specific relation.
+Wait, let's look at the grammar for `VerifyQuery`: `whether EntitySet Constraint`.
+If I write: `whether <ES> actors of Matrix </ES> whose <A> height </A> larger than 160 <V> cm </V>`
+This asks ""Are there actors of Matrix who are taller than 160cm?"" which is not ""All"".
+
+To check ""All"", we often need to verify that the set of actors who are NOT taller than 160 is empty, or use a specific logical structure. But GraphQ IR doesn't have explicit universal quantifiers in the basic grammar provided.
+Let's re-read the prompt's intent for `VerifyQuery`. ""For Yes/No questions, you MUST use VerifyQuery... Ensure the query directly evaluates to a boolean"".
+
+Often, ""Are all X Y?"" is interpreted in these systems as checking if the set of X that are NOT Y is empty. Or, more simply, if the system supports it, checking if the property holds for the set.
+Let's look at the example: ""Is London the capital of France?"" -> `whether <E> London </E> that <R> capital </R> forward to <E> France </E>`. This checks a specific relation instance.
+
+For ""All actors..."", it's tricky. Let's assume the standard interpretation for this type of query in GraphQ is checking if the *set* of actors satisfies the condition, or perhaps the question implies checking the minimum height? No, it asks ""whether all... are taller"".
+
+Let's try to model it as: Verify that there are NO actors of Matrix who are shorter than or equal to 160cm.
+Or, simpler: The query might be interpreted as ""Check if the set of actors of Matrix has the property that their height is > 160"".
+
+Let's look at the `Constraint` grammar again.
+`AttributeConstraint := ""whose"" Attribute COP Value`.
+If I use `VerifyQuery`, it essentially asks ""Does this EntitySet exist/have this constraint?"".
+
+Let's construct the sequence:
+""whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than 160 <V> cm </V>""
+
+Wait, if I just say ""whose height > 160"", does it mean ""all"" or ""some""? In natural language queries mapped to graph databases, ""Are all actors taller than 160?"" is often handled by checking the minimum height or by negation. However, without a `minimum` operator in `VerifyQuery`, I must stick to the boolean verification of the set's properties if possible.
+
+Actually, a common pattern for ""All X are Y"" in these parsers is to verify that the set of X *not* satisfying Y is empty.
+Sequence: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> smaller than 160 <V> cm </V> ... wait, that would return true if there is at least one short actor.
+
+Let's look at the provided examples again.
+""Is London the capital of France?"" -> `whether <E> London </E> that <R> capital </R> forward to <E> France </E>`
+
+If the question is ""Are all actors...?"", and I cannot express universal quantification directly, I might have to rely on the specific capabilities of the underlying engine which this IR targets. However, usually, `VerifyQuery` with a set implies checking if the condition holds for the *entire* set in some contexts, or it's an existential check.
+
+Let's assume the standard GraphQ interpretation where `VerifyQuery` checks if the described path/property exists/is valid.
+If I write: `whether <ES> actors of Matrix </ES> whose height > 160`, it might be ambiguous.
+
+Let's try a different angle. Maybe the user wants to know if the *minimum* height is > 160? No, that's a ValueQuery/SelectQuery hybrid.
+
+Let's stick to the most direct translation of the boolean check on the set defined by the constraint.
+Sequence: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than 160 <V> cm </V>
+
+If the system interprets `VerifyQuery` as ""Does every element in this set satisfy the constraint?"", then this is correct. If it interprets it as ""Does any element..."", it's incorrect for ""All"". Given the constraints of the grammar, I will assume the semantic intent of ""All"" maps to a verification of the property on the identified set.
+
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than 160 <V> cm </V>
+
+Let's refine the Value type. ""cm"" is a unit, but the value is 160. The type is likely numeric or string depending on schema. I'll use `numeric` for 160.
+
+One detail: ""taller than 160 cm"".
+Attribute: height
+COP: larger than
+Value: 160 (numeric)
+
+Sequence: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than 160 <V> numeric </V>
+
+Wait, the prompt says ""taller than 160 cm"". I should probably include the unit if it's part of the value string, or just the number. The grammar allows `VTYPE ""<V>"" Literal`. So `numeric` type with literal `160`.
+
+Let's double check the direction.
+""Actors of Matrix"".
+Relation: `actor` (from Movie to Actor).
+We are starting from Actors and going to Matrix? No, we are identifying Actors.
+The set is ""Actors"".
+Constraint on Actors: They have a relation `actor` forward to `Matrix`.
+So: `<ES> <C> actor </C> that <R> actor </R> forward to <E> Matrix </E> </ES>`
+
+Let's re-verify direction.
+If Relation is `actor(Movie, Actor)`, then from Actor to Movie is `actor` backward? Or is the relation named `actor` on the edge?
+Usually, if the edge is `has_actor` (Movie -> Actor), then:
+Actor --(backward has_actor)--> Movie.
+Or if the edge is `acted_in` (Actor -> Movie).
+The example ""actors of the movie Inception"" used: `<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`.
+This implies the relation name is `actor` and it goes from Actor to Movie? No, if it's `backward`, it means we are traversing the edge in reverse.
+If the graph has `Movie --[actor]--> Actor`, then going from Actor to Movie is `actor` backward.
+So my previous logic holds: `<R> actor </R> forward to <E> Matrix </E>` would mean Actor -> Matrix. If the relation is defined as Movie->Actor, then Actor->Matrix is backward.
+The example used `backward`. So I will use `backward`.
+
+Final Sequence: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than 160 <V> numeric </V>
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""actor""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""backward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Matrix""
+        │   │           └── ""</E>""
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""height""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""larger than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""numeric""
+        │           ├── ""<V>""
+        │           ├── ""160""
+        │           └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the nested RelationConstraint and AttributeConstraint. It follows the correct AST structure for terminal nodes and constrained EntitySets. The only minor discrepancy is the omission of 'cm' in the numeric value, but the core logic remains intact.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the nested RelationConstraint and AttributeConstraint. It follows the correct AST structure for terminal nodes and constrained EntitySets. The only minor discrepancy is the omission of 'cm' in the numeric value, but the core logic remains intact."",
+  ""score"": 0.95
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   ├── RelationConstraint
+        │   │   ├── ""that""
+        │   │   ├── Relation
+        │   │   │   ├── ""<R>""
+        │   │   │   ├── ""actor""
+        │   │   │   └── ""</R>""
+        │   │   ├── DIR
+        │   │   │   └── ""backward""
+        │   │   ├── ""to""
+        │   │   └── EntitySet
+        │   │       └── Entity
+        │   │           ├── ""<E>""
+        │   │           ├── ""Matrix""
+        │   │           └── ""</E>""
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""height""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""larger than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""numeric""
+        │           ├── ""<V>""
+        │           ├── ""160""
+        │           └── ""</V>""
+        └── ""</ES>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,4,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.475891,True,stop,3137,0.024829,444,2.971048,149.4422,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained."",
+  ""score"": 0.95
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,5,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.430828,True,stop,3137,0.024617,444,2.959532,150.0237,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,6,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.468113,True,stop,3137,0.024881,444,2.97331,149.3285,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,7,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,9.949603,True,stop,3137,0.024806,1394,9.461757,147.3299,"<thinking>
+The user is asking a Yes/No question (""whether...""), so I must use `VerifyQuery`.
+The core assertion to verify is: ""All actors of Matrix are taller than 160 cm"".
+This can be rephrased as: ""Is it true that for every actor of the movie Matrix, their height is greater than 160 cm?""
+
+In GraphQ IR, `VerifyQuery` checks if an EntitySet satisfies a Constraint. However, ""All X are Y"" is a universal quantification. Standard GraphQ `VerifyQuery` usually checks existence or specific property matches for a set.
+Let's look at the structure:
+Subject: Actors of Matrix.
+Condition: Height > 160 cm.
+
+If I use `VerifyQuery`, it typically returns true if the query finds instances matching the pattern. But ""All"" implies checking that *no* counter-examples exist, or that *all* members satisfy the condition.
+Often, ""Are all X Y?"" is mapped to verifying that the set of X that are NOT Y is empty, OR simply verifying the property holds for the identified set if the semantics allow universal quantification in the constraint evaluation.
+
+Let's break down the components:
+1.  **EntitySet (Actors)**: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+2.  **Constraint (Height > 160)**: `whose <A> height </A> larger than <V> 160 </V>` (assuming unit is implicit or handled by value type, but here just number).
+
+The query asks ""whether all..."".
+If I construct a `VerifyQuery` with the EntitySet of actors and the constraint that they are taller than 160cm, does it mean ""Are there any actors taller than 160?"" or ""Do all actors satisfy this?"".
+In many semantic parsers for KGQA, ""All X are Y"" is often treated as verifying the property on the set. If the system supports universal quantification explicitly, that's best. If not, it might be interpreted as ""Check if the condition holds for the entities"".
+
+Let's look at the grammar for `VerifyQuery`:
+`VerifyQuery := ""whether"" EntitySet Constraint`
+
+If I write:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than <V> 160 </V>`
+
+This asks: ""Is it the case that the actors of Matrix have height larger than 160?""
+This is the standard way to express this in GraphQ IR for boolean verification of a property over a set.
+
+Steps:
+1.  Root: `VerifyQuery`
+2.  Keyword: `whether`
+3.  EntitySet (Actors): `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+4.  Constraint: `whose <A> height </A> larger than <V> 160 </V>`
+
+Note on Direction: ""Actors of Matrix"". The relation is usually `actor` (Movie -> Actor). So from Actor to Movie is `actor forward`. From Movie to Actor is `actor backward`.
+The query asks for the actors. So we start with Concept `actor`. We constrain it by saying it has a relation `actor` *forward* to `Matrix`? Or `backward`?
+If the edge is `Movie --[actor]--> Actor`, then:
+- To find Actors given Movie: We look for nodes connected via `actor` coming *from* the movie. This is `actor forward` if we are at the actor node looking at the movie? No, usually direction is relative to the traversal.
+Let's stick to the example: ""actors of the movie Inception"" -> `<ES> <C> actor </C> that <R> actor </R> backward to <E> Inception </E> </ES>`.
+This implies the relation `actor` goes from Actor to Movie (Actor --[actor]--> Movie). So to get Actors from Movie, we go `backward` along the `actor` edge.
+
+So:
+EntitySet: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+Constraint: `whose <A> height </A> larger than <V> 160 </V>`
+
+Value Type for 160: It's a number. `<V> 160 </V>`.
+
+Final Sequence:
+whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than <V> 160 </V>
+
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        ├── AttributeConstraint
+        │   ├── ""whose""
+        │   ├── Attribute
+        │   │   ├── ""<A>""
+        │   │   ├── ""height""
+        │   │   └── ""</A>""
+        │   ├── COP
+        │   │   └── ""larger than""
+        │   └── Value
+        │       └── ""<V>""
+        │           ├── ""160""
+        │           └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.75,0.75,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the relation to 'Matrix' and the height constraint. However, it contains a structural error in the nesting of the AttributeConstraint: it places the attribute filter inside the EntitySet block as if it were part of the RelationConstraint structure, whereas the Ground Truth correctly separates the primary EntitySet (actors of Matrix) from the secondary Constraint (height check). Additionally, there is a minor discrepancy in the Value node where '160 cm' was simplified to '160', and the VTYPE ('numeric') was omitted.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the relation to 'Matrix' and the height constraint. However, it contains a structural error in the nesting of the AttributeConstraint: it places the attribute filter inside the EntitySet block as if it were part of the RelationConstraint structure, whereas the Ground Truth correctly separates the primary EntitySet (actors of Matrix) from the secondary Constraint (height check). Additionally, there is a minor discrepancy in the Value node where '160 cm' was simplified to '160', and the VTYPE ('numeric') was omitted."",
+  ""score"": 0.75
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │   ├── ""actor""
+        │       │   └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        ├── AttributeConstraint
+        │   ├── ""whose""
+        │   ├── Attribute
+        │   │   ├── ""<A>""
+        │   │   ├── ""height""
+        │   │   └── ""</A>""
+        │   ├── COP
+        │   │   └── ""larger than""
+        │   └── Value
+        │       └── ""<V>""
+        │           ├── ""160""
+        │           └── ""</V>""
+        └── ""</ES>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,8,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.444849,True,stop,3137,0.024746,444,2.962928,149.8518,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained."",
+  ""score"": 0.95
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,9,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,10.10367,True,stop,3137,0.024834,1416,9.612912,147.3019,"<thinking>
+The user is asking a Yes/No question (""whether...""), so I must use `VerifyQuery`.
+The core assertion to verify is: ""All actors of Matrix are taller than 160 cm"".
+This can be rephrased as: ""Is it true that for every actor of the movie Matrix, their height is greater than 160 cm?""
+
+In GraphQ IR, `VerifyQuery` checks if an EntitySet satisfies a Constraint. However, ""All X are Y"" is a universal quantification. Standard GraphQ `VerifyQuery` usually checks existence or specific property matches for a set.
+Let's look at the structure:
+Subject: Actors of Matrix.
+Condition: Height > 160 cm.
+
+If I use `VerifyQuery`, it typically returns true if the query finds instances matching the pattern. But ""All"" implies checking that *no* counter-examples exist, or that *all* members satisfy the condition.
+Often, ""Are all X Y?"" is mapped to verifying that the set of X that are NOT Y is empty, OR simply verifying the property holds for the identified set if the semantics allow universal quantification in the constraint evaluation.
+
+Let's break down the components:
+1.  **EntitySet (Actors)**: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+2.  **Constraint (Height > 160)**: `whose <A> height </A> larger than <V> 160 </V>` (assuming unit is implicit or handled by value type, but usually just the number). The prompt says ""taller than"", so `larger than` is the COP.
+
+The query asks ""whether all..."".
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than <V> 160 </V>
+
+Wait, standard `VerifyQuery` in many KG systems checks if the EntitySet is non-empty or if the relation holds. To check ""All"", one might need to ensure the constraint applies to *every* member. In the context of this specific IR grammar provided, `VerifyQuery` takes an `EntitySet` and a `Constraint`. If the system interprets the constraint as applying to all members of the set (universal quantification over the set defined by the EntitySet), then this structure works.
+
+Let's refine the Representation 1:
+""whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than <V> 160 </V>""
+
+Note on Value Type: ""160 cm"" is a length/number. I will use `<V> 160 </V>` and potentially prefix with `numeric` or just leave it as a literal if the type isn't strictly enforced by the tag content but by the VTYPE prefix. The instructions say ""Values CAN be prefixed..."". I'll use `numeric` for clarity.
+
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than numeric <V> 160 </V>
+
+Let's double check the direction.
+""Actors of Matrix"".
+Relation: `actor` (Movie -> Actor).
+To get Actors FROM Movie, we follow `actor` forward? Or is the relation defined as Actor -> Movie?
+Usually, in DBpedia/Wikidata:
+`<Actor> <acted_in> <Movie>`
+So to find actors OF a movie, we look for entities connected TO the movie via `acted_in`.
+If the relation name is `actor`, it often implies `<Movie> --[has_actor]--> <Actor>` or `<Actor> --[is_actor_of]--> <Movie>`.
+In the example ""actors of the movie Inception"", the output used:
+`<C> actor </C> that <R> actor </R> backward to <E> Inception </E>`
+This implies the relation `actor` goes from Actor to Movie (Actor -> Movie). Therefore, to find Actors given a Movie, we go **backward** along the `actor` edge.
+
+So:
+EntitySet: `<ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>`
+Constraint: `whose <A> height </A> larger than numeric <V> 160 </V>`
+
+Final Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> larger than numeric <V> 160 </V>
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""height""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""larger than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""numeric""
+        │           ├── ""<V>""
+        │           ├── ""160""
+        │           └── ""</V>""
+        ├── RelationConstraint
+        │   ├── ""that""
+        │   ├── Relation
+        │   │   ├── ""<R>""
+        │   │   ├── ""actor""
+        │   │   └── ""</R>""
+        │   ├── DIR
+        │   │   └── ""backward""
+        │   ├── ""to""
+        │   └── EntitySet
+        │       └── Entity
+        │           ├── ""<E>""
+        │           ├── ""Matrix""
+        │           └── ""</E>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.5,0.5,Q06,"The Candidate fails to correctly structure the hierarchy of constraints. In GraphQ IR, a single EntitySet can have one primary constraint (either an AttributeConstraint or a RelationConstraint), but here the Candidate attempts to nest both a RelationConstraint and an AttributeConstraint within the same EntitySet block as siblings/sub-branches. Additionally, it slightly modifies the value '160 cm' to '160', though this is minor compared to the structural violation of the grammar.",,"```json
+{
+  ""rationale"": ""The Candidate fails to correctly structure the hierarchy of constraints. In GraphQ IR, a single EntitySet can have one primary constraint (either an AttributeConstraint or a RelationConstraint), but here the Candidate attempts to nest both a RelationConstraint and an AttributeConstraint within the same EntitySet block as siblings/sub-branches. Additionally, it slightly modifies the value '160 cm' to '160', though this is minor compared to the structural violation of the grammar."",
+  ""score"": 0.5
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""height""
+        │       │   └── ""</A>""
+        │       ├── COP
+        │       │   └── ""larger than""
+        │       └── Value
+        │           ├── VTYPE
+        │           │   └── ""numeric""
+        │           ├── ""<V>""
+        │           ├── ""160""
+        │           └── ""</V>""
+        ├── RelationConstraint
+        │   ├── ""that""
+        │   ├── Relation
+        │   │   ├── ""<R>""
+        │   │   ├── ""actor""
+        │   │   └── ""</R>""
+        │   ├── DIR
+        │   │   └── ""backward""
+        │   ├── ""to""
+        │   └── EntitySet
+        │       └── Entity
+        │           ├── ""<E>""
+        │           ├── ""Matrix""
+        │           └── ""</E>""
+        └── ""</ES>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,10,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.459256,True,stop,3137,0.024529,444,2.964479,149.7734,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained."",
+  ""score"": 0.95
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,11,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.450378,True,stop,3137,0.024476,444,2.961763,149.9107,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,12,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.511774,True,stop,3137,0.026664,444,2.959116,150.0448,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,13,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.4497,True,stop,3137,0.024672,444,2.97478,149.2547,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,14,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.461654,True,stop,3137,0.024333,444,2.970157,149.487,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,15,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.43911,True,stop,3137,0.02489,444,2.961587,149.9196,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,16,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.49533,True,stop,3137,0.024836,444,2.965376,149.7281,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,17,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.444537,True,stop,3137,0.024206,444,2.970922,149.4486,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,18,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.454721,True,stop,3137,0.024289,444,2.963984,149.7984,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,19,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.478539,True,stop,3137,0.042301,444,2.959367,150.0321,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,20,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.437754,True,stop,3137,0.024457,444,2.964692,149.7626,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,21,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.435555,True,stop,3137,0.023895,444,2.957038,150.1503,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,22,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.57468,True,stop,3137,0.025576,444,3.09881,143.2808,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,23,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.443125,True,stop,3137,0.02421,444,2.970612,149.4642,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,24,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.420258,True,stop,3137,0.024132,444,2.962661,149.8653,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,25,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.457695,True,stop,3137,0.024252,444,2.962238,149.8867,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,26,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.446364,True,stop,3137,0.024608,444,2.964015,149.7968,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,27,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.413693,True,stop,3137,0.024447,444,2.951797,150.4168,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,28,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,8.336072,True,stop,3137,0.024437,1149,7.807203,147.1718,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 cm </V>
+(Note: The query asks if *all* actors satisfy the condition. In GraphQ IR, verifying a universal quantifier like ""all"" usually involves checking if the set of entities that *violate* the condition is empty, or simply stating the constraint applies to the set. However, standard GraphQ `VerifyQuery` typically checks existence or specific relations. To express ""all X are Y"", we can interpret it as verifying that there are no actors of Matrix who are NOT taller than 160cm. Alternatively, some systems support universal quantification directly in constraints. Given the strict grammar provided, `VerifyQuery` takes an EntitySet and a Constraint. A common pattern for ""All X have property P"" is to verify that the set of X *without* P is empty, or simply assert the constraint on the set if the system supports universal checks. Let's look at the structure: `whether [EntitySet] [Constraint]`. If I write `whether <ES> actors of Matrix </ES> whose height > 160`, it might be interpreted as ""Are there actors of Matrix with height > 160?"". To strictly mean ""All"", one might need a negation or a specific universal operator. However, without a specific universal quantifier in the grammar's SOP/COP/VOP, I will construct the query to verify the property holds for the set. A safer interpretation for ""whether all..."" in many KG QA datasets is to check if the count of exceptions is 0. But `CountQuery` returns a number. `VerifyQuery` returns boolean. Let's assume the standard interpretation: Verify that the constraint applies to the entire set. If the grammar doesn't support universal quantification explicitly, I will frame it as checking the relation/attribute on the set. Actually, looking at the examples, `VerifyQuery` is for Yes/No questions. ""Is London the capital of France?"" -> `whether <E> London </E> that <R> capital </R> forward to <E> France </E>`. This checks a specific fact. For ""All actors..."", it's a property check on a set. I will use `AttributeQuery` logic inside a `VerifyQuery`? No, `VerifyQuery` is the root. I will define the EntitySet as ""actors of Matrix"" and constrain it by ""height > 160"". If the system evaluates this as ""Does every actor in this set satisfy this?"", it works. If it evaluates as ""Does any actor..."", it's ambiguous. Given the prompt's simplicity, I'll stick to the direct mapping: Verify that the actors of Matrix have height > 160.`
+
+Let's refine Representation 1:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 cm </V>`
+
+Wait, the grammar for `Constraint` allows `AttributeConstraint`.
+`AttributeConstraint := ""whose"" Attribute COP Value`.
+So the full sequence is:
+`whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 cm </V>`
+
+This structure implies: ""Is it true that for the set of actors of Matrix, their height is larger than 160cm?"" This effectively checks the condition on the set.
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │       ├── ""actor""
+        │       │       └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │       ├── ""height""
+        │       │       └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is larger than""
+        │       └── Value
+        │           └── VTYPE
+        │               └── ""numeric""
+        │           ├── ""<V>""
+        │               ├── ""160 cm""
+        │               └── ""</V>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the entities, relations, and the attribute constraint. However, it contains a minor grammatical error in the COP (Comparison Operator) node by using 'is larger than' instead of the supported 'larger than', and it fails to properly structure the Value node according to the grammar (the VTYPE should be a sibling/prefix to the value content rather than a parent branch containing the string).",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the entities, relations, and the attribute constraint. However, it contains a minor grammatical error in the COP (Comparison Operator) node by using 'is larger than' instead of the supported 'larger than', and it fails to properly structure the Value node according to the grammar (the VTYPE should be a sibling/prefix to the value content rather than a parent branch containing the string)."",
+  ""score"": 0.85
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""actor""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── ""that""
+        │       ├── Relation
+        │       │   ├── ""<R>""
+        │       │       ├── ""actor""
+        │       │       └── ""</R>""
+        │       ├── DIR
+        │       │   └── ""backward""
+        │       ├── ""to""
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── ""<E>""
+        │               ├── ""Matrix""
+        │               └── ""</E>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │       ├── ""height""
+        │       │       └── ""</A>""
+        │       ├── COP
+        │       │   └── ""is larger than""
+        │       └── Value
+        │           └── VTYPE
+        │               └── ""numeric""
+        │           ├── ""<V>""
+        │               ├── ""160 cm""
+        │               └── ""</V>""
+        └── ""</ES>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,29,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.451072,True,stop,3137,0.024581,444,2.967295,149.6312,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). There are minor discrepancies in the Value node: it uses 'number' instead of 'numeric' and truncates '160 cm' to '160', but these do not fundamentally alter the logical structure or the graph traversal logic. The structural hierarchy is well-maintained."",
+  ""score"": 0.95
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv
+graphq_tree,30,Q06,Tell me whether all the actors of Matrix are taller than 160 cm.,qwen3.6:35b,False,0.025,3.47555,True,stop,3137,0.024608,444,2.988273,148.5808,"<thinking>
+Representation 1: whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES> whose <A> height </A> is larger than <V> 160 </V> (unit: cm)
+</thinking>
+
+```graphq_tree
+S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.9,0.9,Q06,"The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the VerifyQuery type and captures all semantic components, including the complex nested constraints (RelationConstraint for 'Matrix actors' and AttributeConstraint for height). It introduces an extra 'Verify' node not present in the Ground Truth structure, but more importantly, it slightly deviates from the ground truth value formatting ('160' vs '160 cm') and uses 'number' instead of 'numeric'. However, the structural logic and graph traversal are perfectly preserved."",
+  ""score"": 0.9
+}
+```","S
+└── VerifyQuery
+    ├── ""whether""
+    ├── EntitySet
+    │   ├── ""<ES>""
+    │   ├── EntitySet
+    │   │   └── Concept
+    │   │       ├── ""<C>""
+    │   │       ├── ""actor""
+    │   │       └── ""</C>""
+    │   ├── Constraint
+    │   │   └── RelationConstraint
+    │   │       ├── ""that""
+    │   │       ├── Relation
+    │   │       │   ├── ""<R>""
+    │   │       │   ├── ""actor""
+    │   │       │   └── ""</R>""
+    │   │       ├── DIR
+    │   │       │   └── ""backward""
+    │   │       ├── ""to""
+    │   │       └── EntitySet
+    │   │           └── Entity
+    │   │               ├── ""<E>""
+    │   │               ├── ""Matrix""
+    │   │               └── ""</E>""
+    │   └── ""</ES>""
+    └── Constraint
+        └── AttributeConstraint
+            ├── ""whose""
+            ├── Attribute
+            │   ├── ""<A>""
+            │   ├── ""height""
+            │   └── ""</A>""
+            ├── COP
+            │   └── ""larger than""
+            └── Value
+                ├── VTYPE
+                │   └── ""numeric""
+                ├── ""<V>""
+                ├── ""160 cm""
+                └── ""</V>""","S
+└── VerifyQuery
+    ├── ""whether""
+    └── Verify
+        ├── EntitySet
+        │   └── EntitySet
+        │       ├── ""<ES>""
+        │       ├── EntitySet
+        │       │   └── Concept
+        │       │       ├── ""<C>""
+        │       │       ├── ""actor""
+        │       │       └── ""</C>""
+        │       ├── Constraint
+        │       │   └── RelationConstraint
+        │       │       ├── ""that""
+        │       │       ├── Relation
+        │       │       │   ├── ""<R>""
+        │       │       │   ├── ""actor""
+        │       │       │   └── ""</R>""
+        │       │       ├── DIR
+        │       │       │   └── ""backward""
+        │       │       ├── ""to""
+        │       │       └── EntitySet
+        │       │           └── Entity
+        │       │               ├── ""<E>""
+        │       │               ├── ""Matrix""
+        │       │               └── ""</E>""
+        │       └── ""</ES>""
+        └── Constraint
+            └── AttributeConstraint
+                ├── ""whose""
+                ├── Attribute
+                │   ├── ""<A>""
+                │   ├── ""height""
+                │   └── ""</A>""
+                ├── COP
+                │   └── ""is larger than""
+                └── Value
+                    ├── VTYPE
+                    │   └── ""number""
+                    ├── ""<V>""
+                    ├── ""160""
+                    └── ""</V>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q06_Tell_me_whether_all_the_actors_of_Matrix_th_false.csv

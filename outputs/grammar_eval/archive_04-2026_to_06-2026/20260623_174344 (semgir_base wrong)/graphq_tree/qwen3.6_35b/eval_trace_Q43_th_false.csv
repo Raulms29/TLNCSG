@@ -1,0 +1,2526 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+graphq_tree,1,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,7.295609,True,stop,3134,0.185034,972,6.638386,146.4211,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, the grammar for `RelationQuery` doesn't explicitly support ""between"" with an OR logic in the standard definition provided (`what is the relation from X to Y`).
+
+Let's look at the examples.
+""Give me the actors of the movie Inception."" -> EntityQuery finding entities.
+""Tell me the total budget..."" -> ValueQuery.
+
+If I use `RelationQuery`, I must specify a direction. ""from Meryl Streep to Eastwood"". If no such relation exists, it returns nothing. But usually, ""connection between"" implies checking both directions or finding a path.
+However, often in these datasets (like Wikidata), relations are directed. For example, `Meryl Streep` -> `actor` -> `Clint Eastwood` (if they were in a movie together). Or `Clint Eastwood` -> `director` -> `Meryl Streep`.
+
+Let's try to formulate it as finding the relation from Meryl Streep to Clint Eastwood. If the user meant ""Eastwood"" as Clint Eastwood, I should use that entity.
+Query: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>.
+
+Wait, the prompt says ""Give me any existing connection"". This might imply returning the *value* of the connection or just the fact that it exists? No, ""connection"" usually refers to the edge/relationship itself.
+If I use `RelationQuery`, it returns the relation name.
+
+Let's refine the entities. ""Eastwood"" likely refers to ""Clint Eastwood"".
+So: `what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>`?
+Or should I check both directions? The grammar doesn't easily allow a boolean OR for the root query type in a simple way without creating a complex EntitySet.
+Actually, if I just ask `what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>`, it's a valid RelationQuery.
+
+Let's consider if ""connection"" implies an attribute or value? No, connection is a relation.
+
+Let's stick to `RelationQuery`.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+
+Is it possible the user wants the *movie* they are connected by? That would be an EntityQuery: ""what is <C> movie"" that <R> actor forward to <E> Meryl Streep</E> and <R> actor forward to <E> Clint Eastwood</E>"". But the question asks for the ""connection"", which is the relation itself.
+
+Let's provide the RelationQuery from Meryl Streep to Clint Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Clint Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the structural logic of the graph traversal. It introduces a minor hallucination by expanding 'Eastwood' to 'Clint Eastwood', but this is semantically acceptable as it refers to the same entity in context. However, the Candidate fails to include the 'from' keyword required by the RelationQuery grammar (RelationQuery := 'what is the relation from' EntitySet 'to' EntitySet), which is a minor structural omission.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the structural logic of the graph traversal. It introduces a minor hallucination by expanding 'Eastwood' to 'Clint Eastwood', but this is semantically acceptable as it refers to the same entity in context. However, the Candidate fails to include the 'from' keyword required by the RelationQuery grammar (RelationQuery := 'what is the relation from' EntitySet 'to' EntitySet), which is a minor structural omission."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Clint Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,2,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,7.021681,True,stop,3134,0.024781,946,6.532358,144.8175,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (it could be Meryl Streep -> Eastwood or Eastwood -> Meryl Streep), but typically ""connection between A and B"" in a knowledge graph context often seeks any path or direct relation. However, usually, if we look for a specific relation type like ""actor"" or ""director"", we need to know the direction.
+
+Let's assume the question asks for *any* existing relation (edge) connecting these two nodes. In GraphQ IR, `RelationQuery` is used to find relations between entity sets.
+Structure: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>` OR `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>`.
+
+However, often ""connection between"" implies finding a shared attribute or a path. But strictly speaking, a ""relation"" query returns the edge label.
+Let's look at the grammar for `RelationQuery`: `what is the relation from EntitySet to EntitySet`.
+
+If I use `RelationQuery`, I must specify direction. Since it's ambiguous, I will check both directions or assume a standard flow. Usually, in these datasets (like Wikidata), relations are directed.
+Let's try to find if there is a direct edge.
+Query: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"" AND ""what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>"".
+
+Wait, the prompt asks for ""any existing connection"". This might be better served by a `VerifyQuery` if we had a specific relation, or a `RelationQuery` that returns the set of relations.
+Actually, looking at the examples, `RelationQuery` returns *the* relation. If there are multiple, it might return them.
+Let's formulate it as finding the relation from Meryl Streep to Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, ""Eastwood"" is likely Clint Eastwood. I should treat ""Eastwood"" as an Entity.
+
+Let's refine. The user wants *any* connection. This implies we don't know the direction or the type.
+However, `RelationQuery` requires a specific source and target set.
+If I write: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>` it asks for relations going from Meryl to Clint.
+If I write: `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>` it asks for relations going from Clint to Meryl.
+
+Given the ambiguity, I will provide the query for one direction, or perhaps the system expects a specific known relation (e.g., they acted in ""The Bridges of Madison County""? No, that was Streep and *Clint Eastwood*. So there is a relation `actor` from Meryl to the movie, and `actor` from Clint to the movie. They are connected via the movie.
+But the question asks for a connection *between* them directly? Or just any path?
+""Connection between"" usually implies a direct edge in these simplified graph queries unless ""path"" is specified.
+Let's assume there might be a direct relation like `colleague` or similar, or the user is testing the ability to query relations.
+
+Let's stick to the `RelationQuery` structure. I will query from Meryl Streep to Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors) that are part of the RelationQuery grammar definition in the GraphQ IR specification.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors) that are part of the RelationQuery grammar definition in the GraphQ IR specification."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,3,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,4.854478,True,stop,3134,0.024564,641,4.364341,146.8721,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A -[R]-> B` or `B -[R]-> A`.
+In GraphQ IR, `RelationQuery` is defined as ""what is the relation from EntitySet to EntitySet"".
+So, I will construct a query asking for the relation from Meryl Streep to Eastwood. If there is no direct edge, the system would return nothing or an empty set, which is correct for ""any existing connection"" (implying direct).
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, looking at the examples, `RelationQuery` returns the *name* of the relation.
+Input: Give me the actors of the movie Inception. -> EntityQuery (returns entities).
+Input: What is the population... -> AttributeQuery (returns attribute value).
+
+If I want to know *what* connects them, I am asking for the Relation itself.
+So `RelationQuery` is appropriate.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""Eastwood"" refers to Clint Eastwood or a place. Usually in this context (Meryl Streep), it refers to Clint Eastwood. I will treat ""Eastwood"" as an Entity.
+
+One nuance: Does ""connection between"" imply bidirectional? The grammar for RelationQuery is directional (""from X to Y""). If the connection is Y -> X, a query from X to Y might fail if the graph is directed and only has the reverse edge. However, without knowing the schema, I must pick a direction. Standard practice is often Subject -> Object. Meryl Streep (Subject) -> Eastwood (Object).
+
+Let's refine Representation 1:
+""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>""
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,4,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.583162,True,stop,3134,0.041929,747,5.080962,147.0194,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection could be either way, strictly speaking, a single RelationQuery assumes a direction. However, often ""connection between"" implies finding *any* path. But GraphQ IR's `RelationQuery` is defined as ""what is the relation from X to Y"".
+
+Let's assume the standard interpretation: Find the edge connecting them. If I just ask ""what is the relation from Meryl Streep to Eastwood"", it covers one direction. If the answer lies in the other direction, this query would return nothing or an error depending on implementation. However, without specific instructions to search both directions, I will formulate it as a RelationQuery from Entity A to Entity B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine the ""Eastwood"" entity. It likely refers to ""Clint Eastwood"". I will use ""Eastwood"" as provided in the prompt, or perhaps ""Clint Eastwood"" if I infer it. The prompt says ""Eastwood"", so I will stick to `<E> Eastwood </E>` or `<E> Clint Eastwood </E>`. Given ""Meryl Streep"" is full name, ""Eastwood"" might be last name only. I'll use `<E> Eastwood </E>` to be safe with the input string, but usually, these systems resolve to canonical names. Let's stick to the input text for the entity value.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural integrity of the query type definition is compromised.",,"```json
+{
+  ""rationale"": ""The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural integrity of the query type definition is compromised."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,5,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.824268,True,stop,3134,0.024503,791,5.379321,147.0446,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, often ""connection between"" implies finding the shared attribute or relation.
+
+Let's look at the structure of similar queries.
+""What is the relation from Meryl Streep to Eastwood?""
+If I assume the query wants to know *if* there is a connection and *what* it is, `RelationQuery` is appropriate.
+The entities are `<E> Meryl Streep </E>` and `<E> Eastwood </E>`.
+Usually, ""Eastwood"" refers to Clint Eastwood or the Eastwood family/brand. Let's assume Entity ""Clint Eastwood"" or just ""Eastwood"". The prompt says ""Eastwood"", so I will use `<E> Eastwood </E>`.
+
+Is it forward or backward? Without specific knowledge of the graph schema, ""connection between"" is ambiguous regarding direction. However, standard practice in these parsers for ""relation between X and Y"" often defaults to checking from X to Y or returning the set of relations. Let's assume a forward relation from Meryl Streep to Eastwood for the primary query structure, or potentially a bidirectional search if supported, but the grammar only supports `forward` or `backward`.
+
+Let's try: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+If the user wants *any* connection, they might be asking for the existence (Verify) or the specific relation (RelationQuery). Given ""Give me..."", it implies extraction of the relation name.
+
+So: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`
+
+Wait, if the connection could be in either direction, a single RelationQuery might miss it. However, without a specific ""bidirectional"" operator in the grammar for the root query, I must pick one or use `ones` (blank nodes) to find paths?
+Actually, `RelationQuery` is defined as ""what is the relation from EntitySet to EntitySet"".
+If I want to find *any* link, I could phrase it as finding a relation that connects them.
+But typically, these prompts expect a specific direction based on natural language order unless specified otherwise. ""Between A and B"" often maps to `from A to B`.
+
+Let's construct the RelationQuery.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens that are part of the RelationQuery grammar definition (RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet). This structural omission makes the AST incomplete according to the defined grammar.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens that are part of the RelationQuery grammar definition (RelationQuery := \""what is the relation from\"" EntitySet \""to\"" EntitySet). This structural omission makes the AST incomplete according to the defined grammar."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,6,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.182663,True,stop,3134,0.024396,834,5.691802,146.5265,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection is bidirectional or unknown, `RelationQuery` syntax `what is the relation from X to Y` assumes a specific direction. If I assume the user wants *any* link, I should probably pick one direction. Let's try ""from Meryl Streep to Eastwood"".
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine. Is it possible they are connected via a movie? E.g., Meryl Streep acted in a movie directed by Clint Eastwood? Or produced by him?
+The query asks for ""any existing connection"". This is slightly ambiguous for a strict `RelationQuery` which expects a specific target relation name if one exists, or returns null/empty if none. But the prompt asks to convert the natural language to IR. The most direct translation of ""connection between A and B"" in terms of graph topology is asking for the edge(s) linking them.
+
+If I use `RelationQuery`, it asks for the relation name.
+`what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`
+
+Let's double check if ""Eastwood"" refers to Clint Eastwood. Yes, in the context of Meryl Streep, it almost certainly does (they worked together on *The Bridges of Madison County*? No, she starred, he directed. So relation is `director` from Movie to Eastwood, and `actor` from Movie to Streep. There isn't a direct edge between them usually in simple KGs unless there's a ""worked with"" or similar meta-relation. However, if the graph has a direct edge, we query it. If not, the result is empty. The task is just parsing.)
+
+Let's stick to the literal request: Find the relation from Entity A to Entity B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Meryl Streep""
+            └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally identical to the Ground Truth. It correctly identifies the RelationQuery type, maps the two entities as the start and end of the relation, and adheres perfectly to the required ASCII AST grammar and XML tag boundaries.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally identical to the Ground Truth. It correctly identifies the RelationQuery type, maps the two entities as the start and end of the relation, and adheres perfectly to the required ASCII AST grammar and XML tag boundaries."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Meryl Streep""
+            └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,7,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.099329,True,stop,3134,0.023666,827,5.619597,147.1636,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection could be either way, strictly speaking, a single RelationQuery assumes a direction. However, often ""connection between"" implies finding *any* path. But GraphQ IR's `RelationQuery` is defined as ""what is the relation from X to Y"".
+
+Let's assume the standard interpretation: Find the edge connecting them. If I just ask ""what is the relation from Meryl Streep to Eastwood"", it covers one direction. If the answer lies in the other direction, this query would return nothing or an error depending on implementation. However, without specific instructions to search both directions, I will formulate it as a RelationQuery from Entity A to Entity B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine the ""Eastwood"" entity. It likely refers to ""Clint Eastwood"". I will use ""Eastwood"" as provided in the prompt, or perhaps ""Clint Eastwood"" if I infer it. The prompt says ""Eastwood"", so I will stick to `<E> Eastwood </E>` or `<E> Clint Eastwood </E>`. Given ""Meryl Streep"" is full name, ""Clint Eastwood"" is safer for the entity node, but the user said ""Eastwood"". I'll use `<E> Eastwood </E>` to be faithful to the input string, assuming the graph has a node labeled ""Eastwood"" or it's an alias. Actually, standard practice in these parsers is to map to the canonical entity if obvious, but here I will use the literal provided for the Entity tag content unless it's clearly a concept. ""Eastwood"" is likely a Person.
+
+So:
+S := RelationQuery
+RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet
+
+EntitySet 1: <E> Meryl Streep </E>
+EntitySet 2: <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,8,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.143648,True,stop,3134,0.024109,833,5.674979,146.7847,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation $R$ such that $A \xrightarrow{R} B$ or $B \xrightarrow{R} A$. In GraphQ IR, `RelationQuery` is defined as ""what is the relation from EntitySet to EntitySet"". This typically returns the label of the edge.
+
+If I use `RelationQuery`, I need to specify a direction. Since the prompt asks for *any* connection, it's ambiguous. However, often in these datasets (like Wikidata/DBpedia), relations are directed. Let's assume we want to find if there is a direct link. A common way to phrase ""what connects X and Y"" is to ask for the relation from X to Y. If that fails, one might check Y to X. But as a single query, asking for the relation from Meryl Streep to Eastwood is a standard interpretation.
+
+Let's refine: ""Give me any existing connection"". This could also be interpreted as finding the *value* of a shared attribute or a path. But `RelationQuery` fits ""what is the relation"".
+
+Let's try `RelationQuery`: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, ""Eastwood"" likely refers to Clint Eastwood. I will use ""Clint Eastwood"" as the entity name for precision, or just ""Eastwood"" if that's the canonical name in the hypothetical DB. Given the prompt says ""Eastwood"", I'll stick to that or assume it resolves to the person. Let's use `<E> Eastwood </E>` as provided, but typically names are full. I will use `<E> Clint Eastwood </E>` for better semantic grounding if allowed, but strict adherence to input suggests `<E> Eastwood </E>`. However, ""Eastwood"" is ambiguous (could be a place). Meryl Streep is an actor. The connection is likely co-starring in a movie.
+
+Let's look at the structure of `RelationQuery`:
+`what is the relation from EntitySet to EntitySet`
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+
+If the question implies finding *if* there is a connection and *what* it is, `RelationQuery` returns the label.
+
+Alternative: If ""connection"" means a shared movie, one might ask for the movie. But ""connection"" usually maps to the edge property/label in graph terms.
+
+Let's stick to `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+
+Note: I will expand ""Eastwood"" to ""Clint Eastwood"" for entity clarity, as is standard practice in semantic parsing when a common name refers to a specific famous entity.
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Clint Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.95,0.95,Q43,"The Candidate correctly identifies the RelationQuery type and the structural topology of the graph traversal. It introduces a minor hallucination by expanding 'Eastwood' to 'Clint Eastwood', but since this is a semantic enrichment that does not alter the fundamental logic or structure of the AST, it remains highly faithful to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the structural topology of the graph traversal. It introduces a minor hallucination by expanding 'Eastwood' to 'Clint Eastwood', but since this is a semantic enrichment that does not alter the fundamental logic or structure of the AST, it remains highly faithful to the Ground Truth."",
+  ""score"": 0.95
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Clint Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,9,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.767492,True,stop,3134,0.024346,777,5.286385,146.9813,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, the grammar for `RelationQuery` doesn't explicitly support ""between"" with an implicit bidirectional search in a single clause easily without using logical operators or multiple queries.
+But often, ""connection between A and B"" implies finding the edge label. Let's look at the standard interpretation. If I ask ""What is the relation from Meryl Streep to Eastwood?"", I get relations where Meryl is source and Eastwood is target. If I ask ""from Eastwood to Meryl"", I get the reverse.
+Since the prompt asks for *any* existing connection, and doesn't specify direction, but `RelationQuery` requires a specific direction (`from ... to ...`), I will formulate it as finding the relation from Meryl Streep to Eastwood first, as that is the most direct interpretation of ""connection between"" in many knowledge graph contexts (often implying a path or direct link). If no direct link exists, the result is empty.
+However, a more robust way to express ""between"" in this specific IR might be to just pick one direction or use `VerifyQuery` if we were checking for existence. But the user asks ""Give me..."", implying extraction of the relation name.
+
+Let's stick to the `RelationQuery` format: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`.
+Wait, ""Eastwood"" could refer to Clint Eastwood or another person. I will treat it as an Entity `<E> Eastwood </E>`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""connection"" implies a path of length > 1. Usually, in these tasks, unless ""path"" or ""chain"" is specified, it refers to direct edges. If no direct edge exists, the answer is null. I will assume direct relation.
+
+Refining Representation 1:
+what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in both the Grammar definition and the Ground Truth AST. This breaks the syntactic completeness of the relation traversal.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in both the Grammar definition and the Ground Truth AST. This breaks the syntactic completeness of the relation traversal."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,10,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,4.213842,True,stop,3134,0.02317,549,3.72814,147.2584,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, often ""connection between"" implies finding the shared attribute or relation.
+
+Let's look at the structure of similar queries.
+""What is the relation from Meryl Streep to Eastwood?""
+If I assume the query wants to know *if* there is a connection and *what* it is, `RelationQuery` is appropriate.
+The entities are `<E> Meryl Streep </E>` and `<E> Eastwood </E>`.
+Usually, ""Eastwood"" refers to Clint Eastwood or the Eastwood family/brand. Given Meryl Streep, it likely refers to Clint Eastwood (they worked together in ""Jeremiah Johnson"", ""The Bridges of Madison County"", etc.).
+
+So, we want the relation from Meryl Streep to Clint Eastwood.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, the prompt says ""Give me any existing connection"". This could also be interpreted as finding a path or a shared concept. But `RelationQuery` returns the edge label.
+Let's stick to `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate is missing the 'from' keyword/token required by the RelationQuery grammar. The structure of the relation between the two entities is otherwise correctly captured, but it fails to adhere to the exact lexical sequence defined in the grammar for a RelationQuery.",,"```json
+{
+  ""rationale"": ""The Candidate is missing the 'from' keyword/token required by the RelationQuery grammar. The structure of the relation between the two entities is otherwise correctly captured, but it fails to adhere to the exact lexical sequence defined in the grammar for a RelationQuery."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,11,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,4.243243,True,stop,3134,0.0244,553,3.752227,147.3791,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection could be bidirectional or unknown, `RelationQuery` requires a direction. Let's assume the standard forward direction from Subject to Object for the sake of the query structure, or perhaps the user wants to know *if* there is a relation and *what* it is.
+
+Actually, a more precise interpretation for ""any existing connection"" might be finding the specific edge label.
+Let's construct the RelationQuery: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,12,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,7.385233,True,stop,3134,0.024265,1013,6.894223,146.9346,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection is bidirectional or unknown, `RelationQuery` syntax `what is the relation from X to Y` assumes a specific direction. If I just say ""from Meryl Streep to Eastwood"", I am asking for relations where Meryl Streep is the source and Eastwood is the target.
+
+Let's refine the intent. ""Give me any existing connection"" suggests finding *if* there is one and *what* it is.
+If I use `RelationQuery`, I must specify direction. Let's assume the user wants to know how they are linked. A common link is that they worked together in a movie (e.g., ""The Bridges of Madison County"" or ""Absolute Power""). The relation would be something like ""actor"" or ""co-star"".
+
+Let's stick to the standard `RelationQuery` format: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`. This asks for relations originating at Meryl and pointing to Eastwood. If the graph has a reverse edge, this might miss it. However, without explicit instruction to search both directions, standard practice is often to query one way or use `VerifyQuery` if checking existence. But ""Give me..."" implies extraction of the relation name.
+
+Let's try `RelationQuery`.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Is there a more generic way? No, `RelationQuery` is the correct type for extracting edge labels between two nodes.
+
+One detail: ""Eastwood"" likely refers to ""Clint Eastwood"". I will use ""Eastwood"" as the entity name provided in the prompt, or perhaps ""Clint Eastwood"" if I infer it. The prompt says ""Eastwood"", so I will use `<E> Eastwood </E>` to be safe, or `<E> Clint Eastwood </E>` if I assume standard KB normalization. Given the strictness of ""DO NOT assume any specific database schema"", I should stick to the literal string provided unless it's a common name resolution. ""Eastwood"" is ambiguous but likely refers to the person. I will use `<E> Eastwood </E>` as per the input text to avoid hallucinating the first name if not strictly necessary, though in KBs it's usually ""Clint Eastwood"". Let's stick to the input string for the Entity tag content to be precise to the user's input.
+
+Actually, looking at the examples, entities are often specific. ""Inception"", ""Valve"", ""Marie Curie"". ""Eastwood"" is a surname. I will use `<E> Eastwood </E>` as the entity identifier provided by the user.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural integrity of the query type definition is compromised.",,"```json
+{
+  ""rationale"": ""The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural integrity of the query type definition is compromised."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,13,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,7.145781,True,stop,3134,0.024513,983,6.666079,147.463,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, standard RelationQuery usually takes two specific sets. If we don't know the direction, we might need to check both or use a generic ""between"" logic if supported, but the grammar specifies `from ... to`.
+
+Let's look at the entities:
+1. `<E> Meryl Streep </E>`
+2. `<E> Eastwood </E>` (Likely Clint Eastwood)
+
+If we assume the question asks for the specific relation type that exists between them, we can formulate it as finding the relation from Meryl Streep to Eastwood. If no such direct edge exists in that direction, we might need to check the other way. However, without knowing the graph structure, a safe bet for ""connection between"" is often interpreted as checking if there is a path or a specific shared attribute/relation.
+
+Let's try to find the relation from Meryl Streep to Eastwood first.
+Representation 1: what is the relation from <ES> <E> Meryl Streep </E> </ES> to <ES> <E> Eastwood </E> </ES>
+
+Wait, if the direction is unknown, `RelationQuery` might return nothing if the edge is only in one direction. A more robust interpretation for ""connection between"" in a knowledge graph context often implies finding a shared attribute or a path. But strictly following the provided grammar for `RelationQuery`, it requires `from` and `to`.
+
+Let's consider if this is an `EntityQuery` looking for a path? No, there is no PathQuery type.
+Is it a `VerifyQuery`? ""whether there is a connection...""? The user asked ""Give me..."", implying extraction of the relation name.
+
+Let's assume the standard directionality check or that the graph supports bidirectional lookup implicitly in the tool, but syntactically we must pick a direction. Often, ""connection between A and B"" is mapped to `RelationQuery` from A to B. If the answer is null, it might imply checking B to A. However, for the purpose of generating the IR, I will generate the query for the relation from Meryl Streep to Eastwood.
+
+Actually, a common pattern for ""connection between"" when direction is ambiguous is to use `VerifyQuery` to check existence, or just pick one direction for extraction. Let's stick to extracting the relation name.
+
+Representation 1: what is the relation from <ES> <E> Meryl Streep </E> </ES> to <ES> <E> Eastwood </E> </ES>
+
+Refining the EntitySet syntax:
+`<ES> <E> Meryl Streep </E> </ES>` is valid.
+
+Let's double check if ""Eastwood"" refers to a person or a place. In context with Meryl Streep, it almost certainly refers to Clint Eastwood.
+
+So, the query is:
+`what is the relation from <ES> <E> Meryl Streep </E> </ES> to <ES> <E> Eastwood </E> </ES>`
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens that are part of the RelationQuery grammar definition (RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet). This structural omission makes the AST incomplete according to the defined grammar.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens that are part of the RelationQuery grammar definition (RelationQuery := \""what is the relation from\"" EntitySet \""to\"" EntitySet). This structural omission makes the AST incomplete according to the defined grammar."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,14,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.215048,True,stop,3134,0.027047,692,4.703508,147.1242,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection is bidirectional or unknown, `RelationQuery` syntax `what is the relation from X to Y` assumes a specific direction. If I just say ""from Meryl Streep to Eastwood"", I am asking for relations originating at Meryl and ending at Eastwood.
+
+Let's refine the intent. ""Give me any existing connection"" suggests finding *if* there is one and *what* it is.
+If I use `RelationQuery`, I must specify direction. Let's assume the standard direction of inquiry: From Person A to Person B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""Eastwood"" needs a concept. It's a specific entity (Clint Eastwood). So `<E> Eastwood </E>` is appropriate.
+
+Is it possible the user wants the *path*? GraphQ IR doesn't explicitly return paths in `RelationQuery`, just the relation label. This fits ""connection"".
+
+So:
+Root: RelationQuery
+From EntitySet: <E> Meryl Streep </E>
+To EntitySet: <E> Eastwood </E>
+
+Sequence: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,15,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.766305,True,stop,3134,0.024861,777,5.281137,147.1274,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, the grammar for `RelationQuery` doesn't explicitly support ""between"" with an implicit bidirectional search in a single clause easily without using logical operators or multiple queries.
+But often, ""connection between A and B"" implies finding the edge label. Let's look at the standard interpretation. If I ask ""What is the relation from Meryl Streep to Eastwood?"", I get relations where Meryl is source and Eastwood is target. If I ask ""from Eastwood to Meryl"", I get the reverse.
+Since the prompt asks for *any* existing connection, and doesn't specify direction, but `RelationQuery` requires a specific direction (`from ... to ...`), I will formulate it as finding the relation from Meryl Streep to Eastwood first, as that is the most direct interpretation of ""connection between"" in many knowledge graph contexts (often implying a path or direct link). If no direct link exists, the result is empty.
+However, a more robust way to express ""between"" in this specific IR might be to just pick one direction or use `VerifyQuery` if we were checking for existence. But the user asks ""Give me..."", implying extraction of the relation name.
+
+Let's stick to the `RelationQuery` format: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`.
+Wait, ""Eastwood"" could refer to Clint Eastwood or another person. I will treat it as an Entity `<E> Eastwood </E>`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""connection"" implies a path of length > 1. Usually, in these tasks, unless ""path"" or ""chain"" is specified, it refers to direct edges. If no direct edge exists, the answer is null. I will assume direct relation.
+
+Refining Representation 1:
+what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in both the Grammar definition and the Ground Truth AST. This breaks the syntactic completeness of the relation traversal.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in both the Grammar definition and the Ground Truth AST. This breaks the syntactic completeness of the relation traversal."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,16,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.472839,True,stop,3134,0.022586,735,4.993213,147.1998,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection could be either way, strictly speaking, a single `RelationQuery` assumes a direction. However, often ""connection between"" implies finding *any* path. But GraphQ IR's `RelationQuery` is defined as ""what is the relation from X to Y"". If I must pick one, I will assume the query asks for the direct edge if it exists.
+
+Let's refine the intent. ""Give me any existing connection"". This sounds like we want to extract the name of the relation.
+So, `RelationQuery` is appropriate.
+From: `<E> Meryl Streep </E>`
+To: `<E> Eastwood </E>`
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""Eastwood"" needs a concept. It's a specific person, so Entity is correct.
+Is it possible the user wants *all* connections? The grammar for RelationQuery returns ""the relation"". If there are multiple, it might be ambiguous, but typically these queries target a specific known edge in KG datasets (like Wikidata/Freebase).
+
+Let's construct the AST.
+Root: `RelationQuery`
+Children:
+- ""what is the relation from""
+- EntitySet 1 (Source)
+- ""to""
+- EntitySet 2 (Target)
+
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>`
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,17,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.582538,True,stop,3134,0.024722,894,6.08766,146.8545,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (it could be Meryl Streep -> Eastwood or Eastwood -> Meryl Streep), but typically ""connection between A and B"" in a knowledge graph context often seeks any path or direct relation. However, usually, if we look for a specific relation type like ""actor"" or ""director"", we need to know the direction.
+
+Let's assume the question asks for *any* existing relation (edge) connecting these two nodes. In GraphQ IR, `RelationQuery` is used to find relations between entity sets.
+Structure: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>` OR `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>`.
+
+However, often ""connection between"" implies finding a shared attribute or a path. But strictly speaking, a direct edge is a relation. Let's look at the standard interpretation of ""Give me any existing connection"". This usually maps to `RelationQuery` where we check for the existence of a relation in either direction, or specifically one direction if implied by context (e.g., ""Who directed Meryl Streep?""). Without specific directionality in the prompt, it's ambiguous.
+
+Let's look at similar examples. ""Give me the actors of the movie Inception"" -> `EntityQuery` finding entities connected to a movie.
+""Tell me the total budget..."" -> `ValueQuery`.
+
+If I use `RelationQuery`, I must specify direction. Let's assume the user wants to know *what* relation exists, potentially in either direction. However, GraphQ IR usually requires a specific path. A common pattern for ""connection between X and Y"" where the type is unknown is to query for relations from X to Y and Y to X, or just pick one if the graph is undirected (which it isn't here).
+
+Let's assume the most direct interpretation: Find the relation linking them. Since I don't know the direction, I will formulate it as finding a relation from Meryl Streep to Eastwood. If that yields nothing, the other way might work. But for the purpose of generating *one* valid IR, I will pick one direction, typically Subject -> Object if names are ordered, or just ""from A to B"".
+
+Wait, looking at the grammar: `RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet`.
+This returns the label of the edge.
+
+Let's refine the intent. ""Give me any existing connection"". This might also be interpreted as finding a path. But `RelationQuery` finds direct edges. Let's stick to `RelationQuery`. I will define the source as Meryl Streep and target as Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""Eastwood"" refers to Clint Eastwood or a place. Usually in this context, it's the actor/director. I will treat it as an Entity.
+
+One more possibility: The user might want the *value* of a shared attribute? No, ""connection"" strongly implies a relation/edge.
+
+Let's construct the AST for `RelationQuery`.
+Root: RelationQuery
+Children: ""what is the relation from"", EntitySet (Source), ""to"", EntitySet (Target).
+
+Source EntitySet: <E> Meryl Streep </E>
+Target EntitySet: <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the core logic or the grammar of the RelationQuery type, and it correctly captures all entities and the relationship intent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the core logic or the grammar of the RelationQuery type, and it correctly captures all entities and the relationship intent."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,18,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.739415,True,stop,3134,0.024241,775,5.269002,147.0867,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, the grammar for `RelationQuery` doesn't explicitly support ""between"" with an implicit bidirectional search in a single clause easily without using logical operators or multiple queries.
+But often, ""connection between A and B"" implies finding the edge label. Let's look at the standard interpretation. If I ask ""What is the relation from Meryl Streep to Eastwood?"", I get relations where Meryl is source and Eastwood is target. If I ask ""from Eastwood to Meryl"", I get the reverse.
+Since the prompt asks for *any* existing connection, and doesn't specify direction, but `RelationQuery` requires a specific direction (`from ... to ...`), I will formulate it as finding the relation from Meryl Streep to Eastwood first, as that is the most direct interpretation of ""connection between"" in many knowledge graph contexts (often implying a path or direct link). If no direct link exists, the result is empty.
+However, a more robust way to express ""between"" in this specific IR might be to just pick one direction or use `VerifyQuery` if checking for existence. But the user asks ""Give me..."", implying extraction of the relation name.
+
+Let's stick to the `RelationQuery` format: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`.
+Wait, ""Eastwood"" could be Clint Eastwood or another Eastwood. I will treat it as an Entity `<E> Eastwood </E>`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""connection"" implies a path of length > 1. Usually, in these tasks, unless ""path"" or ""chain"" is specified, it refers to direct edges. If no direct edge exists, the answer is null. I will assume direct relation.
+
+Refining Representation 1:
+what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in both the Grammar definition and the Ground Truth AST. This breaks the syntactic completeness of the relation traversal.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in both the Grammar definition and the Ground Truth AST. This breaks the syntactic completeness of the relation traversal."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,19,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.103324,True,stop,3134,0.024691,827,5.609366,147.432,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection could be either way, strictly speaking, a single RelationQuery assumes a direction. However, often ""connection between"" implies finding *any* path. But GraphQ IR's `RelationQuery` is defined as ""what is the relation from X to Y"".
+
+Let's assume the standard interpretation: Find the edge connecting them. If I just ask ""what is the relation from Meryl Streep to Eastwood"", it covers one direction. If the answer lies in the other direction, this query would return nothing or an error depending on implementation. However, without specific instructions to search both directions, I will formulate it as a RelationQuery from Entity A to Entity B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine the ""Eastwood"" entity. It likely refers to ""Clint Eastwood"". I will use ""Eastwood"" as provided in the prompt, or perhaps ""Clint Eastwood"" if I infer it. The prompt says ""Eastwood"", so I will stick to `<E> Eastwood </E>` or `<E> Clint Eastwood </E>`. Given ""Meryl Streep"" is full name, ""Clint Eastwood"" is safer for the entity node, but the user said ""Eastwood"". I'll use `<E> Eastwood </E>` to be faithful to the input string, assuming the graph has a node labeled ""Eastwood"" or it's an alias. Actually, standard practice in these parsers is to map to the canonical entity if obvious, but here I will use the literal provided for the Entity tag content unless it's clearly a concept. ""Eastwood"" is likely a Person.
+
+So:
+S := RelationQuery
+RelationQuery := ""what is the relation from"" EntitySet ""to"" EntitySet
+
+EntitySet 1: <E> Meryl Streep </E>
+EntitySet 2: <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,20,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.164629,True,stop,3134,0.022117,834,5.681889,146.7822,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection is bidirectional or unknown, `RelationQuery` syntax `what is the relation from X to Y` assumes a specific direction. If I assume the user wants *any* link, I should probably pick one direction. Let's try ""from Meryl Streep to Eastwood"".
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine. Is it possible they are connected via a movie? E.g., Meryl Streep acted in a movie directed by Clint Eastwood? Or produced by him?
+The query asks for ""any existing connection"". This is slightly ambiguous for a strict `RelationQuery` which expects a specific target relation name if one exists, or returns null/empty if none. But the prompt asks to convert the natural language to IR. The most direct translation of ""connection between A and B"" in terms of graph topology is asking for the edge(s) linking them.
+
+If I use `RelationQuery`, it asks for the relation name.
+`what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`
+
+Let's double check if ""Eastwood"" refers to Clint Eastwood. Yes, in the context of Meryl Streep, it almost certainly does (they worked together on *The Bridges of Madison County*? No, she starred, he directed. So relation is `director` from Movie to Eastwood, and `actor` from Movie to Streep. There isn't a direct edge between them usually in simple KGs unless there's a ""worked with"" or similar meta-relation. However, if the graph has a direct edge, we query it. If not, the result is empty. The task is just parsing.)
+
+Let's stick to the literal request: Find the relation from Entity A to Entity B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Meryl Streep""
+            └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally identical to the Ground Truth. It correctly identifies the RelationQuery type, maps the entities 'Meryl Streep' and 'Eastwood' into their respective Entity nodes with proper XML tag boundaries, and maintains the correct 'from/to' relationship structure.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally identical to the Ground Truth. It correctly identifies the RelationQuery type, maps the entities 'Meryl Streep' and 'Eastwood' into their respective Entity nodes with proper XML tag boundaries, and maintains the correct 'from/to' relationship structure."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Meryl Streep""
+            └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,21,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.320894,True,stop,3134,0.024938,856,5.83227,146.7696,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (it could be Meryl Streep -> Eastwood or Eastwood -> Meryl Streep), but typically ""connection between A and B"" in a knowledge graph context often seeks any path or direct relation. However, usually, if we look for a specific relation type like ""actor"" or ""director"", we need to know the direction.
+
+Let's assume the question asks for *any* existing relation (edge) connecting these two nodes. In GraphQ IR, `RelationQuery` is used to find relations between entity sets.
+Structure: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>` OR `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>`.
+
+However, often ""connection between"" implies finding a shared attribute or a path. But strictly speaking, a ""relation"" query returns the edge label.
+Let's look at the grammar for `RelationQuery`: `what is the relation from EntitySet to EntitySet`.
+
+If I use `RelationQuery`, I must specify direction. Since it's ambiguous, I will check both directions or assume a standard flow. Usually, in these datasets (like Wikidata), relations are directed.
+Let's try to find a relation *from* Meryl Streep *to* Eastwood. Or perhaps the user wants to know if there is *any* relation.
+Actually, a common interpretation for ""connection between X and Y"" where X and Y are people is to find a shared work or attribute. But `RelationQuery` specifically asks for the edge label.
+
+Let's assume the query is: ""What is the relation from Meryl Streep to Eastwood?""
+If no direct edge exists, it might return nothing.
+Alternatively, maybe it means ""What do they have in common?"". That would be an AttributeQuery or a path finding.
+But given the specific request for ""connection"", and the available query types, `RelationQuery` is the most direct fit for ""what links A to B"".
+
+Let's refine: The prompt asks for ""any existing connection"". This suggests we might need to check both directions or just pick one standard direction. Let's provide the relation from Meryl Streep to Eastwood. If that fails, the other way around. But I can only output one query.
+Let's assume the direction `forward` from Meryl Streep to Eastwood.
+
+Wait, looking at the examples, `RelationQuery` returns the edge label.
+Input: ""Give me any existing connection between Meryl Streep and Eastwood.""
+This is slightly ambiguous. Does it mean ""Find a path""? Or ""What is the direct edge?""?
+Given the strict types, I will use `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's double check if ""Eastwood"" refers to Clint Eastwood. Yes, likely.
+
+One more possibility: The user wants to know *if* there is a connection. That would be `VerifyQuery`. But ""Give me..."" implies extraction of the relation name. So `RelationQuery` is better.
+
+Let's construct the AST for: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in the Ground Truth and necessary for the grammar of this query type.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the RelationQuery type and the entities involved. However, it fails to include the required 'from' and 'to' tokens (the structural connectors for a RelationQuery) that are present in the Ground Truth and necessary for the grammar of this query type."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,22,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,4.997037,True,stop,3134,0.045766,644,4.505329,142.9418,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection is bidirectional or unknown, `RelationQuery` syntax `what is the relation from X to Y` assumes a specific direction. If I assume the user wants *any* link, I should probably pick one direction. Let's try ""from Meryl Streep to Eastwood"".
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine. Is it possible they are connected via a movie? E.g., Meryl Streep acted in a movie directed by Clint Eastwood? Or produced by him?
+The query asks for ""any existing connection"". This is slightly ambiguous. Does it want the *name* of the relation? Yes, `RelationQuery` returns the relation name/edge type.
+
+So:
+Root: `RelationQuery`
+From EntitySet: `<E> Meryl Streep </E>`
+To EntitySet: `<E> Eastwood </E>`
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Meryl Streep""
+            └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally identical to the Ground Truth. It correctly identifies the RelationQuery type, maps the two entities as the start and end of the relation, and adheres perfectly to the required ASCII AST grammar and XML tag boundaries.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally identical to the Ground Truth. It correctly identifies the RelationQuery type, maps the two entities as the start and end of the relation, and adheres perfectly to the required ASCII AST grammar and XML tag boundaries."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Meryl Streep""
+            └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,23,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,7.672553,True,stop,3134,0.024604,1059,7.197657,147.1312,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (it could be Meryl Streep -> Eastwood or Eastwood -> Meryl Streep), but typically ""connection between A and B"" in a knowledge graph context often seeks any path or direct relation. However, usually, if we look for a specific relation type like ""actor"" or ""director"", we need to know the direction.
+
+Let's assume the question asks for *any* existing relation (edge) connecting these two nodes. In GraphQ IR, `RelationQuery` is used to find relations between entity sets.
+Structure: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>` OR `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>`.
+
+However, often ""connection between"" implies finding a shared attribute or a path. But strictly speaking, a ""relation"" query returns the edge label.
+Let's look at the grammar for `RelationQuery`: `what is the relation from EntitySet to EntitySet`.
+
+If I use `RelationQuery`, I must specify direction. Since it's ambiguous, I will check both directions or assume a standard flow. Usually, in these datasets (like Wikidata), relations are directed.
+Let's try to find if there is a direct edge.
+Query: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"" AND ""what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>"".
+
+Wait, the prompt asks for ""any existing connection"". This might be better served by a `VerifyQuery` if we had a specific relation, or a `RelationQuery` that returns the set of relations.
+Actually, looking at the examples, `RelationQuery` returns *the* relation. If there are multiple, it might return them.
+Let's formulate it as finding the relation from Meryl Streep to Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, ""Eastwood"" is likely Clint Eastwood. I should treat ""Eastwood"" as an Entity.
+
+Let's refine. The user wants *any* connection. This implies we don't know the direction or the specific relation type.
+However, `RelationQuery` requires a source and target.
+If I write: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>` it asks for relations going from Meryl to Clint.
+If I write: `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>` it asks for relations going from Clint to Meryl.
+
+Given the ambiguity, I will provide the query for one direction, or perhaps the system expects a specific known relation (e.g., they acted in ""The Bridges of Madison County""? No, that was Streep and *Clint Eastwood*. So there is a relation `actor` from Meryl to the movie, and `director`/`actor` from Clint to the movie. They are connected via the movie.
+But the question asks for a connection *between* them directly? Or just any path?
+""Connection between"" usually implies a direct edge in simple QA, or a shared neighbor in complex QA.
+If it's a direct edge, maybe ""colleague""?
+Let's stick to the `RelationQuery` structure which finds edges. I will query from Meryl Streep to Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Actually, looking at similar examples, if the direction is unknown, sometimes `VerifyQuery` is used with a guessed relation, but here we don't have one.
+Let's assume the question implies finding the edge label(s).
+I will generate the AST for `RelationQuery`.
+
+One more check: Is ""Eastwood"" an Entity? Yes.
+Is ""Meryl Streep"" an Entity? Yes.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separating 'from'), this does not violate the grammar or change the logical meaning of the query. All terminal nodes and XML tags are correctly implemented."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,24,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,19.105882,True,stop,3134,0.024171,2723,18.638406,146.0962,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation $R$ such that $A \xrightarrow{R} B$ or $B \xrightarrow{R} A$. In GraphQ IR, `RelationQuery` is defined as ""what is the relation from EntitySet to EntitySet"". This typically returns the label of the edge.
+
+If I use `RelationQuery`, I need to specify a direction. Since the user asks for *any* connection, I should probably check both directions or assume a standard direction if one makes more sense. However, without knowing the graph structure, ""between"" is ambiguous.
+
+Let's look at the examples.
+""Give me the actors of the movie Inception"" -> EntityQuery (returns entities).
+""What is the population of the capital of Japan?"" -> AttributeQuery.
+
+If I want to find *what* connects them, it's often a `RelationQuery`.
+Query: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"" OR ""what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>"".
+
+However, often ""connection between"" implies finding a path. But GraphQ IR's `RelationQuery` returns the *label* of the direct edge. If there is no direct edge, it might return nothing or require a multi-hop query which isn't explicitly supported as a single primitive in the simple grammar provided (though `EntitySet` can be complex).
+
+Let's assume the question asks for the direct relation label if one exists. I will formulate it as a RelationQuery from Meryl Streep to Eastwood. If the user meant ""what is the path"", that's more complex. Given the simplicity of the prompt, a direct relation query is the standard interpretation for ""what connects X and Y"" in knowledge graph QA tasks when looking for edge labels.
+
+Wait, if I just ask ""what is the relation from A to B"", and there isn't one, it fails. If I ask ""what is the relation from B to A"", it might succeed.
+Let's try to frame it as finding the relation *linking* them.
+Actually, a safer bet for ""any connection"" in many KG QA datasets (like WebQSP or CWQ) is often treated as finding the edge label regardless of direction, or checking both. But since I must output one AST, I will pick one direction, typically from the first mentioned entity to the second, or assume the user wants to know *if* they are connected and *how*.
+
+Let's look at the `VerifyQuery` option. ""whether <E> Meryl Streep </E> that <R> ??? </R> to <E> Eastwood </E>"". No, I don't know the relation.
+
+Let's stick to `RelationQuery`.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Is it possible the user wants the entities in between? ""Give me any existing connection"" could mean ""give me the path"". But GraphQ IR doesn't have a specific ""PathQuery"". It has `EntityQuery` which can return nodes.
+If I use `EntityQuery`, I could ask for ""nodes that connect Meryl Streep and Eastwood"".
+Structure: `<ES> <C> ??? </C> that <R> ??? </R> forward to <E> Meryl Streep </E> AND ...`
+This requires knowing the intermediate node type.
+
+Let's reconsider `RelationQuery`. It returns the edge label. This is the most direct answer to ""what is the connection"".
+
+Let's refine the direction. Usually, in these datasets, if the order isn't specified, we might try one way. Let's try from Meryl Streep to Eastwood.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, looking at the examples again.
+""Give me the actors of the movie Inception."" -> EntityQuery.
+This suggests that if we want *things* (nodes), we use EntityQuery.
+If we want *properties/labels*, we use Attribute/Relation Query.
+
+""Connection"" is ambiguous. It could be a shared attribute, a shared relation, or a path.
+However, in the context of ""Meryl Streep and Eastwood"", they are both actors/directors. They likely share a film (e.g., ""The Bridges of Madison County""? No, Clint Eastwood directed it, Meryl starred in it). So the connection is a movie.
+If the question asks for the *connection*, it might be asking for the *movie* that connects them.
+""Give me any existing connection"" -> Give me the entity (Movie) that links them.
+
+So, I should use `EntityQuery` to find the intermediate node (the movie).
+Path: Meryl Streep --(actor in)--> Movie <--(director of)-- Eastwood.
+Or: Meryl Streep --(starred in)--> Movie <--(directed by)-- Eastwood.
+
+Let's construct an EntityQuery for ""movies that connect Meryl Streep and Eastwood"".
+This requires a logical AND constraint on the EntitySet.
+EntitySet: `<ES> <C> movie </C> that <R> actor </R> forward to <E> Meryl Streep </E> AND ...`
+Wait, the grammar for `EntitySet` allows `LOP` (Logical Operation) between two EntitySets.
+So: `<ES> <ES> <C> movie </C> that <R> actor </R> forward to <E> Meryl Streep </E> </ES> and <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> </ES>`
+
+This seems like the most robust interpretation of ""give me the connection"" (i.e., the shared entity).
+
+Let's verify the relations.
+Meryl Streep is an actor in a movie. Relation: `actor` (forward from Movie to Actor? No, usually `actor` relation goes from Movie to Actor or Actor to Movie depending on schema. Let's assume standard: `Movie --[actor]--> Actor`).
+So ""Movies where Meryl Streep is an actor"": `<ES> <C> movie </C> that <R> actor </R> forward to <E> Meryl Streep </E>`?
+If `actor` is the relation from Movie to Actor, then to find Movies *of* Meryl Streep, we go backward from Actor to Movie.
+So: `<ES> <C> movie </C> that <R> actor </R> backward to <E> Meryl Streep </E>` (Meaning: Find Movies such that the 'actor' edge points TO Meryl Streep? No, if `actor` is Movie->Actor, then backward from Actor gets Movie).
+
+Let's assume the relation name is `actor`.
+If I want movies starring Meryl Streep:
+Start with Concept `movie`. Constraint: `that <R> actor </R> backward to <E> Meryl Streep </E>`. (Assuming `actor` edge is Movie->Actor, so going backward from Actor finds the Movie).
+
+Similarly for Eastwood. If he directed it, relation is `director`.
+Constraint: `that <R> director </R> forward to <E> Eastwood </E>`? Or backward?
+If `director` edge is Movie->Director, then backward from Director finds Movie.
+So: `<ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E>`.
+
+Intersection of these two sets gives the movies connecting them.
+
+Representation 1: what is <ES> <ES> <C> movie </C> that <R> actor </R> backward to <E> Meryl Streep </E> </ES> and <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E> </ES>
+
+This looks correct for ""Give me the connection (entity)"".
+
+One detail: ""Eastwood"" usually refers to Clint Eastwood. I will use `<E> Eastwood </E>`.
+
+Let's double check the direction logic.
+Standard KG schema often has `director(Movie, Person)` and `actor(Movie, Person)`.
+Query: Find Movie M such that actor(M, Meryl) AND director(M, Clint).
+In GraphQ IR:
+Set 1: Movies where Meryl is an actor.
+`<ES> <C> movie </C> that <R> actor </R> backward to <E> Meryl Streep </E>`
+(If `actor` is Movie->Actor, then from Actor node, going backward leads to Movie node. Correct.)
+
+Set 2: Movies where Clint is a director.
+`<ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E>`
+(If `director` is Movie->Director, then from Director node, going backward leads to Movie node. Correct.)
+
+Intersection: `and`.
+
+Final check on the question ""Give me any existing connection"". It implies returning the entity (the movie). So `EntityQuery` is appropriate.
+
+Representation 1: what is <ES> <ES> <C> movie </C> that <R> actor </R> backward to <E> Meryl Streep </E> </ES> and <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E> </ES>
+
+One potential issue: Does ""Eastwood"" imply Clint Eastwood? Yes, in this context.
+Does ""actor"" cover Meryl Streep's role? Yes.
+Does ""director"" cover Clint Eastwood's role? Yes.
+
+I will proceed with this structure.
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""movie""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""actor""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Meryl Streep""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── ""and""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""movie""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""director""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""backward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           └── Entity
+            │               ├── ""<E>""
+            │               ├── ""Eastwood""
+            │               └── ""</E>""
+            └── ""</ES>""
+        └── ""</ES>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.3,0.3,Q43,"The Candidate fails on several levels: first, it uses an EntityQuery instead of a RelationQuery to find connections. Second, it hallucinates specific intermediate entities ('movie') and relations ('actor', 'director') that were not present in the original query. Third, it attempts to use a logical 'and' operator to combine two separate entity extractions, which violates the GraphQ IR principle of single-path extraction for such queries. The Ground Truth correctly identifies the intent as finding the relation between two specific entities.",,"```json
+{
+  ""rationale"": ""The Candidate fails on several levels: first, it uses an EntityQuery instead of a RelationQuery to find connections. Second, it hallucinates specific intermediate entities ('movie') and relations ('actor', 'director') that were not present in the original query. Third, it attempts to use a logical 'and' operator to combine two separate entity extractions, which violates the GraphQ IR principle of single-path extraction for such queries. The Ground Truth correctly identifies the intent as finding the relation between two specific entities."",
+  ""score"": 0.3
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   ├── ""<ES>""
+        │   ├── EntitySet
+        │   │   └── Concept
+        │   │       ├── ""<C>""
+        │   │       ├── ""movie""
+        │   │       └── ""</C>""
+        │   ├── Constraint
+        │   │   └── RelationConstraint
+        │   │       ├── ""that""
+        │   │       ├── Relation
+        │   │       │   ├── ""<R>""
+        │   │       │   ├── ""actor""
+        │   │       │   └── ""</R>""
+        │   │       ├── DIR
+        │   │       │   └── ""backward""
+        │   │       ├── ""to""
+        │   │       └── EntitySet
+        │   │           └── Entity
+        │   │               ├── ""<E>""
+        │   │               ├── ""Meryl Streep""
+        │   │               └── ""</E>""
+        │   └── ""</ES>""
+        ├── ""and""
+        └── EntitySet
+            ├── ""<ES>""
+            ├── EntitySet
+            │   └── Concept
+            │       ├── ""<C>""
+            │       ├── ""movie""
+            │       └── ""</C>""
+            ├── Constraint
+            │   └── RelationConstraint
+            │       ├── ""that""
+            │       ├── Relation
+            │       │   ├── ""<R>""
+            │       │   ├── ""director""
+            │       │   └── ""</R>""
+            │       ├── DIR
+            │       │   └── ""backward""
+            │       ├── ""to""
+            │       └── EntitySet
+            │           └── Entity
+            │               ├── ""<E>""
+            │               ├── ""Eastwood""
+            │               └── ""</E>""
+            └── ""</ES>""
+        └── ""</ES>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,25,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,5.593365,True,stop,3134,0.024528,754,5.118026,147.3224,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection is bidirectional or unknown, `RelationQuery` syntax `what is the relation from X to Y` assumes a specific direction. If I assume the user wants *any* link, I should probably pick one direction. Let's try ""from Meryl Streep to Eastwood"".
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine. Is it possible they are connected via a movie? E.g., Meryl Streep acted in a movie directed by Clint Eastwood? Or produced by him?
+The query asks for ""any existing connection"". This is slightly ambiguous for a strict `RelationQuery` which expects a single relation name as output if one exists, or null.
+However, often ""connection between"" implies finding the path. But GraphQ IR's `RelationQuery` returns the *label* of the edge.
+
+Let's stick to the simplest interpretation: Find the relation linking Entity A to Entity B.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+If no direct relation exists, this returns nothing. If the question implies ""Is there a connection?"", it would be `VerifyQuery`. But ""Give me any..."" implies extraction of the relation name.
+
+Let's construct the AST for `RelationQuery`.
+
+Root: RelationQuery
+Args: EntitySet (Meryl Streep), EntitySet (Eastwood)
+
+Sequence: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separate branches), this does not violate the core logic or the grammar of the RelationQuery type, and it correctly captures all entities and the relationship intent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' prefix is split (grouping 'what is the relation from' into a single node instead of separate branches), this does not violate the core logic or the grammar of the RelationQuery type, and it correctly captures all entities and the relationship intent."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,26,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,9.925743,True,stop,3134,0.024469,1388,9.455289,146.7961,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for a path. But in GraphQ IR, `RelationQuery` typically asks ""what is the relation from X to Y"". If the user wants *any* connection, it often implies finding a shared attribute or a direct link.
+
+Let's look at the structure of similar queries.
+""Give me the actors of Inception"" -> EntityQuery (find entities).
+""What is the relation between X and Y?"" -> RelationQuery.
+
+If I interpret ""connection"" as a direct edge, I need to decide on direction. Usually, ""between A and B"" in natural language is symmetric, but graph queries are directed. Let's assume we want to find if there is a relation from Meryl Streep to Eastwood (Clint Eastwood). Or perhaps they share a common attribute like ""occupation"" or ""nationality"".
+
+However, the prompt asks for ""any existing connection"". This is slightly ambiguous. It could mean:
+1. Find the specific relation label(s) connecting them directly.
+2. Find a path of length 1 or more.
+
+Given the standard GraphQ IR capabilities, `RelationQuery` returns the relation name. If I assume a direct link (e.g., they acted in a movie together), the query would be ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"". But wait, if the relation doesn't exist directly, this returns nothing.
+
+Let's consider `AttributeQuery` or `EntityQuery` via a shared concept. For example, ""What movies did they both act in?"" -> EntityQuery for movies.
+But the question is ""Give me any existing connection"". This sounds like it wants the *name* of the connection (the relation) or the fact that one exists.
+
+Let's look at the `VerifyQuery` option. ""whether Meryl Streep and Eastwood have a connection"". But the user asks to ""Give me"" the connection, implying extraction of the relation name or the path.
+
+If I use `RelationQuery`, I must specify direction. Let's try from Meryl Streep to Eastwood.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, ""Eastwood"" likely refers to Clint Eastwood.
+Let's refine the intent. If there is no direct edge, a simple RelationQuery fails. However, in many knowledge graph contexts, ""connection"" might imply a shared neighbor (e.g., they both acted in ""The Bridges of Madison County""? No, that was Streep and... wait, Meryl Streep and Clint Eastwood were in ""The Bridges of Madison County""? No, that was Streep and... actually, they were NOT in that together. They were in ""The Iron Lady""? No. They were in ""Don't Look Up""? No.
+Actually, Meryl Streep and Clint Eastwood have not acted in a movie together directly as co-stars in a major feature film often cited. But they might be connected via other nodes (e.g., both are actors).
+
+If the question implies ""What is the relationship between them?"", it's asking for the edge label.
+Let's stick to the most direct interpretation of ""connection"" in graph terms: an edge.
+Query: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+However, if the user means ""Find a path"", GraphQ IR doesn't have a generic ""find path"" query type other than chaining EntityQueries or using `SelectQuery` for superlatives.
+Let's assume the question asks for the direct relation label if it exists.
+
+Alternative interpretation: ""Give me any existing connection"" -> Find an entity that connects them? No, ""connection"" usually means the edge itself.
+
+Let's try to map ""connection"" to `RelationQuery`.
+Root: RelationQuery
+From: <E> Meryl Streep </E>
+To: <E> Eastwood </E>
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Is ""Eastwood"" an entity? Yes, likely Clint Eastwood.
+
+Let's double check if ""connection"" could mean a shared attribute. ""What do they have in common?"" -> AttributeQuery on both? No, that would be two queries.
+The phrasing ""Give me any existing connection"" strongly suggests extracting the relation name.
+
+One more possibility: The user wants to know *if* there is a connection and what it is. But `VerifyQuery` only returns Yes/No. `RelationQuery` returns the relation name.
+
+Let's proceed with `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, looking at the examples, `RelationQuery` is ""what is the relation from X to Y"".
+If I want to be safe about the entity name, I should use `<E> Clint Eastwood </E>` or just `<E> Eastwood </E>` as provided. The prompt says ""Eastwood"", so I will use that.
+
+One detail: Does ""connection"" imply a specific type of relation? No, ""any"". So we just ask for the relation.
+
+Final check on direction. From Meryl to Eastwood is standard subject-to-object ordering in English queries unless specified otherwise (""from X to Y"").
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural sequence of the AST is broken relative to the defined grammar.",,"```json
+{
+  ""rationale"": ""The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural sequence of the AST is broken relative to the defined grammar."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,27,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,4.259374,True,stop,3134,0.024281,553,3.757583,147.1691,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge or path that links them. Since the specific type of connection isn't specified, but rather ""any existing connection"", this is best modeled as a RelationQuery seeking the relation from one entity to another. However, usually, if we don't know the direction or the specific relation, we might look for *what* connects them.
+
+Let's interpret ""connection between A and B"" as finding a relation `R` such that `A` is connected to `B` via `R`. In GraphQ IR, `RelationQuery` asks ""what is the relation from X to Y"". If the direction is unknown, we might need to check both or assume a standard direction. However, typically in these knowledge graph queries, if asked for *a* connection, it often implies finding the specific edge that exists.
+
+Let's look at the structure:
+Query Type: `RelationQuery` (asking for the relation).
+EntitySet 1: `<E> Meryl Streep </E>`
+EntitySet 2: `<E> Eastwood </E>` (Assuming Clint Eastwood, usually referred to as just Eastwood in this context).
+
+The query is ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+Wait, if the connection could be bidirectional or unknown, `RelationQuery` requires a direction. Let's assume the standard forward direction from Subject to Object for the sake of the query structure, or perhaps the user wants to know *if* there is a relation and *what* it is.
+
+Actually, a more precise interpretation for ""any existing connection"" might be finding the specific edge label.
+Let's construct the RelationQuery: ""what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>"".
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,1.0,1.0,Q43,"The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' branches are grouped (combining 'what is the relation from' into a single branch instead of splitting 'from'), this does not violate the grammar or change the logical meaning of the query.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically and structurally equivalent to the Ground Truth. While it slightly differs in how the 'RelationQuery' branches are grouped (combining 'what is the relation from' into a single branch instead of splitting 'from'), this does not violate the grammar or change the logical meaning of the query."",
+  ""score"": 1.0
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,28,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,8.935246,True,stop,3134,0.024407,1244,8.450949,147.2024,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, in GraphQ IR, a `RelationQuery` typically asks for the *name* of the relation from a specific source set to a target set.
+
+If I interpret ""connection between"" as finding the edge label(s) that link them, I should look for relations where Meryl Streep is connected to Eastwood (or vice versa).
+Let's assume the standard direction: From Meryl Streep to Clint Eastwood (assuming Eastwood refers to Clint Eastwood, a common co-star). Or perhaps just ""Eastwood"" as an entity.
+
+Query Type: `RelationQuery` (""what is the relation from X to Y"").
+Source EntitySet: `<E> Meryl Streep </E>`
+Target EntitySet: `<E> Eastwood </E>` (or `<E> Clint Eastwood </E>`, but I will stick to the input ""Eastwood"" unless it's ambiguous. Given the context of actors, it likely means Clint Eastwood, but strict adherence suggests using ""Eastwood"").
+
+Wait, ""any existing connection"" might imply finding *if* there is one, or listing them. `RelationQuery` returns the relation names.
+Structure: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`?
+Or `what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>`?
+
+Usually, ""connection between A and B"" in knowledge graph QA implies finding the path or edge. If I just ask ""relation from A to B"", it checks if that specific directed edge exists. If the question is open-ended (""any connection""), it might be better to frame it as a `VerifyQuery` (is there a connection?) or return the relations.
+However, standard GraphQ patterns for ""What is the relation between X and Y"" often map to `RelationQuery`. Let's assume we want the relation names.
+
+Let's refine the entities. ""Eastwood"" is likely an entity `<E> Eastwood </E>`.
+The query asks for the relation.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E> OR what is the relation from <E> Eastwood </E> to <E> Meryl Streep </E>?
+
+Actually, a more robust interpretation for ""connection between"" without specified direction is often handled by checking both or using a generic path query. But `RelationQuery` requires specific source and target sets.
+Let's look at the example: ""Give me the actors of the movie Inception."" -> EntityQuery.
+""Tell me the total budget..."" -> ValueQuery.
+
+If I use `RelationQuery`, I must pick a direction. Let's try from Meryl Streep to Eastwood. If that fails, maybe the other way. But as a parser, I should probably output the query for one direction or both if possible? The grammar doesn't support ""OR"" between two full RelationQueries easily in the root.
+
+Let's look at `VerifyQuery`. ""whether there is a connection..."" -> Boolean.
+But the user asked ""Give me..."", implying extraction of the relation name(s).
+
+Let's assume the question implies finding the specific edge label(s) linking them.
+I will formulate it as a RelationQuery from Meryl Streep to Eastwood. If the graph is undirected or bidirectional, this covers one direction. To be safe and cover ""any"", I might need to check if the system supports multiple roots? No, S := ... single type.
+
+Let's assume the user wants the relation name.
+Query: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`
+
+Alternative: Maybe ""Eastwood"" is a concept? No, it's a proper noun (surname). `<E>` is appropriate.
+
+Let's construct the AST for `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Wait, if the connection is ""Eastwood -> Streep"", asking ""Streep -> Eastwood"" might return nothing.
+However, without external knowledge of the graph's directionality, I must pick one. Standard practice in these parsers for ""between"" is often to query from Subject to Object if identifiable, or just pick one. Meryl Streep is a full name, Eastwood is a surname. It's ambiguous. But usually, queries are parsed as written.
+
+Let's stick to the order of mention: From Meryl Streep to Eastwood.
+
+One more check: Is it possible ""Eastwood"" refers to the place? Unlikely with Meryl Streep.
+Is it possible the user wants *any* path? `RelationQuery` finds direct edges.
+
+I will proceed with `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural sequence of the AST is broken relative to the defined grammar.",,"```json
+{
+  ""rationale"": ""The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar for RelationQuery specifies: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural sequence of the AST is broken relative to the defined grammar."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,29,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,6.067687,True,stop,3134,0.024568,824,5.594014,147.3003,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, the grammar for `RelationQuery` doesn't explicitly support ""between"" with an implicit bidirectional search in a single clause easily without using logical operators or multiple queries.
+But often, ""connection between A and B"" implies finding the edge label. Let's look at the standard interpretation. If I ask ""What is the relation from Meryl Streep to Eastwood?"", I get relations where Meryl is source and Eastwood is target. If I ask ""from Eastwood to Meryl"", I get the reverse.
+Since the prompt asks for *any* existing connection, and doesn't specify direction, but `RelationQuery` requires a specific direction (`from ... to ...`), I will formulate it as finding the relation from Meryl Streep to Eastwood first, as that is the most direct interpretation of ""connection between"" in many knowledge graph contexts (often implying a path or direct link). If no direct link exists, the result is empty.
+However, a more robust way to express ""between"" in this specific IR might be to just pick one direction or use `VerifyQuery` if it were a yes/no question. But here we want the *name* of the connection.
+
+Let's stick to the standard `RelationQuery` format: `what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>`. This asks for relations where Meryl Streep points to Eastwood. If the relationship is bidirectional or the other way around, this specific query might miss it, but without a ""between"" operator in the grammar, `from ... to` is the standard atomic unit.
+
+Wait, looking at the examples, `RelationQuery` returns the relation name.
+Input: Give me any existing connection between Meryl Streep and Eastwood.
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+Let's refine. Is there a specific ""connection"" concept? No, usually it's the edge label (e.g., ""actor"", ""spouse"", ""colleague"").
+So, `RelationQuery` is correct.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Eastwood </E>
+
+</thinking>
+
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.85,0.85,Q43,"The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar defines RelationQuery as: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural sequence of the AST is broken.",,"```json
+{
+  ""rationale"": ""The Candidate is missing the 'from' keyword required by the RelationQuery grammar. The grammar defines RelationQuery as: 'what is the relation from' EntitySet 'to' EntitySet. By omitting the 'from' token, the structural sequence of the AST is broken."",
+  ""score"": 0.85
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv
+graphq_tree,30,Q43,Give me any existing connection between Meryl Streep and Eastwood.,qwen3.6:35b,False,0.025,7.057206,True,stop,3134,0.023378,967,6.56936,147.1985,"<thinking>
+The user is asking for a relation (connection) between two entities: ""Meryl Streep"" and ""Eastwood"". This implies finding an edge that connects them. Since the direction isn't specified (who connects to whom), we need to find any relation where one entity is the source and the other is the target, or vice versa. However, typically in these graph queries, if we ask for a connection *between* A and B, we are looking for a path or a direct edge. Given the phrasing ""existing connection"", it's often interpreted as finding a relation that links them.
+
+Let's assume we want to find the relation type. This is a `RelationQuery`.
+The query structure is: ""what is the relation from [EntitySet 1] to [EntitySet 2]"" OR ""what is the relation between..."".
+In GraphQ IR, `RelationQuery` is defined as `what is the relation from EntitySet to EntitySet`.
+To find *any* connection, we can look for a relation from Meryl Streep to Eastwood OR from Eastwood to Meryl Streep. However, the grammar for `RelationQuery` doesn't explicitly support ""between"" with an OR logic in the standard definition provided (`what is the relation from X to Y`).
+
+Let's look at the examples.
+""Give me the actors of the movie Inception."" -> EntityQuery finding entities.
+""Tell me the total budget..."" -> ValueQuery.
+
+If I use `RelationQuery`, I must specify a direction. ""from Meryl Streep to Eastwood"". If no such relation exists, it returns nothing. But usually, ""connection between"" implies checking both directions or finding a path.
+However, often in these datasets (like Wikidata), relations are directed. For example, `Meryl Streep` -> `actor` -> `Clint Eastwood` (if they were in a movie together). Or `Clint Eastwood` -> `director` -> `Meryl Streep`.
+
+Let's try to formulate it as finding the relation from Meryl Streep to Clint Eastwood. If the user meant ""Eastwood"" as Clint Eastwood, I should specify that.
+Query: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>.
+
+Wait, the prompt says ""Give me any existing connection"". This might imply returning the *value* of the connection or just the fact that it exists? No, usually ""give me the connection"" means ""what is the relationship?"".
+So `RelationQuery` is appropriate.
+
+Let's refine the entities. ""Eastwood"" likely refers to ""Clint Eastwood"".
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+
+Is it possible they are connected via a third node? The grammar for `RelationQuery` is simple: `what is the relation from EntitySet to EntitySet`. It doesn't support multi-hop paths directly in the root query type definition provided (`S := ... | RelationQuery`).
+If I need to find a path, I might need an `EntityQuery` that finds entities connected to Meryl Streep which are also connected to Eastwood? No, that's complex.
+
+Let's stick to the direct relation interpretation first. If the question implies ""What is the relationship between them?"", it's a RelationQuery.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+
+One detail: ""Eastwood"" could be ""Clint Eastwood"" or ""Scott Eastwood"" etc. But Clint is the most prominent. I will use ""Clint Eastwood"".
+
+Let's double check if ""connection"" implies a `VerifyQuery` (Yes/No) or just retrieving the relation name. ""Give me..."" suggests retrieval. So `RelationQuery`.
+
+Representation 1: what is the relation from <E> Meryl Streep </E> to <E> Clint Eastwood </E>
+
+</thinking>
+```graphq_tree
+S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Clint Eastwood""
+            └── ""</E>""
+```",EVAL_PROMPT_GRAPHQ_TREE,Overall Translation Quality (GraphQ Tree),1.0,0.75,0.75,Q43,"The Candidate fails to include the required 'from' and 'to' tokens within the RelationQuery structure, which are necessary for the grammar of a relation traversal. Additionally, it hallucinates 'Clint' in the entity name, although this is a minor semantic addition. The structural omission of the connecting keywords makes the AST incomplete according to the defined RelationQuery syntax.",,"```json
+{
+  ""rationale"": ""The Candidate fails to include the required 'from' and 'to' tokens within the RelationQuery structure, which are necessary for the grammar of a relation traversal. Additionally, it hallucinates 'Clint' in the entity name, although this is a minor semantic addition. The structural omission of the connecting keywords makes the AST incomplete according to the defined RelationQuery syntax."",
+  ""score"": 0.75
+}
+```","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── ""from""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    ├── ""to""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Eastwood""
+            └── ""</E>""","S
+└── RelationQuery
+    ├── ""what is the relation""
+    ├── EntitySet
+    │   └── Entity
+    │       ├── ""<E>""
+    │       ├── ""Meryl Streep""
+    │       └── ""</E>""
+    └── EntitySet
+        └── Entity
+            ├── ""<E>""
+            ├── ""Clint Eastwood""
+            └── ""</E>""",outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700/qwen3.6_35b/trace_Q43_Give_me_any_existing_connection_between__th_false.csv

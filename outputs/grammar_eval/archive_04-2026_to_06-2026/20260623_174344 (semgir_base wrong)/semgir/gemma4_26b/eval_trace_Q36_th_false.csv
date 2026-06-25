@@ -1,0 +1,5328 @@
+Grammar,Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response,Criterion ID,Criterion,Criterion Weight,Eval Score,Supported_Score,Supported_Query_ID,Eval Rationale,Eval Error,Eval Raw,Ground Truth JSON,Candidate JSON,Source File
+semgir,1,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,11.773535,True,stop,7357,0.033785,1283,11.111331,115.4677,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. The grammar requires `SCALAR_AGGREGATE` to return a value, but for a collection of distinct values (like nationalities), I should use a `LIST` with `distinct: true`. Let me correct that.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2"",
+          ""map_expression"": {
+            ""attribute_name"": ""nationality"",
+            ""of"": ""e2""
+          }
+        },
+        ""distinct"": true
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `LIST`, it doesn't support a `map_expression` directly inside the `LIST` object (only `SCALAR_AGGREGATE` does). To retrieve a list of attributes from nodes, I must use the `SCALAR_AGGREGATE` pattern or similar if the grammar allows. However, since the instruction says ""The target MUST default to a flat array of direct identifiers... or simple attribute projections"", and for collections it uses `LIST`, but `LIST` only takes `list_elements`. 
+
+Let's use the most structurally sound approach based on the provided examples:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+*Self-correction*: The `SCALAR_AGGREGATE` is the only way in this grammar to apply a `map_expression` to a list of elements. While `SUM` is mathematically odd for strings, in many semantic parsers, this pattern is used to project attributes from a collection. Given the strictness of the provided grammar, I will use the projection logic.
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.5,0.5,Q36,"The Candidate contains a significant type-safety and logic error: it uses an ESCALAR_AGGREGATE with 'SUM' on a nationality attribute, which is semantically nonsensical for extracting a list of values. Additionally, while the graph topology (Player -> plays_for -> Team) is correctly inverted compared to the Ground Truth, the use of an aggregate function instead of a simple attribute projection fundamentally changes the query intent from 'retrieving values' to 'performing math on values'.",,"```json
+{
+  ""rationale"": ""The Candidate contains a significant type-safety and logic error: it uses an ESCALAR_AGGREGATE with 'SUM' on a nationality attribute, which is semantically nonsensical for extracting a list of values. Additionally, while the graph topology (Player -> plays_for -> Team) is correctly inverted compared to the Ground Truth, the use of an aggregate function instead of a simple attribute projection fundamentally changes the query intent from 'retrieving values' to 'performing math on values'."",
+  ""score"": 0.5
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,2,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,2.952755,True,stop,7357,0.108984,257,2.173042,118.2674,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Nationality""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""has_player"",
+        ""from"": ""e1"",
+        ""to"": ""e3""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""has_nationality"",
+        ""from"": ""e3"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,0.95,0.95,Q36,"The Candidate correctly identifies the core logic of the query, including the distinct requirement and the name constraint on the team. While it introduces an extra entity ('Nationality') and a relationship ('has_nationality') not present in the Ground Truth, this is a valid alternative graph modeling approach (expanding the schema to include nationality as a node rather than an attribute). The target is slightly different (returning the entity ID instead of the attribute), but the semantic intent remains intact.",,"```json
+{
+  ""rationale"": ""The Candidate correctly identifies the core logic of the query, including the distinct requirement and the name constraint on the team. While it introduces an extra entity ('Nationality') and a relationship ('has_nationality') not present in the Ground Truth, this is a valid alternative graph modeling approach (expanding the schema to include nationality as a node rather than an attribute). The target is slightly different (returning the entity ID instead of the attribute), but the semantic intent remains intact."",
+  ""score"": 0.95
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Nationality""
+      },
+      {
+        ""id"": ""e3"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""has_player"",
+        ""from"": ""e1"",
+        ""to"": ""e3""
+      },
+      {
+        ""id"": ""r2"",
+        ""role"": ""has_nationality"",
+        ""from"": ""e3"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,3,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.41258,True,stop,7357,0.016621,556,4.752002,117.0033,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the relationship between players and teams, and the constraint on the team name. While it uses a more complex 'list' with a 'map_expression' in the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid alternative interpretation for extracting a list of values from related entities. The directionality of the relationship (from Player to Team) is also correctly maintained despite the IDs being swapped compared to the Ground Truth.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the relationship between players and teams, and the constraint on the team name. While it uses a more complex 'list' with a 'map_expression' in the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid alternative interpretation for extracting a list of values from related entities. The directionality of the relationship (from Player to Team) is also correctly maintained despite the IDs being swapped compared to the Ground Truth."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,4,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.390099,True,stop,7357,0.016887,556,4.739977,117.3001,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,5,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.412092,True,stop,7357,0.016762,556,4.75207,117.0016,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,6,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.385545,True,stop,7357,0.016726,556,4.735099,117.421,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,7,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.378958,True,stop,7357,0.017234,556,4.74321,117.2202,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,8,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.372798,True,stop,7357,0.016937,556,4.746575,117.1371,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,9,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.408112,True,stop,7357,0.016941,556,4.751702,117.0107,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,10,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.403927,True,stop,7357,0.016959,556,4.753156,116.9749,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,11,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.415156,True,stop,7357,0.016438,556,4.746984,117.127,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,12,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.403149,True,stop,7357,0.016382,556,4.744645,117.1847,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,13,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.404884,True,stop,7357,0.016565,556,4.747986,117.1023,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,14,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.395481,True,stop,7357,0.016952,556,4.743134,117.2221,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,15,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.381681,True,stop,7357,0.016639,556,4.749656,117.0611,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,16,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.385173,True,stop,7357,0.016964,556,4.743543,117.212,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,17,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.38768,True,stop,7357,0.017075,556,4.742851,117.2291,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,18,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.407503,True,stop,7357,0.016871,556,4.74188,117.2531,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,19,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.528702,True,stop,7357,0.017212,556,4.864033,114.3084,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,20,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.412243,True,stop,7357,0.017157,556,4.783977,116.2213,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,21,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.425489,True,stop,7357,0.016674,556,4.763897,116.7112,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,22,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.520889,True,stop,7357,0.017403,556,4.865209,114.2808,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,23,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.378918,True,stop,7357,0.016776,556,4.7519,117.0058,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,24,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.42732,True,stop,7357,0.016985,556,4.749223,117.0718,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,25,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.389364,True,stop,7357,0.016983,556,4.751954,117.0045,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,26,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.369159,True,stop,7357,0.0172,556,4.745545,117.1625,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,27,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.406203,True,stop,7357,0.01683,556,4.749863,117.056,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,28,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.405292,True,stop,7357,0.017111,556,4.749556,117.0636,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,29,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.397297,True,stop,7357,0.016831,556,4.744624,117.1853,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv
+semgir,30,Q36,Give me all the distinct nationalities of the Sevilla players.,gemma4:26b,False,0.025,5.507879,True,stop,7357,0.017166,556,4.873494,114.0865,"```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, I see a mistake in my `target` construction for the list of attributes. Let me correct that to follow the grammar for retrieving a distinct set of values from a collection. The target should be a `LIST` of the attribute values.
+
+Corrected version:
+
+```json
+[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]
+```",EVAL_PROMPT_SEMGIR,Overall Translation Quality (SemGIR),1.0,1.0,1.0,Q36,"The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent.",,"```json
+{
+  ""rationale"": ""The Candidate is semantically correct and captures all necessary components: the target attribute, the entities, the relationship direction (from Player to Team), and the constraint on the team name. While it uses a more complex 'list with map_expression' structure for the target instead of a simple attribute projection as seen in the Ground Truth, this is a valid interpretation of 'all the nationalities'. The logic remains equivalent."",
+  ""score"": 1.0
+}
+```","[
+  {
+    ""target"": [
+      {
+        ""attribute_name"": ""nationality"",
+        ""of"": ""e1""
+      }
+    ],
+    ""distinct"": true,
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Player""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Team""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e1"",
+        ""to"": ""e2""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e2""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    }
+  }
+]","[
+  {
+    ""target"": [
+      {
+        ""list"": {
+          ""list_elements"": ""e2""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""nationality"",
+          ""of"": ""e2""
+        }
+      }
+    ],
+    ""entities"": [
+      {
+        ""id"": ""e1"",
+        ""type"": ""Team""
+      },
+      {
+        ""id"": ""e2"",
+        ""type"": ""Player""
+      }
+    ],
+    ""relationships"": [
+      {
+        ""id"": ""r1"",
+        ""role"": ""plays_for"",
+        ""from"": ""e2"",
+        ""to"": ""e1""
+      }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""name"",
+        ""of"": ""e1""
+      },
+      ""operator"": ""="",
+      ""right"": ""Sevilla""
+    },
+    ""distinct"": true
+  }
+]",outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852/gemma4_26b/trace_Q36_Give_me_all_the_distinct_nationalities_o_th_false.csv

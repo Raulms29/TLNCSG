@@ -248,7 +248,7 @@ Evaluate the Candidate holistically across these dimensions:
 === EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Score: 0.3) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me all the bands that directly or indirectly influenced Nirvana."
+"Give me all the groups that directly or indirectly influenced Queen."
 
 [GROUND TRUTH JSON]
 [
@@ -264,7 +264,7 @@ Evaluate the Candidate holistically across these dimensions:
     "constraint": {
       "left": { "attribute_name": "name", "of": "e2" },
       "operator": "=",
-      "right": "Nirvana"
+      "right": "Queen"
     },
     "distinct": true
   }
@@ -284,7 +284,7 @@ Evaluate the Candidate holistically across these dimensions:
         { "id": "r1", "role": "influenced", "from": "e1", "to": "e2" }
       ],
       "constraint": {
-        "left": { "attribute_name": "name", "of": "e2" }, "operator": "=", "right": "Nirvana"
+        "left": { "attribute_name": "name", "of": "e2" }, "operator": "=", "right": "Queen"
       }
     }
   ]
@@ -299,7 +299,7 @@ Evaluate the Candidate holistically across these dimensions:
 === EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Score: 0.75) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Charlemagne."
+"Give me the third-degree relatives of Alfonso X."
 
 [GROUND TRUTH JSON]
 [
@@ -317,7 +317,7 @@ Evaluate the Candidate holistically across these dimensions:
       { "id": "r3", "role": "relative_of", "from": "e3", "to": "e4" }
     ],
     "constraint": {
-      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Charlemagne"
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
     },
     "distinct": true
   },
@@ -332,7 +332,7 @@ Evaluate the Candidate holistically across these dimensions:
     ],
     "constraint": {
       "and_conditions": [
-        { "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Charlemagne" },
+        { "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X" },
         {
           "left": {
             "count": {
@@ -360,14 +360,14 @@ Evaluate the Candidate holistically across these dimensions:
       { "id": "r1", "role": "relative_of", "from": "e1", "to": "e4" }
     ],
     "constraint": {
-      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Charlemagne"
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
     }
   }
 ]
 
 [EXPECTED OUTPUT]
 {
-  "rationale": "Target, entities, and name constraint on Charlemagne are correctly captured with a valid grammar structure. The traversal is modeled as a single relationship, while the Ground Truth requires either three explicit `relative_of` hops or a PATH with COUNT = 3 — neither of which the Candidate provides. This single structural gap leaves the core multi-hop intent unresolved.",
+  "rationale": "Target, entities, and name constraint on Alfonso X are correctly captured with a valid grammar structure. The traversal is modeled as a single relationship, while the Ground Truth requires either three explicit `relative_of` hops or a PATH with COUNT = 3 — neither of which the Candidate provides. This single structural gap leaves the core multi-hop intent unresolved.",
   "score": 0.75
 }
 

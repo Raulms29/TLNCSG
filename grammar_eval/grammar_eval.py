@@ -70,7 +70,7 @@ GRAMMARS_CONFIG = {
     # Lambda DCS
     # ------------------------------------------------------------------
     "lambda_dcs": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260622_095714",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260624_140012",
         "ground_truths_path": GT_LAMBDA_DCS,
         "expect_json_response": False,
         "criteria_config": {
@@ -86,7 +86,7 @@ GRAMMARS_CONFIG = {
     # PCCG CGG Lambda
     # ------------------------------------------------------------------
     "pccg_cgg_lambda": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_PCCG_CGG_LAMBDA/20260622_112940",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_PCCG_CGG_LAMBDA/20260624_153643",
         "ground_truths_path": GT_PCCG_CGG_LAMBDA,
         "expect_json_response": False,
         "criteria_config": {
@@ -102,7 +102,7 @@ GRAMMARS_CONFIG = {
     # NSQA
     # ------------------------------------------------------------------
     "nsqa": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_NSQA/20260622_123844",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_NSQA/20260624_164142",
         "ground_truths_path": GT_NSQA,
         "expect_json_response": False,
         "criteria_config": {
@@ -118,7 +118,7 @@ GRAMMARS_CONFIG = {
     # Squall
     # ------------------------------------------------------------------
     "squall": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SQUALL/20260622_140529",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SQUALL/20260624_181503",
         "ground_truths_path": GT_SQUALL,
         "expect_json_response": False,
         "criteria_config": {
@@ -134,7 +134,7 @@ GRAMMARS_CONFIG = {
     # GraphQ Tree
     # ------------------------------------------------------------------
     "graphq_tree": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260622_145700",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260624_190556",
         "ground_truths_path": GT_GRAPHQ_TREE,
         "expect_json_response": False,
         "criteria_config": {
@@ -150,7 +150,7 @@ GRAMMARS_CONFIG = {
     # SemGIR
     # ------------------------------------------------------------------
     "semgir": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260622_234852",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260625_035103",
         "ground_truths_path": GT_SEMGIR,
         "expect_json_response": True,
         "criteria_config": {
@@ -166,7 +166,7 @@ GRAMMARS_CONFIG = {
     # SemGIR Base
     # ------------------------------------------------------------------
     "semgir_base": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_BASE/20260623_095138",
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_BASE/20260625_072350",
         "ground_truths_path": GT_SEMGIR,
         "expect_json_response": True,
         "criteria_config": {

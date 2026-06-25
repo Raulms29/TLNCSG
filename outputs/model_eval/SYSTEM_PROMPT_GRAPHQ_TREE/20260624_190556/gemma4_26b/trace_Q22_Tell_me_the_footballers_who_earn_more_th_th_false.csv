@@ -1,0 +1,2380 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,20.070642,True,stop,2970,0.03088,2257,19.421133,116.2136,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+
+Wait, let's refine the logic for ""footballers who earn more than their coach"":
+The subject is a set of footballers. 
+Constraint: Their attribute 'earnings' is larger than the 'earnings' of their coach.
+Since the coach is also a footballer related to them via the 'coach' relation (backward), we need to compare attributes across entities.
+
+Refined Representation 1: what is <ES> <C> footballer </ES> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the grammar for AttributeConstraint is: ""whose Attribute COP Value"" or ""that have SOP Attribute"". 
+The comparison here is between two attributes. The grammar allows `AttributeConstraint := AttributeConstraint QualifierConstraint?`. 
+However, comparing an attribute to another entity's attribute isn't explicitly a single primitive in the provided grammar for `AttributeConstraint` (it expects `Value`). 
+But looking at `Value`, it can be `Attribute ""of"" EntitySet`.
+
+Let's re-evaluate:
+The query is about finding footballers.
+Constraint: Attribute 'earnings' is larger than Value (Attribute 'earnings' of the coach).
+The coach is found via relation 'coach' backward to the same footballer.
+
+Representation 1: what is <ES> <ES> <C> footballer </C> </ES> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the ""coach"" is a relation. The subject is a footballer. The constraint is on their attribute.
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the ""coach"" is a relation from the subject. 
+Let's simplify: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+This is getting recursive. Let's look at the grammar for `RelationConstraint`: `that Relation DIR to EntitySet`.
+The most accurate way to represent ""footballers who earn more than their coach"" using the provided grammar:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES> 
+Actually, the grammar for `AttributeConstraint` is `whose Attribute COP Value`.
+Value can be `Attribute ""of"" EntitySet`.
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES> 
+Wait, the ""coach"" is a relation. If we are looking at the subject (the footballer), their coach is an entity found by following the 'coach' relation.
+
+Let's try: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+This is still circular. Let's use the relation directly in a constraint if possible. 
+The grammar says: `RelationConstraint := ""that"" Relation DIR ""to"" (COP Value?)? EntitySet`.
+If we use `RelationConstraint`, we can say: `that coach forward to <ES> ... </ES>`. But that doesn't handle the 'earnings' comparison.
+
+Let's stick to the most logical construction allowed by the grammar:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES> 
+Actually, the subject is a footballer. The constraint is on their attribute 'earnings'. The value it's compared to is an attribute of another entity (the coach).
+The coach is identified by the relation 'coach' from the subject.
+
+Final attempt at Rep 1:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the grammar for `EntitySet` is `<ES> EntitySet Constraint </ES>`. 
+The constraint is `AttributeConstraint`.
+`AttributeConstraint` is `whose Attribute COP Value`.
+So: `<ES> <C> footballer </C> whose <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>`
+This is still a bit messy. Let's use the `that` syntax for AttributeConstraint:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the grammar for `AttributeConstraint` is `whose Attribute COP Value`. 
+Let's use: what is <ES> <C> footballer </C> whose <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the `Value` can be `Attribute ""of"" EntitySet`. 
+So: `<A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES>` is a valid `Value`.
+The comparison is `larger than`.
+The subject is `<C> footballer </C>`.
+
+Let's refine the direction: If I am a footballer, my coach is the entity I have a 'coach' relation *backward* to (if the relation is defined as Coach -> Player). Or if the relation is Player -> Coach, it's `forward`. Usually, ""Player has coach"" implies `forward`. Let's assume `forward`.
+
+Final Rep 1: what is <ES> <C> footballer </C> whose <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> forward to <C> footballer </C> </ES> </ES>
+Wait, the `EntitySet` in the `Value` needs to be the coach. The coach is a person. 
+Let's use: what is <ES> <C> footballer </C> whose <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> forward to <C> footballer </C> </ES> </ES>
+Actually, the `EntitySet` in the value is just the set of coaches. 
+Let's simplify: what is <ES> <C> footballer </C> whose <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> forward to <C> footballer </C> </ES> </ES>
+This is the most complete way.
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       └── Comparison
+        │           ├── ""larger than""
+        │           └── Value
+        │               ├── Attribute
+        │               │   ├── ""<A>""
+        │               │   ├── ""earnings""
+        │               │   └── ""</A>""
+        │               ├── ""of""
+        │               └── EntitySet
+        │                   ├── ""<ES>""
+        │                   ├── EntitySet
+        │                   │   └── Concept
+        │                       ├── ""<C>""
+        │                       ├── ""footballer""
+        │                       └── ""</C>""
+        │                   ├── Constraint
+        │                   │   └── RelationConstraint
+        │                       ├── ""that""
+        │                       ├── Relation
+        │                       │   ├── ""<R>""
+        │                       │   ├── ""coach""
+        │                       │   └── ""</R>""
+        │                       ├── DIR
+        │                       │   └── ""forward""
+        │                       └── ""to""
+        │                       └── EntitySet
+        │                           └── Concept
+                               │       ├── ""<C>""
+                               │       ├── ""footballer""
+                               │       └── ""</C>""
+        │                   └── ""</ES>""
+        └── ""</ES>""
+```"
+2,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,10.079087,True,stop,2970,0.201105,1094,9.266297,118.0623,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+3,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.905346,True,stop,2970,0.055577,1094,9.257235,118.1778,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+4,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.883982,True,stop,2970,0.055958,1094,9.25549,118.2001,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+5,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,10.059882,True,stop,2970,0.055582,1094,9.42305,116.0983,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+6,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.987036,True,stop,2970,0.056904,1094,9.312936,117.471,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+7,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.988337,True,stop,2970,0.054084,1094,9.334859,117.1951,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+8,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.990442,True,stop,2970,0.054003,1094,9.331245,117.2405,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+9,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.976318,True,stop,2970,0.057401,1094,9.335229,117.1905,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+10,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.952959,True,stop,2970,0.056056,1094,9.279208,117.898,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+11,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.881018,True,stop,2970,0.055458,1094,9.262556,118.1099,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+12,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.926415,True,stop,2970,0.055961,1094,9.288273,117.7829,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+13,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.933665,True,stop,2970,0.055812,1094,9.26332,118.1002,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+14,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,10.109923,True,stop,2970,0.058358,1094,9.430845,116.0023,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+15,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,10.089498,True,stop,2970,0.05755,1094,9.419949,116.1365,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+16,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,10.063055,True,stop,2970,0.054224,1094,9.417505,116.1666,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+17,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.938728,True,stop,2970,0.05586,1094,9.279913,117.889,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+18,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.978728,True,stop,2970,0.108076,1094,9.272104,117.9883,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+19,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.875866,True,stop,2970,0.055781,1094,9.266572,118.0588,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+20,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.955211,True,stop,2970,0.055573,1094,9.274237,117.9612,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+21,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.948367,True,stop,2970,0.05293,1094,9.296559,117.6779,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+22,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.94835,True,stop,2970,0.055563,1094,9.29351,117.7166,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+23,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.91796,True,stop,2970,0.055714,1094,9.276348,117.9343,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+24,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.925611,True,stop,2970,0.055419,1094,9.278331,117.9091,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+25,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.9596,True,stop,2970,0.055769,1094,9.295561,117.6906,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+26,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.895022,True,stop,2970,0.055741,1094,9.269685,118.0191,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+27,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.92898,True,stop,2970,0.055688,1094,9.291604,117.7407,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+28,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.944653,True,stop,2970,0.055718,1094,9.305754,117.5617,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+29,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.895971,True,stop,2970,0.055557,1094,9.279506,117.8942,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
+30,Q22,Tell me the footballers who earn more than their coach.,gemma4:26b,False,0.0,9.929611,True,stop,2970,0.055367,1094,9.281641,117.8671,"<thinking>
+Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <ES> <C> coach </C> </ES> </ES>
+(Note: The query compares an attribute of the footballer to an attribute of their coach. Since 'coach' is a relation/entity set related to the footballer, we must express this as a constraint on the footballer entity set.)
+
+Refined Representation 1: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Wait, the prompt asks for footballers who earn more than their coach. This implies a comparison between an attribute of the subject and an attribute of a related entity.
+
+Let's use: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <C> footballer </C> </ES> </ES>
+Actually, the simplest way to represent ""earn more than their coach"" in this grammar is:
+what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES> 
+Wait, the grammar for AttributeConstraint is ""whose Attribute COP Value"". But here the value is another attribute.
+The grammar allows: Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
+And AttributeConstraint := ""whose"" Attribute COP Value.
+Value := ... | Attribute ""of"" EntitySet.
+
+So: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+Wait, the subject is a footballer. The constraint is on their attribute 'earnings'. 
+The comparison value is ""earnings of [the coach]"".
+The coach is the entity related via 'coach' relation (backward from footballer).
+
+Let's re-verify:
+EntitySet: <C> footballer </C>
+Constraint: AttributeConstraint -> whose <A> earnings </A> larger than <V> <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </V>
+Wait, the grammar for Value doesn't explicitly allow a 'Value' to be an 'AttributeConstraint'. It allows Value := Attribute ""of"" EntitySet.
+
+Final Sequence: what is <ES> <C> footballer </C> that <A> earnings </A> larger than <A> earnings </A> of <ES> <C> footballer </C> that <R> coach </R> backward to <E> ones </E> </ES> </ES>
+</thinking>
+
+```graphq_tree
+S
+└── EntityQuery
+    ├── ""what is""
+    └── EntitySet
+        ├── ""<ES>""
+        ├── EntitySet
+        │   └── Concept
+        │       ├── ""<C>""
+        │       ├── ""footballer""
+        │       └── ""</C>""
+        ├── Constraint
+        │   └── AttributeConstraint
+        │       ├── ""whose""
+        │       ├── Attribute
+        │       │   ├── ""<A>""
+        │       │   ├── ""earnings""
+        │       │   └── ""</A>""
+        │       ├── ""larger than""
+        │       └── Value
+        │           ├── Attribute
+        │           │   ├── ""<A>""
+        │           │   ├── ""earnings""
+        │           │   └── ""</A>""
+        │           ├── ""of""
+        │           └── EntitySet
+        │               ├── ""<ES>""
+        │               ├── EntitySet
+        │               │   └── Concept
+        │               │       ├── ""<C>""
+        │               │       ├── ""footballer""
+        │               │       └── ""</C>""
+        │               ├── Constraint
+        │               │   └── RelationConstraint
+        │               │       ├── ""that""
+        │               │       ├── Relation
+        │               │       │   ├── ""<R>""
+        │               │       │   ├── ""coach""
+        │               │       │   └── ""</R>""
+        │               │       ├── ""backward""
+        │               │       ├── ""to""
+        │               │       └── EntitySet
+        │               │           └── Entity
+
+        │               │               ├── ""<E>""
+        │               │               ├── ""ones""
+        │               │               └── ""</E>""
+        │               └── ""</ES>""
+        └── ""</ES>""
+```"
