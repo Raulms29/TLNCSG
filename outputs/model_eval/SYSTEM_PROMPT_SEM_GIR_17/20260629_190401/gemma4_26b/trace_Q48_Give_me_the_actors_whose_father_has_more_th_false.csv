@@ -1,0 +1,5225 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,16.083534,True,stop,6797,0.036114,1762,15.421883,114.2532,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""is_director"",
+              ""of"": ""e3""
+            },
+            ""operator"": ""="",
+            ""right"": true
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to correct the logic for the aggregate part. The `SUM` must be applied to a specific list of 5 directors. Let me refine that into a single valid hypothesis.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e6""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e6""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e6""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar, I cannot define a `list` inside a `right` operand that is also constrained by its own internal `limit`. The only way to represent ""the 5 highest-paid directors combined"" is to use an aggregate on a list that is already filtered/ordered. However, the `LIST` type in the grammar allows `order_by` and `limit`.
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""is_director"", ""of"": ""e3"" },
+             ""operator"": ""="",
+             ""right"": true
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `SCALAR_AGGREGATE` requires a `LIST`. The `LIST` itself can have an `order_by` and `limit`. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        }
+      ]
+    }
+  }
+]
+```"
+2,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.786692,True,stop,6797,0.11278,342,3.057988,111.8382,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+3,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.07881,True,stop,6797,0.016765,2324,20.412365,113.8526,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+4,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.599625,True,stop,6797,0.060872,342,2.938538,116.3844,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+5,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.105472,True,stop,6797,0.013093,2324,20.447691,113.6559,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+6,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.659912,True,stop,6797,0.102446,342,2.929339,116.7499,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+7,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.012148,True,stop,6797,0.017246,2324,20.374614,114.0635,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+8,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.615258,True,stop,6797,0.060897,342,2.932587,116.6206,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+9,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.314395,True,stop,6797,0.014805,2324,20.648741,112.5492,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+10,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.652094,True,stop,6797,0.068638,342,2.935977,116.4859,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+11,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.048966,True,stop,6797,0.016871,2324,20.39034,113.9755,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+12,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.646608,True,stop,6797,0.09566,342,2.930674,116.6967,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+13,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.062271,True,stop,6797,0.017879,2324,20.401158,113.9151,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+14,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.648149,True,stop,6797,0.102188,342,2.933018,116.6034,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+15,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.04558,True,stop,6797,0.016401,2324,20.392212,113.9651,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+16,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.624364,True,stop,6797,0.061043,342,2.933181,116.597,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+17,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.164991,True,stop,6797,0.017302,2324,20.524748,113.2292,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+18,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.639344,True,stop,6797,0.069321,342,2.933996,116.5646,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+19,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.029859,True,stop,6797,0.016822,2324,20.393464,113.9581,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+20,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.659398,True,stop,6797,0.094256,342,2.930929,116.6866,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+21,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.024435,True,stop,6797,0.01866,2324,20.403544,113.9018,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+22,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.626779,True,stop,6797,0.09922,342,2.935603,116.5008,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+23,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.038926,True,stop,6797,0.016844,2324,20.396111,113.9433,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+24,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.739178,True,stop,6797,0.062461,342,3.057635,111.8512,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+25,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.015708,True,stop,6797,0.016938,2324,20.398958,113.9274,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+26,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.63009,True,stop,6797,0.061655,342,2.933191,116.5966,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+27,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.010861,True,stop,6797,0.017092,2324,20.373443,114.0701,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+28,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.675128,True,stop,6797,0.102353,342,2.930058,116.7212,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+29,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,21.034044,True,stop,6797,0.016776,2324,20.397817,113.9338,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">"",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""order_by"": []
+  }
+]
+```
+
+Wait, I need to refine the `SUM` logic. The `SUM` must be applied to a specific list of 5 directors. Let me re-structure that correctly according to the grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""opacity"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the grammar for `SCALAR_AGGREGATE`, it takes a `LIST`. The constraint on the list (the top 5) must be applied to that list. However, the grammar doesn't allow a `LIMIT` inside an aggregate's `list` directly in a way that is easily accessible as a standalone value for comparison unless we use a sub-query logic or if the `LIST` itself can be ordered/limited. 
+
+Let's provide the most accurate interpretation:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          ],
+          ""condition"": {
+             ""left"": { ""attribute_name"": ""salary"", ""of"": ""e3"" },
+             ""operator"": "">="",
+             ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the grammar for `LIST` allows `order_by`, `limit`, and `skip`. The aggregate's `list` is a `LIST` type. I will use that.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```
+
+Final check: The `SUM` aggregate's `list` must be the same set of directors. Since I cannot define two different lists with different properties (one for sum, one for top-5) in a single constraint without a subquery structure not explicitly in the grammar, I will represent the logic as closely as possible to the provided grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5,
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""operator"": "">="",
+            ""right"": 0
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    }
+  }
+]
+```"
+30,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.747008,True,stop,6797,0.062391,342,3.064753,111.5914,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""father_of"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_a"", ""from"": ""e3"", ""to"": ""Person"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"

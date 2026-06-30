@@ -1,0 +1,4441 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,11.976166,True,stop,6639,0.060287,1317,11.301361,116.5346,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+2,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.024616,True,stop,6639,0.060417,1317,11.321697,116.3253,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+3,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.100561,True,stop,6639,0.060104,1317,11.425487,115.2686,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+4,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.009782,True,stop,6639,0.06966,1317,11.332402,116.2154,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+5,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.038321,True,stop,6639,0.094308,1317,11.310854,116.4368,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+6,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.033902,True,stop,6639,0.05806,1317,11.35392,115.9952,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+7,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.032618,True,stop,6639,0.060722,1317,11.366841,115.8633,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+8,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.083111,True,stop,6639,0.06058,1317,11.390119,115.6265,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+9,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.050886,True,stop,6639,0.060201,1317,11.373185,115.7987,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+10,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.266745,True,stop,6639,0.063342,1317,11.558577,113.9414,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+11,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.203522,True,stop,6639,0.062295,1317,11.529816,114.2256,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+12,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.083314,True,stop,6639,0.070051,1317,11.374585,115.7844,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+13,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.082913,True,stop,6639,0.094703,1317,11.359627,115.9369,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+14,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.181151,True,stop,6639,0.063037,1317,11.522216,114.3009,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+15,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.062319,True,stop,6639,0.061297,1317,11.393976,115.5874,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+16,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.135791,True,stop,6639,0.062203,1317,11.457538,114.9462,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+17,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.046883,True,stop,6639,0.060558,1317,11.356953,115.9642,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+18,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.029348,True,stop,6639,0.06055,1317,11.336834,116.17,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+19,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.03396,True,stop,6639,0.060624,1317,11.373614,115.7943,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+20,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.034575,True,stop,6639,0.06032,1317,11.343334,116.1034,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+21,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.211845,True,stop,6639,0.063012,1317,11.528476,114.2389,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+22,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.063583,True,stop,6639,0.066537,1317,11.389333,115.6345,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+23,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.021628,True,stop,6639,0.061069,1317,11.376981,115.7601,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+24,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.092195,True,stop,6639,0.09246,1317,11.391235,115.6152,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+25,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.077177,True,stop,6639,0.061332,1317,11.376327,115.7667,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+26,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.057008,True,stop,6639,0.058817,1317,11.383982,115.6889,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+27,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.093199,True,stop,6639,0.062489,1317,11.429772,115.2254,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+28,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.032152,True,stop,6639,0.060582,1317,11.36679,115.8638,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+29,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.006648,True,stop,6639,0.05807,1317,11.335606,116.1826,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"
+30,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,12.035508,True,stop,6639,0.06045,1317,11.366772,115.864,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_nationality"", ""from"": ""e3"", ""to"": ""e4"" }
+    ],
+    ""paths"": [],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+            ""aggregate_kind"": ""MAX""
+          }
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""condition"": {
+                ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                ""operator"": ""="",
+                ""right"": ""Argentine""
+              },
+              ""quantifier_kind"": ""EXISTS""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to refine the logic for ""the highest-paid Argentine actor"". The constraint should be a single scalar value. Let's re-structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the `right` operand of a comparison can be an aggregate. But to filter `e3` to only Argentine actors before finding the max, I need that logic inside the expression or via a list. The grammar allows `SCALAR_AGGREGATE` as an `EXPRESSION`. An `EXPRESSION` can be a `SCALAR_AGGREGATE`, which contains a `LIST`. A `LIST` can have a `filter`.
+
+Final attempt at correct structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""lead_actor"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" },
+                ""filter"": {
+                  ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+                  ""operator"": ""="",
+                  ""right"": ""Argentine""
+                }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```"

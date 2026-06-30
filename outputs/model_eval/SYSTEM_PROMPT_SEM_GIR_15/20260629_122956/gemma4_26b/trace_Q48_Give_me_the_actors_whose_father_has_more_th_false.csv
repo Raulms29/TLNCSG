@@ -1,0 +1,1464 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,11.495361,True,stop,7362,0.03593,1258,10.846243,115.9849,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3""
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      },
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5
+          },
+          ""condition"": {
+            ""left"": {
+              ""attribute_name"": ""role"",
+              ""of"": ""e3""
+            },
+            ""operator"": ""="",
+            ""right"": ""Director""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""note"": ""The constraint logic for the sum of top 5 directors is represented via a scalar aggregate over a limited list-based selection.""
+  }
+]
+```
+
+Wait, looking at the grammar, I cannot put a `LIMIT` inside a `LIST` within a `SCALAR_AGGREGATE` directly in the `right` operand of a `COMPARISON`. I must structure the comparison to use the aggregate. However, the grammar allows `EXPRESSION` to be `SCALAR_AGGREGATE`. To handle the ""top 5"" requirement for the right-hand side, I will define the target logic as follows:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""attribute_name"": ""wealth"",
+            ""of"": ""e2""
+          },
+          ""operator"": "">"",
+          ""right"": {
+            ""list"": {
+              ""list_elements"": ""e3""
+            },
+            ""order_by"": [
+              {
+                ""expression"": {
+                  ""attribute_name"": ""salary"",
+                  ""of"": ""e3""
+                },
+                ""direction"": ""DESC""
+              }
+            ],
+            ""limit"": 5,
+            ""map_expression"": {
+              ""attribute_name"": ""salary"",
+              ""of"": ""e3""
+            },
+            ""aggregate_kind"": ""SUM""
+          }
+        }
+      ]
+    }
+  }
+]
+```
+
+*Self-correction*: The grammar for `SCALAR_AGGREGATE` is `{ list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }`. And `LIST` can have `limit` and `order_by`. 
+
+Final attempt at valid structure:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""list"": {
+          ""list_elements"": ""e3"",
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        },
+        ""aggregate_kind"": ""SUM""
+      }
+    }
+  }
+]
+```"
+2,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.636441,True,stop,7362,0.106267,343,2.902446,118.1762,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""salary"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""salary"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+3,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.586278,True,stop,7362,0.016554,343,2.906679,118.0041,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+4,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.562379,True,stop,7362,0.016561,343,2.902242,118.1845,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+5,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.530384,True,stop,7362,0.016563,343,2.907281,117.9797,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+6,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.591722,True,stop,7362,0.016986,343,2.914896,117.6714,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+7,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.549865,True,stop,7362,0.016878,343,2.90114,118.2294,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+8,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.538917,True,stop,7362,0.016977,343,2.903334,118.14,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+9,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.544603,True,stop,7362,0.017041,343,2.898292,118.3456,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+10,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.549415,True,stop,7362,0.016697,343,2.90882,117.9172,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+11,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.581532,True,stop,7362,0.016705,343,2.908272,117.9394,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+12,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.632713,True,stop,7362,0.017131,343,3.007215,114.059,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+13,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.528049,True,stop,7362,0.016968,343,2.904527,118.0915,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+14,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.551624,True,stop,7362,0.016415,343,2.910691,117.8414,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+15,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.550742,True,stop,7362,0.016912,343,2.907039,117.9895,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+16,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.537724,True,stop,7362,0.016731,343,2.90632,118.0187,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+17,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.538738,True,stop,7362,0.016345,343,2.913922,117.7108,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+18,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.516414,True,stop,7362,0.017189,343,2.913544,117.726,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+19,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.555454,True,stop,7362,0.016435,343,2.901741,118.2049,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+20,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.533817,True,stop,7362,0.01213,343,2.911504,117.8085,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+21,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.549154,True,stop,7362,0.016849,343,2.901338,118.2213,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+22,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.578631,True,stop,7362,0.016879,343,2.905137,118.0667,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+23,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.582558,True,stop,7362,0.016649,343,2.913463,117.7293,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+24,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.51124,True,stop,7362,0.016482,343,2.900951,118.2371,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+25,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.533798,True,stop,7362,0.01682,343,2.905751,118.0418,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+26,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.554388,True,stop,7362,0.016926,343,2.911442,117.811,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+27,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.583141,True,stop,7362,0.016866,343,2.914268,117.6968,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+28,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.559785,True,stop,7362,0.016553,343,2.914781,117.6761,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+29,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.558864,True,stop,7362,0.0167,343,2.905683,118.0445,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"
+30,Q48,Give me the actors whose father has more money than the 5 highest-paid directors combined.,gemma4:26b,False,0.0,3.576046,True,stop,7362,0.016713,343,2.912338,117.7748,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Actor"" },
+      { ""id"": ""e2"", ""type"": ""Person"" },
+      { ""id"": ""e3"", ""type"": ""Director"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_father"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_director"", ""from"": ""e3"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""attribute_name"": ""wealth"",
+        ""of"": ""e2""
+      },
+      ""operator"": "">"",
+      ""right"": {
+        ""aggregate_kind"": ""SUM"",
+        ""list"": {
+          ""list"": {
+            ""list_elements"": ""e3""
+          },
+          ""order_by"": [
+            {
+              ""expression"": {
+                ""attribute_name"": ""wealth"",
+                ""of"": ""e3""
+              },
+              ""direction"": ""DESC""
+            }
+          ],
+          ""limit"": 5
+        },
+        ""map_expression"": {
+          ""attribute_name"": ""wealth"",
+          ""of"": ""e3""
+        }
+      }
+    }
+  }
+]
+```"

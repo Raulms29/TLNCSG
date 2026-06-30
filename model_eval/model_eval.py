@@ -48,55 +48,79 @@ SYSTEM_PROMPTS_CONFIG = {
     # ------------------------------------------------------------------
     # Lambda DCS
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_LAMBDA_DCS.prompt.md": {
-        "ground_truth": "ground_truths/class_a/ground_truth_lambda_dcs.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
+    # "prompts/grammars/SYSTEM_PROMPT_LAMBDA_DCS.prompt.md": {
+    #     "ground_truth": "ground_truths/class_a/ground_truth_lambda_dcs.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": False,
+    # },
     # ------------------------------------------------------------------
     # PCCG CGG Lambda
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LAMBDA.prompt.md": {
-        "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
+    # "prompts/grammars/SYSTEM_PROMPT_PCCG_CGG_LAMBDA.prompt.md": {
+    #     "ground_truth": "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": False,
+    # },
     # ------------------------------------------------------------------
     # NSQA
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_NSQA.prompt.md": {
-        "ground_truth": "ground_truths/class_c/ground_truth_nsqa.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
+    # "prompts/grammars/SYSTEM_PROMPT_NSQA.prompt.md": {
+    #     "ground_truth": "ground_truths/class_c/ground_truth_nsqa.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": False,
+    # },
     # ------------------------------------------------------------------
     # Squall
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_SQUALL.prompt.md": {
-        "ground_truth": "ground_truths/class_d/ground_truth_squall.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
+    # "prompts/grammars/SYSTEM_PROMPT_SQUALL.prompt.md": {
+    #     "ground_truth": "ground_truths/class_d/ground_truth_squall.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": False,
+    # },
     # ------------------------------------------------------------------
     # GraphQ Tree
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_GRAPHQ_TREE.prompt.md": {
-        "ground_truth": "ground_truths/class_e/ground_truth_graphq_tree.json",
-        "use_representation_weights": True,
-        "expect_json_response": False,
-    },
+    # "prompts/grammars/SYSTEM_PROMPT_GRAPHQ_TREE.prompt.md": {
+    #     "ground_truth": "ground_truths/class_e/ground_truth_graphq_tree.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": False,
+    # },
     # ------------------------------------------------------------------
     # SemGIR
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR.prompt.md": {
+    # "prompts/grammars/SYSTEM_PROMPT_SEM_GIR.prompt.md": {
+    #     "ground_truth": "ground_truths/ground_truth_sem_gir.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": True,
+    # },
+    # ------------------------------------------------------------------
+    # SemGIR Base
+    # ------------------------------------------------------------------
+    # "prompts/grammars/SYSTEM_PROMPT_SEM_GIR_BASE.prompt.md": {
+    #     "ground_truth": "ground_truths/ground_truth_sem_gir.json",
+    #     "use_representation_weights": True,
+    #     "expect_json_response": True,
+    # },
+    # ------------------------------------------------------------------
+    # SemGIR 15
+    # ------------------------------------------------------------------
+    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR_15.prompt.md": {
         "ground_truth": "ground_truths/ground_truth_sem_gir.json",
         "use_representation_weights": True,
         "expect_json_response": True,
     },
     # ------------------------------------------------------------------
-    # SemGIR Base
+    # SemGIR 16
     # ------------------------------------------------------------------
-    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR_BASE.prompt.md": {
+    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR_16.prompt.md": {
+        "ground_truth": "ground_truths/ground_truth_sem_gir.json",
+        "use_representation_weights": True,
+        "expect_json_response": True,
+    },
+    # ------------------------------------------------------------------
+    # SemGIR 17
+    # ------------------------------------------------------------------
+    "prompts/grammars/SYSTEM_PROMPT_SEM_GIR_17.prompt.md": {
         "ground_truth": "ground_truths/ground_truth_sem_gir.json",
         "use_representation_weights": True,
         "expect_json_response": True,

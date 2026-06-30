@@ -12,58 +12,44 @@ The IR must be:
 
 **Step 1. Identify Targets**
 
-* `target`: Identify the elements the user is actually asking for. This must be a primitive identifier (`ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`) or a simple collection/value (`LIST`, `EXPRESSION`, `CONDITION`). 
-* **Target Purity**: The `target` defines *what* is returned. All selection logic belongs EXCLUSIVELY in the `constraint` block.
-* **Projection Discipline**: The `target` MUST strictly represent the primary grammatical subject (the "What"). Do NOT reverse the subject and object.
-* **Extreme Minimalism**: Use primitive identifiers (`ENTITY_ID`/`PATH_ID`) directly when needed. **Do NOT wrap these in `LIST` or custom map objects unless returning a grouped/nested collection explicitly required by the query.**
-* **Strict Key Prohibition**: The `target` array MUST ONLY contain flat identifiers or valid SemGIR constructs. **Literal booleans (`true`/`false`) and ad-hoc JSON structures are strictly forbidden as targets.**
-* **No Unrequested Projections**: Use aggregate functions (e.g., `SUM`, `COUNT`) as the `target` when the user asks for a calculated value.
+* `target`: Identify the elements the user is actually asking for. This must be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`), a `CONDITION`, or a `LIST`.
+* **CRITICAL:** The `target` array must contain only the IDs or expressions themselves. Never place full entity/relationship objects (containing type, from, to, etc.) inside the `target` field.
 
 **Step 2. Identify Entities**
 
 * Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
-* Assign a concrete `type` (e.g., Director, Movie, Organization).
-* Do NOT create entities for simple descriptive values; use attributes inside the `constraint` block.
-* If the query names a specific entity, assert its identity with an explicit `COMPARISON` in `constraint`.
-* **Strictly avoid "topology bypass"**: Do not collapse graph connections into attributes:
-    * **Entity-to-Entity relationships** (e.g., nationality, role, ownership) MUST be modeled as a relationship to another entity, never as a string attribute of the primary entity.
-    * **Relationship Attributes**: Data belonging to a connection (e.g., release date) MUST be an attribute of the `RELATIONSHIP_ID`, never the `ENTITY_ID`.
-    * **Ordinality/Rank**: Use `order_by`, `skip`, and `limit` in Step 5 instead of using rank attributes on entities or relationships.
-    * **Distance/Depth**: Use `COUNT` of relationships/paths; never constrain hop counts on a single edge.
+* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
+* Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
+* **Avoid Topology Bypass:** Do not collapse relationships into attributes. If a property describes a connection to another conceptual entity (e.g., nationality $\rightarrow$ Country, location $\rightarrow$ City), you MUST create a separate entity and a relationship rather than using a string attribute comparison.
+* If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
 
 **Step 3. Extract Relationships & Paths**
 
-* `relationships`: Extract explicit semantic edges using ROLE-BASED labels. Ensure directionality matches the semantic flow.
-* **Avoid Arbitrary Self-Loops**: Do not create relationships where `from` and `to` are the same ID unless the natural language explicitly describes a self-referencing action or property.
-* **Inter-Entity Connectivity ("Between/Among")**: When a query asks for relationships "between" or "among" a set of entities, you MUST model direct edges connecting those specific members as `from` and `to`.
-* `paths`: Use for traversals where the hop count is unknown or variable. 
-* **Topological Feasibility**: A path's structure must be physically capable of satisfying its constraints. You do NOT define a topology as a single direct relationship if the constraint specifies multiple hops.
-* **Reference Integrity (Zero Tolerance)**: Every `ENTITY_ID`, `RELATIONSHIP_ID`, or `PATH_ID` used in ANY block (`target`, `relationships`, `paths`, `constraint`, including inside aggregations) MUST be explicitly declared in its respective definition block *before* it is referenced.
+* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels (e.g., `built`, `wrote`, `acted_in`, `knows`).
+* `paths`: Use for traversals where the hop count is unknown or specifically defined as a degree of separation (e.g., "third-degree relative", "indirectly connected"). A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`, and evaluate its length (hops) or weight (attributes) by applying `COUNT` or `SCALAR_AGGREGATE`.
 
 **Step 4. Build Constraints**
 
-* `constraint`: Filter block combining attribute comparisons, logical operators, and topology checks. 
-* **Path Content Filtering**: Use `QUANTIFIER_PREDICATE` (`EXISTS`, `NONE`) over path nodes/relations to filter paths based on whether they contain or avoid specific elements.
-* **Expression Integrity**: The `left` and `right` keys of a `COMPARISON` must be scalar `EXPRESSION` objects (Numbers, Strings, Attributes). Do NOT use logic blocks (`AND`, `OR`) or structural definitions as operands in a comparison.
+* `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
 
 **Step 5. Shape Results**
 
-* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` for sorting, ranking (top-N), pagination, or deduplication.
+* Use `order_by`, `limit`, and `skip` for:
+  * Sorting and ranking (Top-N / Bottom-N).
+  * **Ordinality:** Requirements like "the fifth", "between 10th and 20th", or "the last" must be implemented via a combination of `order_by`, `skip`, and `limit`. Do not hallucinate "rank" attributes.
+* Use `distinct` on a `QUERY` or `LIST` when deduplication is required.
 
 **Step 6. Apply Quantifiers and Aggregations (Lists)**
 
-* Always define the set of elements first using a `LIST` and apply a `filter` before aggregating or quantifying.
-* **Valid LIST Structure**: A `LIST` object contains only a `list` wrapper key (containing `list_elements`, `nodes_of`, or `rels_of`), and optional modifiers (`filter`, `distinct`, `order_by`, `limit`, `skip`). 
+* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
 * **Aggregations** (produce a value):
-  * `COUNT`: counts elements in a `LIST`. 
-  * `SCALAR_AGGREGATE`: MUST wrap the `LIST` object. The keys `aggregate_kind` and `map_expression` must be siblings to the `list` key, NOT nested inside it.
-* **Quantification** (is a `CONDITION`):
-  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS`, or `NONE` of a plain `LIST` satisfy a condition. Place this directly in the `constraint` block.
-  * **Boundary**: NEVER nest `COUNT` or `SCALAR_AGGREGATE` inside a `QUANTIFIER_PREDICATE`. If numeric comparison is needed, place the aggregation in the `left` or `right` field of a `COMPARISON`.
-* **Strict Scoping Rules**: Variables scoped via `node_id` (in `NODES`) or `rel_id` (in `RELATIONS`) are strictly local to that list's internal blocks and CANNOT leak to the root query, target, or outer constraint.
+  * `COUNT`: counts the number of elements in a `LIST`.
+  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
+* **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
+  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
 
 **Step 7. Form Hypotheses**
-Output multiple hypotheses ONLY for genuine syntactic/topological ambiguity.
+Output multiple hypotheses ONLY for genuine syntactic or topological ambiguity. If straightforward, output only one hypothesis.
 
 ---
 

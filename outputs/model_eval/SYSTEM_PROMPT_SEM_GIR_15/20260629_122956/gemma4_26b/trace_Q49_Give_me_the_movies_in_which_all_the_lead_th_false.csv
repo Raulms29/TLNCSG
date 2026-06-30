@@ -1,0 +1,1449 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,16.870385,True,stop,7364,0.037076,1857,16.206304,114.585,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""count"": {
+              ""list"": {
+                ""list_elements"": ""e2""
+              }
+            }
+          },
+          ""operator"": "">"",
+          ""right"": 0
+        },
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e2""
+            },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""nodes_of"": ""p1"",
+                    ""node_id"": ""e4""
+                  }
+                },
+                ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e4"" },
+                ""aggregate_kind"": ""MAX""
+              }
+            }
+          },
+          ""condition"": {},
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ],
+      ""paths"": [
+        { ""id"": ""p1"", ""start"": ""e3"", ""end"": ""e2"", ""roles"": [""any""] }
+      ]
+    }
+  }
+]
+```
+
+Wait, I need to correct the logic for the `QUANTIFIER_PREDICATE` and the `MAX` aggregation within the constraint. The `MAX` must be a scalar aggregate. Let me re-structure according to the grammar rules.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": { ""nodes_of"": ""p1"", ""node_id"": ""e4"" }
+                },
+                ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e4"" },
+                ""aggregate_kind"": ""MAX""
+              }
+            }
+          },
+          ""condition"": {},
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ],
+      ""paths"": [
+        { ""id"": ""p1"", ""start"": ""e3"", ""end"": ""e2"", ""roles"": [""any""] }
+      ]
+    }
+  }
+]
+```
+
+Actually, looking at the `QUANTIFIER_PREDICATE` grammar: it is a `CONDITION`. The `list` and `condition` are inside it. And for the `MAX`, I need to find the actor first. Let's refine one last time to be strictly compliant with the provided grammar.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""nodes_of"": ""p1"", ""node_id"": ""e4"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e4"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ],
+      ""paths"": [
+        { ""id"": ""p1"", ""start"": ""e3"", ""end"": ""e2"", ""roles"": [""any""] }
+      ]
+    }
+  }
+]
+```
+
+Wait, the `QUANTIFIER_PREDICATE` structure in the grammar is: `{ list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }`. My previous attempt was close. Let's ensure all IDs are declared.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" },
+      { ""id"": ""e4"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""paths"": [
+      { ""id"": ""p1"", ""start"": ""e3"", ""end"": ""e4"", ""roles"": [""any""] }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""nodes_of"": ""p1"", ""node_id"": ""e4"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e4"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+2,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,5.35561,True,stop,7364,0.103007,542,4.617011,117.392,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": {
+            ""count"": {
+              ""list"": {
+                ""list_elements"": ""e2""
+              }
+            }
+          },
+          ""operator"": "">"",
+          ""right"": 0
+        },
+        {
+          ""list"": {
+            ""list"": {
+              ""list_elements"": ""e2""
+            },
+            ""filter"": {
+              ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+              ""operator"": "">"",
+              ""right"": {
+                ""list"": {
+                  ""list"": {
+                    ""nodes_of"": ""p1"",
+                    ""node_id"": ""e4""
+                  }
+                },
+                ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e4"" },
+                ""aggregate_kind"": ""MAX""
+              }
+            }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""role"", ""of"": ""r1"" },
+            ""operator"": ""="",
+            ""right"": ""lead""
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ],
+      ""paths"": [
+        { ""id"": ""p1"", ""start"": ""e3"", ""end"": ""e2"", ""roles"": [""any""] }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+3,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.832497,True,stop,7364,0.01657,374,3.170862,117.949,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+4,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.84122,True,stop,7364,0.01716,374,3.177227,117.7127,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+5,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.786845,True,stop,7364,0.016822,374,3.171302,117.9326,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+6,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.81558,True,stop,7364,0.016771,374,3.178076,117.6813,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+7,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.844308,True,stop,7364,0.016823,374,3.176644,117.7343,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+8,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.83685,True,stop,7364,0.01721,374,3.193305,117.12,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+9,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.814322,True,stop,7364,0.016672,374,3.171321,117.9319,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+10,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.840131,True,stop,7364,0.016687,374,3.168448,118.0389,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+11,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.805765,True,stop,7364,0.017075,374,3.169314,118.0066,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+12,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.801974,True,stop,7364,0.016795,374,3.170133,117.9761,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+13,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.838525,True,stop,7364,0.016716,374,3.163683,118.2166,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+14,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.831026,True,stop,7364,0.016538,374,3.160578,118.3328,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+15,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.818257,True,stop,7364,0.016803,374,3.165968,118.1313,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+16,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.825758,True,stop,7364,0.01696,374,3.169994,117.9813,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+17,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.824504,True,stop,7364,0.016567,374,3.172419,117.8911,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+18,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.790409,True,stop,7364,0.016116,374,3.179979,117.6108,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+19,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.809493,True,stop,7364,0.016347,374,3.171026,117.9429,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+20,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.84727,True,stop,7364,0.016664,374,3.173492,117.8513,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+21,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.82688,True,stop,7364,0.016783,374,3.169148,118.0128,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+22,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.846159,True,stop,7364,0.016947,374,3.176596,117.7361,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+23,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.803818,True,stop,7364,0.016637,374,3.178866,117.652,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+24,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.819846,True,stop,7364,0.016576,374,3.178419,117.6686,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+25,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.79853,True,stop,7364,0.016859,374,3.164312,118.1931,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+26,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.799781,True,stop,7364,0.016872,374,3.175026,117.7943,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+27,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.819558,True,stop,7364,0.01715,374,3.169791,117.9889,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+28,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.833302,True,stop,7364,0.016797,374,3.168782,118.0264,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+29,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.803616,True,stop,7364,0.016401,374,3.162553,118.2589,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"
+30,Q49,Give me the movies in which all the lead actors earn more money than the highest-paid Argentine actor.,gemma4:26b,False,0.0,3.81989,True,stop,7364,0.016515,374,3.162305,118.2682,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_lead_actor"", ""from"": ""e1"", ""to"": ""e2"" },
+      { ""id"": ""r2"", ""role"": ""is_actor"", ""from"": ""e3"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""earnings"", ""of"": ""e2"" },
+            ""operator"": "">"",
+            ""right"": {
+              ""list"": {
+                ""list"": { ""list_elements"": ""e3"" }
+              },
+              ""map_expression"": { ""attribute_name"": ""earnings"", ""of"": ""e3"" },
+              ""aggregate_kind"": ""MAX""
+            }
+          },
+          ""quantifier_kind"": ""ALL""
+        },
+        {
+          ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Argentine""
+        }
+      ]
+    }
+  }
+]
+```"

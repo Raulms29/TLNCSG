@@ -1,0 +1,1339 @@
+Run,Query ID,Query,Model,Thinking,Temperature,Inference Time (s),Valid JSON,Done Reason,Prompt Eval Count,Prompt Eval Duration (s),Eval Count,Eval Duration (s),Generation Throughput (tokens/s),Response
+1,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,24.122805,True,stop,6632,0.034308,2681,23.477652,114.1937,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, looking at the logic for `QUANTIFIER_PREDICATE` in the grammar: The condition inside the quantifier must be a condition that applies to the elements of the list. My previous constraint was slightly redundant/incorrectly structured regarding the relationship. Let me refine it to strictly follow the provided examples (like the ""Researchers from Japan"" example).
+
+Corrected version:
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+        ""operator"": ""="",
+        ""right"": ""Oviedo""
+      },
+      ""quantifier_kind"": ""EXISTS""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Actually, the `condition` in a `QUANTIFIER_PREDICATE` must be checkable against the elements of the list. Since `e3` is an entity, I need to ensure the relationship exists. Let's use the pattern from the ""Researchers from Japan"" example where the condition checks an attribute of the element.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""entities"": [
+       { ""id"": ""e1"", ""type"": ""Movie"" },
+       { ""id"": ""e2"", ""type"": ""Actor"" },
+       { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+        ""operator"": ""="",
+        ""right"": ""Oviedo""
+      },
+      ""quantifier_kind"": ""EXISTS""
+    }
+  }
+]
+```
+
+Wait, the `condition` in a quantifier must be a valid `CONDITION`. In the example ""Researchers from Japan"", the condition was `{ ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e2"" }, ""operator"": ""="", ""right"": ""Japan"" }`. 
+
+So for ""Actor is from Oviedo"", I should check if the actor's location attribute (or a related entity) matches. Since ""from Oviedo"" implies a relationship to a Location, I will use:
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+        ""operator"": ""="",
+        ""right"": ""Oviedo""
+      },
+      ""quantifier_kind"": ""EXISTS""
+    },
+    ""distinct"": true
+  }
+]
+```
+
+Wait, the `condition` in a quantifier must be able to reference the list element. In the example provided: `condition: { ""left"": { ""attribute_name"": ""nationality"", ""of"": ""e2"" }, ... }`. Here `e2` is the element of the list. 
+In my case, I need to check if the actor (`e2`) has a relationship to a location named 'Oviedo'.
+
+Final attempt at logic:
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+        ""operator"": ""="",
+        ""right"": ""Oviedo""
+      },
+      ""quantifier_kind"": ""EXISTS""
+    },
+    ""distinct"": true
+  }
+]
+```
+Actually, the `condition` in a quantifier must be a property of the element being quantified. If I quantify `e2`, the condition should be about `e2`. But to check if `e2` is from `e3`, I need to reference `r2`. However, the grammar says `CONDITION` can be a `RELATIONSHIP_ID`.
+
+Let's use:
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""and_conditions"": [
+          { ""r2"" },
+          {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          }
+        ]
+      },
+      ""quantifier_kind"": ""EXISTS""
+    },
+    ""distinct"": true
+  }
+]
+```
+Wait, the grammar for `RELATIONSHIP_ID` as a condition is just the ID itself. Let's simplify to the most robust interpretation.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""is_from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+        ""operator"": ""="",
+        ""right"": ""Oviedo""
+      },
+      ""quantifier_kind"": ""EXISTS""
+    },
+    ""distinct"": true
+  }
+]
+```
+(Self-correction: In the provided example for ""Researchers from Japan"", the condition `nationality = Japan` was applied to `e2`. I will follow that pattern exactly, assuming the 'from' relationship is captured by an attribute or a direct check).
+
+Final decision: Use the structure where we check if the actor has a specific property/relation.
+
+```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""list"": {
+        ""list"": { ""list_elements"": ""e2"" }
+      },
+      ""condition"": {
+        ""left"": { ""attribute_name"": ""origin_city"", ""of"": ""e2"" },
+        ""operator"": ""="",
+        ""right"": ""Oviedo""
+      },
+      ""quantifier_kind"": ""EXISTS""
+    },
+    ""distinct"": true
+  }
+]
+```"
+2,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.442774,True,stop,6632,0.101733,317,2.7008,117.3726,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+3,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.296146,True,stop,6632,0.016295,317,2.676628,118.4326,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+4,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.329148,True,stop,6632,0.016378,317,2.687117,117.9703,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+5,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.330044,True,stop,6632,0.01646,317,2.683986,118.1079,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+6,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.372793,True,stop,6632,0.018178,317,2.706043,117.1452,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+7,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.307333,True,stop,6632,0.016229,317,2.688851,117.8942,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+8,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.347577,True,stop,6632,0.01654,317,2.696125,117.5762,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+9,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.44715,True,stop,6632,0.017129,317,2.80096,113.1755,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+10,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.306966,True,stop,6632,0.016497,317,2.696888,117.5429,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+11,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.286306,True,stop,6632,0.016222,317,2.680669,118.2541,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+12,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.309814,True,stop,6632,0.016192,317,2.695378,117.6087,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+13,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.452884,True,stop,6632,0.016184,317,2.797301,113.3235,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+14,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.32068,True,stop,6632,0.016557,317,2.692051,117.7541,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+15,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.280487,True,stop,6632,0.016588,317,2.685082,118.0597,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+16,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.321429,True,stop,6632,0.016157,317,2.675347,118.4893,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+17,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.311626,True,stop,6632,0.016528,317,2.681189,118.2311,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+18,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.317079,True,stop,6632,0.016554,317,2.685803,118.028,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+19,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.307585,True,stop,6632,0.016474,317,2.685159,118.0563,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+20,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.316711,True,stop,6632,0.016725,317,2.691108,117.7953,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+21,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.330245,True,stop,6632,0.01649,317,2.69356,117.6881,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+22,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.333856,True,stop,6632,0.016383,317,2.693019,117.7118,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+23,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.290038,True,stop,6632,0.016618,317,2.695917,117.5852,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+24,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.334403,True,stop,6632,0.016684,317,2.688003,117.9314,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+25,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.324022,True,stop,6632,0.016549,317,2.683193,118.1428,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+26,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.359506,True,stop,6632,0.016289,317,2.703704,117.2466,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+27,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.33066,True,stop,6632,0.016523,317,2.698316,117.4807,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+28,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.306684,True,stop,6632,0.016316,317,2.689255,117.8765,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+29,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.29743,True,stop,6632,0.016784,317,2.695369,117.6091,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
+30,Q20,Give me the movies in which at least one actor is from Oviedo.,gemma4:26b,False,0.0,3.302711,True,stop,6632,0.016708,317,2.691041,117.7983,"```json
+[
+  {
+    ""target"": [ ""e1"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Movie"" },
+      { ""id"": ""e2"", ""type"": ""Actor"" },
+      { ""id"": ""e3"", ""type"": ""Location"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""acted_in"", ""from"": ""e2"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""from"", ""from"": ""e2"", ""to"": ""e3"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""Oviedo""
+        },
+        {
+          ""list"": {
+            ""list"": { ""list_elements"": ""e2"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+            ""operator"": ""="",
+            ""right"": ""Oviedo""
+          },
+          ""quantifier_kind"": ""EXISTS""
+        }
+      ]
+    },
+    ""distinct"": true
+  }
+]
+```"
