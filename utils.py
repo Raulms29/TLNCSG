@@ -1059,5 +1059,5 @@ def load_prompt_file(prompt_path: str | Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-DEFAULT_SYSTEM_PROMPT_PATH = Path("prompts") / "generator.prompt.md"
+DEFAULT_SYSTEM_PROMPT_PATH = Path("prompts") / "generator_autoresearch_v3.prompt.md"
 SYSTEM_PROMPT = load_prompt_file(DEFAULT_SYSTEM_PROMPT_PATH)
