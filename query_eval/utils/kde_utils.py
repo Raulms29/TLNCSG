@@ -7,6 +7,10 @@ import os
 import warnings
 from scipy.stats import gaussian_kde
 
+# Configurar alta resolución por defecto para todas las gráficas
+plt.rcParams["figure.dpi"] = 300
+plt.rcParams["savefig.dpi"] = 300
+
 CRITERION_ORDER = [
     "Syntactic Correctness (Well-formedness)",
     "Semantic Faithfulness",
@@ -54,7 +58,7 @@ def load_evaluation_data(target_dir, top_n=3):
         raise FileNotFoundError(f"No overall score CSV found in {target_dir}")
 
     df_overall = pd.read_csv(overall_file)
-    df_overall["Model_Variant"] = df_overall["Model"] + df_overall["Thinking"].apply(
+    df_overall["Modelo"] = df_overall["Model"] + df_overall["Thinking"].apply(
         lambda x: str(x).lower() == "true"
     ).apply(lambda x: " (Think)" if x else "")
 
@@ -65,7 +69,7 @@ def load_evaluation_data(target_dir, top_n=3):
         else "Overall_Score"
     )
     df_overall = df_overall.sort_values(by=sort_col, ascending=False)
-    top_n_models = df_overall["Model_Variant"].head(top_n).tolist()
+    top_n_models = df_overall["Modelo"].head(top_n).tolist()
     print(f"Top {top_n} models based on {sort_col}: {', '.join(top_n_models)}")
 
     # Load all runs data
@@ -93,12 +97,12 @@ def load_evaluation_data(target_dir, top_n=3):
         dfs_runs.append(df)
 
     df_runs = pd.concat(dfs_runs, ignore_index=True)
-    df_runs["Model_Variant"] = df_runs["Model"] + df_runs["Thinking"].apply(
+    df_runs["Modelo"] = df_runs["Model"] + df_runs["Thinking"].apply(
         lambda x: str(x).lower() == "true"
     ).apply(lambda x: " (Think)" if x else "")
 
     # Filter runs to only top N models
-    df_runs_top = df_runs[df_runs["Model_Variant"].isin(top_n_models)]
+    df_runs_top = df_runs[df_runs["Modelo"].isin(top_n_models)]
 
     return df_runs_top
 
@@ -129,16 +133,16 @@ def plot_histogram_per_criterion(df_runs_top):
         sns.histplot(
             data=data,
             x="Eval Score",
-            hue="Model_Variant",
+            hue="Modelo",
             multiple="dodge",
             shrink=0.8,
             ax=ax,
             bins=np.linspace(0, 1, 11),  # 10 bins between 0 and 1
         )
 
-        ax.set_title(f"Histogram: {criterion}", fontsize=12)
-        ax.set_xlabel("Evaluation Score")
-        ax.set_ylabel("Count")
+        ax.set_title(f"Histograma: {criterion}", fontsize=12)
+        ax.set_xlabel("Puntuación")
+        ax.set_ylabel("Cantidad")
         ax.set_xlim(-0.025, 1.025)
 
     for j in range(len(criteria), len(axes)):
@@ -162,16 +166,10 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
         key=lambda x: CRITERION_ORDER.index(x) if x in CRITERION_ORDER else 999,
     )
 
-    # Calculate grid dimensions
-    n_criteria = len(criteria)
-    cols = 2
-    rows = (n_criteria + cols - 1) // cols
+    # Generar una imagen independiente por cada criterio
+    for criterion in criteria:
+        fig, ax = plt.subplots(figsize=(10, 5))
 
-    fig, axes = plt.subplots(rows, cols, figsize=(15, 5 * rows))
-    axes = axes.flatten()
-
-    for i, criterion in enumerate(criteria):
-        ax = axes[i]
         # Filter data for the current criterion
         data = df_runs_top[df_runs_top["Criterion"] == criterion]
 
@@ -181,7 +179,7 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
             sns.kdeplot(
                 data=data,
                 x="Eval Score",
-                hue="Model_Variant",
+                hue="Modelo",
                 fill=True,
                 ax=ax,
                 common_norm=False,
@@ -191,17 +189,13 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
                 cut=0,  # Prevents KDE from extending beyond the data bounds
             )
 
-        ax.set_title(f"KDE for Criterion: {criterion}", fontsize=12)
-        ax.set_xlabel("Evaluation Score")
-        ax.set_ylabel("Density")
-        ax.set_xlim(-0.025, 1.025)
+        ax.set_title(f"KDE {criterion}", fontsize=14)
+        ax.set_xlabel("Puntuación")
+        ax.set_ylabel("Densidad")
+        ax.set_xlim(0, 1)
 
-    # Hide any empty subplots
-    for j in range(len(criteria), len(axes)):
-        fig.delaxes(axes[j])
-
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
 
 
 # def plot_cumulative_kde_per_criterion(df_runs_top, bw_adjust=0.5):
@@ -229,7 +223,7 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
 #             sns.kdeplot(
 #                 data=data,
 #                 x="Eval Score",
-#                 hue="Model_Variant",
+#                 hue="Modelo",
 #                 fill=True,
 #                 ax=ax,
 #                 common_norm=False,
@@ -238,9 +232,9 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
 #                 alpha=0.3,
 #                 warn_singular=False,
 #             )
-#         ax.set_title(f"Cumulative KDE: {criterion}", fontsize=12)
-#         ax.set_xlabel("Evaluation Score")
-#         ax.set_ylabel("Cumulative Probability")
+#         ax.set_title(f"KDE Acumulado: {criterion}", fontsize=12)
+#         ax.set_xlabel("Puntuación")
+#         ax.set_ylabel("Probabilidad acumulada")
 
 #     for j in range(len(criteria), len(axes)):
 #         fig.delaxes(axes[j])
@@ -273,7 +267,7 @@ def plot_cumulative_kde_per_criterion(df_runs_top, bw_adjust=0.5):
             sns.kdeplot(
                 data=data,
                 x="Eval Score",
-                hue="Model_Variant",
+                hue="Modelo",
                 fill=True,
                 ax=ax,
                 common_norm=False,
@@ -284,9 +278,9 @@ def plot_cumulative_kde_per_criterion(df_runs_top, bw_adjust=0.5):
                 cut=0,  # Prevents KDE from extending beyond the data bounds
             )
 
-        ax.set_title(f"Cumulative KDE: {criterion}", fontsize=12)
-        ax.set_xlabel("Evaluation Score (Scaled 0 to 1)")
-        ax.set_ylabel("Cumulative Probability")
+        ax.set_title(f"KDE Acumulado: {criterion}", fontsize=12)
+        ax.set_xlabel("Puntuación (Escalado de 0 a 1)")
+        ax.set_ylabel("Probabilidad acumulada")
         ax.set_xlim(-0.025, 1.025)
 
     for j in range(len(criteria), len(axes)):
@@ -305,7 +299,7 @@ def plot_overall_kde(df_runs_top, bw_adjust=0.5):
         sns.kdeplot(
             data=df_runs_top,
             x="Eval Score",
-            hue="Model_Variant",
+            hue="Modelo",
             fill=True,
             common_norm=False,
             bw_adjust=bw_adjust,
@@ -313,10 +307,10 @@ def plot_overall_kde(df_runs_top, bw_adjust=0.5):
             warn_singular=False,
             cut=0,  # Prevents KDE from extending beyond the data bounds
         )
-    plt.title("Overall General KDE (All Criteria Aggregated)", fontsize=14)
-    plt.xlabel("Evaluation Score")
-    plt.ylabel("Density")
-    plt.xlim(-0.025, 1.025)
+    plt.title(r"KDE Valoración Global LLMs$^s$", fontsize=14)
+    plt.xlabel("Puntuación")
+    plt.ylabel("Densidad")
+    plt.xlim(0, 1)
     plt.tight_layout()
     plt.show()
 
@@ -333,7 +327,7 @@ def plot_overall_histogram(df_runs_top, bins=30):
     sns.histplot(
         data=df_runs_top,
         x="Eval Score",
-        hue="Model_Variant",
+        hue="Modelo",
         element="step",
         fill=True,
         stat="density",
@@ -342,9 +336,9 @@ def plot_overall_histogram(df_runs_top, bins=30):
         bins=bins,
     )
 
-    plt.title("Overall General Histogram (All Criteria Aggregated)", fontsize=14)
-    plt.xlabel("Evaluation Score")
-    plt.ylabel("Density")
+    plt.title("Histograma General (Todos los criterios agregados)", fontsize=14)
+    plt.xlabel("Puntuación")
+    plt.ylabel("Densidad")
     plt.xlim(-0.025, 1.025)
     plt.tight_layout()
     plt.show()
@@ -362,7 +356,7 @@ def plot_overall_cumulative_histogram(df_runs_top, bins=50):
     sns.histplot(
         data=df_runs_top,
         x="Eval Score",
-        hue="Model_Variant",
+        hue="Modelo",
         element="step",
         fill=True,
         stat="proportion",  # Scaled to proportion to range from 0 to 1
@@ -372,9 +366,11 @@ def plot_overall_cumulative_histogram(df_runs_top, bins=50):
         bins=bins,  # Controls the smoothness of the step
     )
 
-    plt.title("Overall Cumulative Distribution (All Criteria Aggregated)", fontsize=14)
-    plt.xlabel("Evaluation Score")
-    plt.ylabel("Cumulative Probability")
+    plt.title(
+        "Distribución Acumulada General (Todos los criterios agregados)", fontsize=14
+    )
+    plt.xlabel("Puntuación")
+    plt.ylabel("Probabilidad acumulada")
     plt.xlim(-0.025, 1.025)
     plt.tight_layout()
     plt.show()
@@ -408,7 +404,7 @@ def plot_cumulative_histogram_per_criterion(df_runs_top, bins=50):
         sns.histplot(
             data=data,
             x="Eval Score",
-            hue="Model_Variant",
+            hue="Modelo",
             element="step",  # Draws the outline without internal bars
             fill=True,  # Fills the area under the curve
             stat="proportion",  # Scales the Y axis from 0 to 1 (100% of data)
@@ -419,9 +415,9 @@ def plot_cumulative_histogram_per_criterion(df_runs_top, bins=50):
             ax=ax,  # Assigns the plot to the corresponding subplot
         )
 
-        ax.set_title(f"Cumulative Histogram: {criterion}", fontsize=12)
-        ax.set_xlabel("Evaluation Score")
-        ax.set_ylabel("Cumulative Probability")
+        ax.set_title(f"Histograma Acumulado: {criterion}", fontsize=12)
+        ax.set_xlabel("Puntuación")
+        ax.set_ylabel("Probabilidad acumulada")
         ax.set_xlim(-0.025, 1.025)
 
     # Remove empty subplots if the number of criteria is odd
