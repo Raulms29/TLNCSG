@@ -1,4 +1,4 @@
-# Model Evaluation
+# TLNCSG
 
 Benchmark and evaluation pipeline for local LLMs served via [Ollama](https://ollama.com). Part of the Master's thesis (TFM) titled *"Transforming Natural Language into Graph Queries"*.
 
