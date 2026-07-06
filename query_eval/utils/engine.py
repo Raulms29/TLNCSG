@@ -89,7 +89,9 @@ def _evaluate_candidate(
     evaluator_thinking: bool,
     expect_json_response: bool = True,
 ) -> tuple[float, str, str, str]:
-    ground_truth_header = "GROUND TRUTH JSON" if expect_json_response else "GROUND TRUTH"
+    ground_truth_header = (
+        "GROUND TRUTH JSON" if expect_json_response else "GROUND TRUTH"
+    )
     candidate_header = "CANDIDATE JSON" if expect_json_response else "CANDIDATE"
 
     user_prompt = EVALUATOR_USER_PROMPT_TEMPLATE.format(
@@ -114,6 +116,21 @@ def _evaluate_candidate(
     raw_response = response.get("message", {}).get("content", "")
     score, rationale, error = _parse_eval_response(raw_response)
     return score, rationale, error, raw_response
+
+
+def _save_evaluated_execution(
+    evaluated_df: pd.DataFrame,
+    execution_file: Path,
+    evaluator_model: str,
+    output_dir: Path,
+) -> Path:
+    model_group = safe_name(execution_file.parent.name)
+    model_output_dir = output_dir / model_group
+    model_output_dir.mkdir(parents=True, exist_ok=True)
+
+    file_out = model_output_dir / f"evaluated_{execution_file.name}"
+    evaluated_df.to_csv(file_out, index=False, encoding="utf-8")
+    return file_out
 
 
 def evaluate_execution_file(
@@ -200,12 +217,18 @@ def evaluate_execution_file(
                 if isinstance(solution_val, str):
                     ground_truth_json = solution_val
                 else:
-                    ground_truth_json = json.dumps(solution_val, ensure_ascii=False, indent=2)
+                    ground_truth_json = json.dumps(
+                        solution_val, ensure_ascii=False, indent=2
+                    )
             else:
                 ground_truth_json = ground_truth_to_json_text(ground_truth_obj)
 
             if use_representation_weights:
-                representation_weight = float(ground_truth_obj.get("representation_weight", 1.0)) if ground_truth_obj else 1.0
+                representation_weight = (
+                    float(ground_truth_obj.get("representation_weight", 1.0))
+                    if ground_truth_obj
+                    else 1.0
+                )
             else:
                 representation_weight = 1.0
 
@@ -236,7 +259,9 @@ def evaluate_execution_file(
                     "Criterion Weight": float(criterion_cfg["weight"]),
                     "Eval Score": score,
                     "Supported_Score": score if representation_weight > 0 else np.nan,
-                    "Supported_Query_ID": query_id if representation_weight > 0 else np.nan,
+                    "Supported_Query_ID": (
+                        query_id if representation_weight > 0 else np.nan
+                    ),
                     "Eval Rationale": rationale,
                     "Eval Error": error,
                     "Eval Raw": eval_raw,
@@ -275,9 +300,7 @@ def _build_ci_frame(
         else:
             ci_low, ci_high = (mean_score, mean_score)
 
-        row = {
-            col: value for col, value in zip(group_cols, group_key, strict=False)
-        }
+        row = {col: value for col, value in zip(group_cols, group_key, strict=False)}
         row["95% CI (Score)"] = f"[{ci_low:.4f}, {ci_high:.4f}]"
         ci_rows.append(row)
 
@@ -290,6 +313,7 @@ def _compute_weighted_overall(
     criterion_weights: dict[str, float],
 ) -> pd.Series:
     """Return a Series of weighted-average scores for each row of *frame*."""
+
     def _row_weighted(row: pd.Series) -> float:
         valid_criteria = [
             cid for cid in criterion_ids if cid in row.index and pd.notna(row[cid])
@@ -369,9 +393,7 @@ def _aggregate_outputs(
 
     def _agg(group_cols: list[str], agg_spec: dict) -> pd.DataFrame:
         return (
-            evaluated_df.groupby(group_cols, dropna=False)
-            .agg(**agg_spec)
-            .reset_index()
+            evaluated_df.groupby(group_cols, dropna=False).agg(**agg_spec).reset_index()
         )
 
     def _merge_ci(frame: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
@@ -400,14 +422,23 @@ def _aggregate_outputs(
     # model × mode × query × criterion
     mmqc = g + ["Model", "Thinking", "Query ID", "Query", "Criterion ID", "Criterion"]
     by_mmqc = _merge_ci(
-        _agg(mmqc, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}),
+        _agg(
+            mmqc, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}
+        ),
         mmqc,
     )
 
     # model × mode × criterion
     mmc = g + ["Model", "Thinking", "Criterion ID", "Criterion"]
     by_mmc = _merge_ci(
-        _agg(mmc, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique"), "Supported_Queries": ("Supported_Query_ID", "nunique")}),
+        _agg(
+            mmc,
+            {
+                **summary_agg,
+                "Queries_Evaluated": ("Query ID", "nunique"),
+                "Supported_Queries": ("Supported_Query_ID", "nunique"),
+            },
+        ),
         mmc,
     )
 
@@ -421,7 +452,9 @@ def _aggregate_outputs(
     # model × mode × query
     mmq = g + ["Model", "Thinking", "Query ID", "Query"]
     by_mmq = _merge_ci(
-        _agg(mmq, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}),
+        _agg(
+            mmq, {**common_agg, "Avg_Inference_Time_s": ("Inference Time (s)", "mean")}
+        ),
         mmq,
     )
     by_mmq = by_mmq.merge(
@@ -434,7 +467,14 @@ def _aggregate_outputs(
     # model × mode
     mm = g + ["Model", "Thinking"]
     by_mm = _merge_ci(
-        _agg(mm, {**summary_agg, "Queries_Evaluated": ("Query ID", "nunique"), "Supported_Queries": ("Supported_Query_ID", "nunique")}),
+        _agg(
+            mm,
+            {
+                **summary_agg,
+                "Queries_Evaluated": ("Query ID", "nunique"),
+                "Supported_Queries": ("Supported_Query_ID", "nunique"),
+            },
+        ),
         mm,
     )
     by_mm = by_mm.merge(
@@ -543,7 +583,9 @@ def evaluate_summary_folder(
         if evaluated_df.empty:
             continue
 
-        file_out = _save_evaluated_execution(evaluated_df, execution_file, evaluator_model, output_dir)
+        file_out = _save_evaluated_execution(
+            evaluated_df, execution_file, evaluator_model, output_dir
+        )
         per_file_paths.append(str(file_out))
 
         all_frames.append(evaluated_df)
@@ -564,7 +606,11 @@ def evaluate_summary_folder(
             if pf.exists():
                 pf.unlink()
 
-        p_aggs = _aggregate_outputs(partial_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
+        p_aggs = _aggregate_outputs(
+            partial_df,
+            criteria_config=normalized_criteria,
+            confidence_level=confidence_level,
+        )
         p_aggs["by_model_mode_query_criterion"].to_csv(
             output_dir / "by_model_query_criterion_partial.csv",
             index=False,
@@ -601,7 +647,11 @@ def evaluate_summary_folder(
         raise ValueError("No rows matched the selected test filters")
 
     all_evaluated_df = pd.concat(all_frames, ignore_index=True)
-    aggs = _aggregate_outputs(all_evaluated_df, criteria_config=normalized_criteria, confidence_level=confidence_level)
+    aggs = _aggregate_outputs(
+        all_evaluated_df,
+        criteria_config=normalized_criteria,
+        confidence_level=confidence_level,
+    )
     by_model_mode_query_criterion = aggs["by_model_mode_query_criterion"]
     by_model_mode_criterion = aggs["by_model_mode_criterion"]
     by_query_criterion = aggs["by_query_criterion"]

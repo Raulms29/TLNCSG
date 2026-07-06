@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 EVALUATOR_USER_PROMPT_TEMPLATE = """Please evaluate the following Semantic Parsing result according to the previously defined method and criteria.
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
@@ -159,36 +158,36 @@ DEFAULT_CRITERIA_CONFIG: dict[str, dict[str, Any]] = {
         "name": "Syntactic Correctness (Well-formedness)",
         "weight": 1 / 6,
         "query_ids": ["Q01", "Q02", "Q03", "Q04", "Q05"],
-        "prompt_file": "prompts/A1_CS.prompt.md",
+        "prompt_file": "prompts/deprecated/A1_CS.prompt.md",
     },
     "A2_FS": {
         "name": "Semantic Faithfulness",
         "weight": 1 / 6,
         "query_ids": ["Q01", "Q02", "Q03", "Q04", "Q05"],
-        "prompt_file": "prompts/A2_FS.prompt.md",
+        "prompt_file": "prompts/deprecated/A2_FS.prompt.md",
     },
     "A3_SQ": {
         "name": "Structural Quality",
         "weight": 1 / 6,
         "query_ids": ["Q01", "Q02", "Q03", "Q04", "Q05"],
-        "prompt_file": "prompts/A3_SQ.prompt.md",
+        "prompt_file": "prompts/deprecated/A3_SQ.prompt.md",
     },
     "A4_HQ": {
         "name": "Hypothesis Quality",
         "weight": 1 / 6,
         "query_ids": ["Q01", "Q02", "Q03", "Q04", "Q05"],
-        "prompt_file": "prompts/A4_HQ.prompt.md",
+        "prompt_file": "prompts/deprecated/A4_HQ.prompt.md",
     },
     "A5_MR": {
         "name": "Minimality and Non-redundancy",
         "weight": 1 / 6,
         "query_ids": ["Q01", "Q02", "Q03", "Q04", "Q05"],
-        "prompt_file": "prompts/A5_MR.prompt.md",
+        "prompt_file": "prompts/deprecated/A5_MR.prompt.md",
     },
     "A6_AP": {
         "name": "Aggregation and Projection Correctness",
         "weight": 1 / 6,
         "query_ids": ["Q01", "Q02", "Q03", "Q04", "Q05"],
-        "prompt_file": "prompts/A6_AP.prompt.md",
+        "prompt_file": "prompts/deprecated/A6_AP.prompt.md",
     },
 }

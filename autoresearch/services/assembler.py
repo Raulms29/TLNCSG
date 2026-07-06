@@ -1,11 +1,13 @@
 import re
 from typing import Tuple
 
+
 class PromptAssembler:
     """
     Parses a prompt template, extracts the editable ## INSTRUCTIONS section,
     and merges updated instructions back with static parts (prefix, grammar, examples).
     """
+
     def __init__(self):
         pass
 
@@ -18,20 +20,24 @@ class PromptAssembler:
             suffix: Static content after the instructions (usually starting with ## GRAMMAR).
         """
         # Search for "## INSTRUCTIONS" header (case insensitive, allowed spaces)
-        instructions_match = re.search(r"##\s*INSTRUCTIONS\s*", full_prompt_content, re.IGNORECASE)
+        instructions_match = re.search(
+            r"##\s*INSTRUCTIONS\s*", full_prompt_content, re.IGNORECASE
+        )
         if not instructions_match:
-            raise ValueError("Could not find '## INSTRUCTIONS' section in the prompt template.")
+            raise ValueError(
+                "Could not find '## INSTRUCTIONS' section in the prompt template."
+            )
 
         instructions_start = instructions_match.end()
-        prefix = full_prompt_content[:instructions_match.start()]
+        prefix = full_prompt_content[: instructions_match.start()]
 
         # The end of the instructions is marked by the next markdown header (e.g. ## GRAMMAR, ## EXAMPLES)
         # or a markdown separator like "---" followed by a header.
         remaining_content = full_prompt_content[instructions_start:]
-        
+
         # Look for the next major header (## ) or separator followed by a header
         suffix_match = re.search(r"(?:^|\n)(?:---\s*\n)?##\s+", remaining_content)
-        
+
         if suffix_match:
             instructions_end = suffix_match.start()
             instructions = remaining_content[:instructions_end].strip()
@@ -52,7 +58,7 @@ class PromptAssembler:
         prefix_clean = prefix.rstrip()
         instructions_clean = new_instructions.strip()
         suffix_clean = suffix.lstrip()
-        
+
         # Build prompt
         assembled = f"{prefix_clean}\n\n## INSTRUCTIONS\n\n{instructions_clean}\n\n{suffix_clean}"
         return assembled

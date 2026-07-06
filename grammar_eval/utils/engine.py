@@ -34,13 +34,10 @@ __all__ = [
     "safe_name",
 ]
 
-
-# _aggregate_outputs is now imported from query_eval.utils.engine
-
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def evaluate_grammars(
     grammars_config: dict[str, dict[str, Any]],
@@ -131,7 +128,9 @@ def evaluate_grammars(
         ground_truths_path = grammar_cfg.get("ground_truths_path")
         raw_criteria = grammar_cfg.get("criteria_config")
 
-        g_use_weights = grammar_cfg.get("use_representation_weights", use_representation_weights)
+        g_use_weights = grammar_cfg.get(
+            "use_representation_weights", use_representation_weights
+        )
         g_expect_json = grammar_cfg.get("expect_json_response", expect_json_response)
 
         normalized_criteria = normalize_criteria_config(raw_criteria)
@@ -139,7 +138,11 @@ def evaluate_grammars(
 
         # Ensure directory exists and is not a placeholder
         summary_path = Path(summary_run_dir)
-        if "<" in summary_run_dir or ">" in summary_run_dir or not summary_path.exists():
+        if (
+            "<" in summary_run_dir
+            or ">" in summary_run_dir
+            or not summary_path.exists()
+        ):
             raise FileNotFoundError(
                 f"Summary folder does not exist or is a placeholder: '{summary_run_dir}'. "
                 f"Please configure a valid summary_run_dir in grammar_eval.py."
@@ -212,9 +215,11 @@ def evaluate_grammars(
             query_id = query_id_match.group(1) if query_id_match else "unknown"
             thinking_match = re.search(r"_th_(true|false)", execution_file.name)
             if not thinking_match:
-                thinking_match = re.search(r"_thinking_(true|false)", execution_file.name)
+                thinking_match = re.search(
+                    r"_thinking_(true|false)", execution_file.name
+                )
             thinking = thinking_match.group(1) if thinking_match else "unknown"
-            
+
             file_out = model_output_dir / f"eval_trace_{query_id}_th_{thinking}.csv"
             evaluated_df.to_csv(file_out, index=False, encoding="utf-8")
             per_file_paths.append(str(file_out))
@@ -234,12 +239,15 @@ def evaluate_grammars(
                 confidence_level=confidence_level,
             )
             for key, stem in [
-                ("by_model_mode_query_criterion", "scores_by_model_query_criterion_partial"),
-                ("by_model_mode_criterion",       "scores_by_criterion_partial"),
-                ("by_query_criterion",            "scores_by_query_criterion_partial"),
-                ("by_model_mode_query",           "scores_by_model_query_partial"),
-                ("by_model_mode",                 "grammar_scores_by_model_partial"),
-                ("by_query",                      "scores_by_query_partial"),
+                (
+                    "by_model_mode_query_criterion",
+                    "scores_by_model_query_criterion_partial",
+                ),
+                ("by_model_mode_criterion", "scores_by_criterion_partial"),
+                ("by_query_criterion", "scores_by_query_criterion_partial"),
+                ("by_model_mode_query", "scores_by_model_query_partial"),
+                ("by_model_mode", "grammar_scores_by_model_partial"),
+                ("by_query", "scores_by_query_partial"),
             ]:
                 p_aggs[key].to_csv(
                     grammar_partial_dir / f"{stem}.csv",
@@ -282,7 +290,9 @@ def evaluate_grammars(
             "by_model_mode_query_file": _save(
                 aggs["by_model_mode_query"], "scores_by_model_query"
             ),
-            "by_model_mode_file": _save(aggs["by_model_mode"], "grammar_scores_by_model"),
+            "by_model_mode_file": _save(
+                aggs["by_model_mode"], "grammar_scores_by_model"
+            ),
             "by_query_file": _save(aggs["by_query"], "scores_by_query"),
             "by_model_mode_df": aggs["by_model_mode"],
         }
@@ -307,12 +317,15 @@ def evaluate_grammars(
             confidence_level=confidence_level,
         )
         for key, stem in [
-            ("by_model_mode_query_criterion", "scores_by_model_query_criterion_partial"),
-            ("by_model_mode_criterion",       "scores_by_criterion_partial"),
-            ("by_query_criterion",            "scores_by_query_criterion_partial"),
-            ("by_model_mode_query",           "scores_by_model_query_partial"),
-            ("by_model_mode",                 "scores_by_model_partial"),
-            ("by_query",                      "scores_by_query_partial"),
+            (
+                "by_model_mode_query_criterion",
+                "scores_by_model_query_criterion_partial",
+            ),
+            ("by_model_mode_criterion", "scores_by_criterion_partial"),
+            ("by_query_criterion", "scores_by_query_criterion_partial"),
+            ("by_model_mode_query", "scores_by_model_query_partial"),
+            ("by_model_mode", "scores_by_model_partial"),
+            ("by_query", "scores_by_query_partial"),
         ]:
             p_combined_aggs[key].to_csv(
                 combined_partial_dir / f"{stem}.csv",
@@ -321,7 +334,6 @@ def evaluate_grammars(
             )
         print(f"Saved grammar output folder: {grammar_output_dir}")
         print(f"    Updated combined partial files: {combined_partial_dir}")
-
 
     # -----------------------------------------------------------------------
     # Combined cross-grammar aggregation (Grammar column included in groups)
@@ -345,9 +357,7 @@ def evaluate_grammars(
     return {
         "output_dir": str(output_dir),
         "per_grammar": per_grammar_results,
-        "combined_all_rows_file": _save_comb(
-            all_combined_df, "scores_all_evaluations"
-        ),
+        "combined_all_rows_file": _save_comb(all_combined_df, "scores_all_evaluations"),
         "combined_by_model_mode_query_criterion_file": _save_comb(
             c_aggs["by_model_mode_query_criterion"],
             "scores_by_model_query_criterion",
@@ -364,8 +374,6 @@ def evaluate_grammars(
         "combined_by_model_mode_file": _save_comb(
             c_aggs["by_model_mode"], "scores_by_model"
         ),
-        "combined_by_query_file": _save_comb(
-            c_aggs["by_query"], "scores_by_query"
-        ),
+        "combined_by_query_file": _save_comb(c_aggs["by_query"], "scores_by_query"),
         "combined_by_model_mode_df": c_aggs["by_model_mode"],
     }

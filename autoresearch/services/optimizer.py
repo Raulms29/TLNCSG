@@ -91,19 +91,25 @@ class OptimizerAgent:
     def _clean_optimizer_output(self, raw_text: str) -> Tuple[str, str]:
         """Cleans LLM response, extracting rationale and instructions."""
         cleaned = raw_text.strip()
-        
+
         rationale = ""
-        rat_match = re.search(r"<rationale>\s*([\s\S]*?)\s*</rationale>", cleaned, re.IGNORECASE)
+        rat_match = re.search(
+            r"<rationale>\s*([\s\S]*?)\s*</rationale>", cleaned, re.IGNORECASE
+        )
         if rat_match:
             rationale = rat_match.group(1).strip()
 
         # Extract content inside <instructions> tags
         if "<instructions>" in cleaned.lower():
-            match = re.search(r"<instructions>\s*([\s\S]*?)</instructions>", cleaned, re.IGNORECASE)
+            match = re.search(
+                r"<instructions>\s*([\s\S]*?)</instructions>", cleaned, re.IGNORECASE
+            )
             if match:
                 cleaned = match.group(1).strip()
             else:
-                raise ValueError("Optimizer output contains <instructions> but is missing </instructions>. Generation likely cut off.")
+                raise ValueError(
+                    "Optimizer output contains <instructions> but is missing </instructions>. Generation likely cut off."
+                )
         else:
             # Fallback in case model didn't use tags but used markdown code blocks
             if cleaned.startswith("```"):
@@ -113,7 +119,9 @@ class OptimizerAgent:
                 if match:
                     cleaned = match.group(1).strip()
                 elif "```" in cleaned[3:]:
-                    raise ValueError("Markdown block not properly closed in optimizer output.")
+                    raise ValueError(
+                        "Markdown block not properly closed in optimizer output."
+                    )
 
         # Remove a duplicate ## INSTRUCTIONS heading if the model printed it
         cleaned = re.sub(

@@ -198,50 +198,6 @@ def plot_kde_per_criterion(df_runs_top, bw_adjust=0.5):
         plt.show()
 
 
-# def plot_cumulative_kde_per_criterion(df_runs_top, bw_adjust=0.5):
-#     """Plots the Cumulative Kernel Density Estimation (CDF equivalent) for each unique Criterion."""
-#     sns.set_theme(style="whitegrid")
-
-#     # Get unique criteria, ordered by predefined order
-#     criteria = df_runs_top["Criterion"].unique()
-#     criteria = sorted(
-#         criteria,
-#         key=lambda x: CRITERION_ORDER.index(x) if x in CRITERION_ORDER else 999,
-#     )
-
-#     n_criteria = len(criteria)
-#     cols = 2
-#     rows = (n_criteria + cols - 1) // cols
-#     fig, axes = plt.subplots(rows, cols, figsize=(15, 5 * rows))
-#     axes = axes.flatten()
-
-#     for i, criterion in enumerate(criteria):
-#         ax = axes[i]
-#         data = df_runs_top[df_runs_top["Criterion"] == criterion]
-#         with warnings.catch_warnings():
-#             warnings.simplefilter("ignore", category=UserWarning)
-#             sns.kdeplot(
-#                 data=data,
-#                 x="Eval Score",
-#                 hue="Modelo",
-#                 fill=True,
-#                 ax=ax,
-#                 common_norm=False,
-#                 cumulative=True,
-#                 bw_adjust=bw_adjust,
-#                 alpha=0.3,
-#                 warn_singular=False,
-#             )
-#         ax.set_title(f"KDE Acumulado: {criterion}", fontsize=12)
-#         ax.set_xlabel("Puntuación")
-#         ax.set_ylabel("Probabilidad acumulada")
-
-#     for j in range(len(criteria), len(axes)):
-#         fig.delaxes(axes[j])
-#     plt.tight_layout()
-#     plt.show()
-
-
 def plot_cumulative_kde_per_criterion(df_runs_top, bw_adjust=0.5):
     """Plots the Cumulative Kernel Density Estimation for bounded 0-1 data."""
     sns.set_theme(style="whitegrid")

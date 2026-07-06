@@ -1,10 +1,12 @@
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
+
 class Experiment:
     """
     Represents the result and metadata of a single optimization iteration.
     """
+
     def __init__(
         self,
         iteration: int,
@@ -15,7 +17,7 @@ class Experiment:
         failures: Optional[List[Dict[str, Any]]] = None,
         rationale: Optional[str] = None,
         timestamp: Optional[str] = None,
-        results_file: Optional[str] = None
+        results_file: Optional[str] = None,
     ):
         self.iteration = iteration
         self.score = score
@@ -37,7 +39,7 @@ class Experiment:
             "prompt_path": self.prompt_path,
             "results_file": self.results_file,
             "failures": self.failures,
-            "rationale": self.rationale
+            "rationale": self.rationale,
         }
 
     @classmethod
@@ -51,7 +53,7 @@ class Experiment:
             failures=data.get("failures", []),
             rationale=data.get("rationale"),
             timestamp=data.get("timestamp"),
-            results_file=data.get("results_file")
+            results_file=data.get("results_file"),
         )
 
     def __repr__(self) -> str:

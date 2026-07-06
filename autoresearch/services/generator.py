@@ -45,7 +45,10 @@ class GeneratorClient:
         for attempt in range(1, max_retries + 1):
             try:
                 response = self.client.chat(
-                    model=self.model_name, messages=messages, options=options, think=self.thinking
+                    model=self.model_name,
+                    messages=messages,
+                    options=options,
+                    think=self.thinking,
                 )
                 return response.get("message", {}).get("content", "").strip()
             except Exception as e:

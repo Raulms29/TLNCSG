@@ -1,5 +1,6 @@
 import sys
 import os
+
 script_dir = os.path.abspath(os.path.dirname(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, ".."))
 sys.path = [p for p in sys.path if os.path.abspath(p) != script_dir]
@@ -12,10 +13,12 @@ from typing import cast
 from query_eval.query_utils import evaluate_summary_folder
 from config import OLLAMA_SERVER
 
-SUMMARY_RUN_DIR = "outputs/model_eval/archive_04-2026_to_06-2026/20260506_091738 E2 (keep)"
+SUMMARY_RUN_DIR = (
+    "outputs/model_eval/archive_04-2026_to_06-2026/20260506_091738 E2 (keep)"
+)
 
 # Evaluator model and runtime configuration
-EVALUATOR_MODEL = "deepseek-r1:8b"
+EVALUATOR_MODEL = "gemma4:26b"
 EVALUATOR_OPTIONS = {
     "temperature": 0.0,
     # Limits the generated response. Knowing that 95% of valid responses
@@ -25,12 +28,12 @@ EVALUATOR_OPTIONS = {
     # I have had prompts of up to 4096 tokens.
     "num_ctx": 12288,
 }
-EVALUATOR_THINKING = True
+EVALUATOR_THINKING = False
 
 # Quick test mode: run only selected queries and one source model.
 TEST_MODE = False
 TEST_QUERY_IDS = ["Q01"]
-TEST_MODEL = "gemma4:e2b"
+TEST_MODEL = "gemma4:26b"
 
 # Output folder for evaluation artifacts
 OUTPUT_ROOT = "outputs/query_eval"
@@ -47,7 +50,7 @@ CRITERION_4_QUERY_IDS = ["Q01", "Q02", "Q10", "Q11", "Q13", "Q14"]
 CRITERION_5_QUERY_IDS = ["Q01", "Q02", "Q04", "Q08", "Q09", "Q12"]
 CRITERION_6_QUERY_IDS = ["Q01", "Q02", "Q03", "Q05", "Q07", "Q08"]
 
-PROMPTS_DIR = "prompts"
+PROMPTS_DIR = "prompts/deprecated"
 
 CRITERIA_CONFIG = {
     "A1_CS": {

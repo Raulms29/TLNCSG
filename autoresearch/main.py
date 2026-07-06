@@ -67,7 +67,9 @@ def main():
 
     config = load_config(config_path)
 
-    prompts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", config["paths"]["prompts_dir"]))
+    prompts_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", config["paths"]["prompts_dir"])
+    )
     log_path = os.path.join(os.path.dirname(__file__), "experiments.json")
 
     # Handle the --reset flag by archiving previous files
@@ -83,16 +85,18 @@ def main():
                         dt = datetime.fromisoformat(first_ts)
                         run_timestamp_str = dt.strftime("%Y%m%d_%H%M%S")
             except Exception:
-                pass # fallback to current time
+                pass  # fallback to current time
 
-        archive_dir = os.path.join(os.path.dirname(__file__), "archive", f"run_{run_timestamp_str}")
+        archive_dir = os.path.join(
+            os.path.dirname(__file__), "archive", f"run_{run_timestamp_str}"
+        )
         files_to_move = []
         if os.path.exists(log_path):
             files_to_move.append(log_path)
         if os.path.exists(prompts_dir):
             for filename in os.listdir(prompts_dir):
                 files_to_move.append(os.path.join(prompts_dir, filename))
-        
+
         if files_to_move:
             os.makedirs(archive_dir, exist_ok=True)
             for file_path in files_to_move:
@@ -157,7 +161,7 @@ def main():
     history = logger.load_history()
     iteration = logger.get_next_iteration_number()
     best_exp = logger.get_best_experiment()
-    
+
     # Establish a persistent run timestamp for the current active execution
     # If we have history, we might want to continue appending to the same folder.
     run_timestamp_str = ""
@@ -201,7 +205,9 @@ def main():
         )
 
         # Evaluate baseline
-        score, failures, log_file = runner.run_validation(baseline_prompt, iteration=1, run_timestamp_str=run_timestamp_str)
+        score, failures, log_file = runner.run_validation(
+            baseline_prompt, iteration=1, run_timestamp_str=run_timestamp_str
+        )
         champion_score = score
         active_failures = failures
 
@@ -215,7 +221,7 @@ def main():
             status="CHAMPION_INIT",
             prompt_path=str(version_path),
             failures=failures,
-            results_file=log_file
+            results_file=log_file,
         )
         logger.log_experiment(initial_exp)
 
@@ -248,11 +254,13 @@ def main():
         if graceful_stop:
             print("Graceful stop flagged. Exiting loop cleanly.")
             break
-            
+
         # Check for file-based kill switch
         stop_file_path = os.path.join(os.path.dirname(__file__), "stop.txt")
         if os.path.exists(stop_file_path):
-            print(f"Graceful stop flagged via '{stop_file_path}' file. Exiting loop cleanly.")
+            print(
+                f"Graceful stop flagged via '{stop_file_path}' file. Exiting loop cleanly."
+            )
             try:
                 os.remove(stop_file_path)
             except Exception:
@@ -275,14 +283,18 @@ def main():
             print(
                 f"Optimization Error: Failed to generate optimized instructions: {str(e)}"
             )
-            print("Fatal LLM error encountered. Exiting optimization loop to prevent infinite retry.")
+            print(
+                "Fatal LLM error encountered. Exiting optimization loop to prevent infinite retry."
+            )
             break
 
         # 2. Assemble candidate prompt
         candidate_prompt = assembler.assemble_prompt(prefix, new_instructions, suffix)
 
         # 3. Evaluate candidate prompt over the validation dataset
-        candidate_score, candidate_failures, log_file = runner.run_validation(candidate_prompt, iteration=iteration, run_timestamp_str=run_timestamp_str)
+        candidate_score, candidate_failures, log_file = runner.run_validation(
+            candidate_prompt, iteration=iteration, run_timestamp_str=run_timestamp_str
+        )
 
         delta = candidate_score - champion_score
         print(f"Candidate Score: {candidate_score:.4f} (Delta: {delta:+.4f})")
@@ -319,7 +331,7 @@ def main():
             prompt_path=str(version_path),
             failures=candidate_failures,
             rationale=rationale,
-            results_file=log_file
+            results_file=log_file,
         )
         logger.log_experiment(exp_record)
         print(f"Iteration #{iteration} logged successfully to experiments.json.")

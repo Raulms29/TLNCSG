@@ -44,21 +44,23 @@ PROMPTS_DIR = "prompts"
 # Ground truth file paths (single source of truth)
 # ---------------------------------------------------------------------------
 
-GT_LAMBDA_DCS      = "ground_truths/class_a/ground_truth_lambda_dcs.json"
+GT_LAMBDA_DCS = "ground_truths/class_a/ground_truth_lambda_dcs.json"
 GT_PCCG_CGG_LAMBDA = "ground_truths/class_a/ground_truth_pccg_cgg_lambda.json"
-GT_NSQA            = "ground_truths/class_c/ground_truth_nsqa.json"
-GT_SQUALL          = "ground_truths/class_d/ground_truth_squall.json"
-GT_GRAPHQ_TREE     = "ground_truths/class_e/ground_truth_graphq_tree.json"
-GT_SEMGIR          = "ground_truths/ground_truth_sem_gir.json"
+GT_NSQA = "ground_truths/class_c/ground_truth_nsqa.json"
+GT_SQUALL = "ground_truths/class_d/ground_truth_squall.json"
+GT_GRAPHQ_TREE = "ground_truths/class_e/ground_truth_graphq_tree.json"
+GT_SEMGIR = "ground_truths/ground_truth_sem_gir.json"
 
 # ---------------------------------------------------------------------------
 # Helper: derive query IDs automatically from a ground truth file.
 # ---------------------------------------------------------------------------
 
+
 def query_ids_from_ground_truth(path: str) -> list[str]:
     """Return sorted query IDs present in a ground truth JSON file."""
     with open(path, "r", encoding="utf-8") as f:
         return sorted(json.load(f).keys())
+
 
 # ---------------------------------------------------------------------------
 # Grammar definitions
@@ -69,128 +71,93 @@ GRAMMARS_CONFIG = {
     # ------------------------------------------------------------------
     # Lambda DCS
     # ------------------------------------------------------------------
-    # ------------------------------------------------------------------
-    # Lambda DCS
-    # ------------------------------------------------------------------
-    # "lambda_dcs": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260624_140012",
-    #     "ground_truths_path": GT_LAMBDA_DCS,
-    #     "expect_json_response": False,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_LAMBDA_DCS": {
-    #             "name": "Overall Translation Quality (Lambda DCS)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_LAMBDA_DCS),
-    #             "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_LAMBDA_DCS.prompt.md",
-    #         },
-    #     },
-    # },
+    "lambda_dcs": {
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_LAMBDA_DCS/20260624_140012",
+        "ground_truths_path": GT_LAMBDA_DCS,
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_LAMBDA_DCS": {
+                "name": "Overall Translation Quality (Lambda DCS)",
+                "weight": 1.0,
+                "query_ids": query_ids_from_ground_truth(GT_LAMBDA_DCS),
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_LAMBDA_DCS.prompt.md",
+            },
+        },
+    },
     # ------------------------------------------------------------------
     # PCCG CGG Lambda
     # ------------------------------------------------------------------
-    # "pccg_cgg_lambda": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_PCCG_CGG_LAMBDA/20260624_153643",
-    #     "ground_truths_path": GT_PCCG_CGG_LAMBDA,
-    #     "expect_json_response": False,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_PCCG_CGG_LAMBDA": {
-    #             "name": "Overall Translation Quality (PCCG CGG Lambda)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_PCCG_CGG_LAMBDA),
-    #             "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_PCCG_CGG_LAMBDA.prompt.md",
-    #         },
-    #     },
-    # },
+    "pccg_cgg_lambda": {
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_PCCG_CGG_LAMBDA/20260624_153643",
+        "ground_truths_path": GT_PCCG_CGG_LAMBDA,
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_PCCG_CGG_LAMBDA": {
+                "name": "Overall Translation Quality (PCCG CGG Lambda)",
+                "weight": 1.0,
+                "query_ids": query_ids_from_ground_truth(GT_PCCG_CGG_LAMBDA),
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_PCCG_CGG_LAMBDA.prompt.md",
+            },
+        },
+    },
     # ------------------------------------------------------------------
     # NSQA
     # ------------------------------------------------------------------
-    # "nsqa": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_NSQA/20260624_164142",
-    #     "ground_truths_path": GT_NSQA,
-    #     "expect_json_response": False,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_NSQA": {
-    #             "name": "Overall Translation Quality (NSQA)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_NSQA),
-    #             "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_NSQA.prompt.md",
-    #         },
-    #     },
-    # },
+    "nsqa": {
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_NSQA/20260624_164142",
+        "ground_truths_path": GT_NSQA,
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_NSQA": {
+                "name": "Overall Translation Quality (NSQA)",
+                "weight": 1.0,
+                "query_ids": query_ids_from_ground_truth(GT_NSQA),
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_NSQA.prompt.md",
+            },
+        },
+    },
     # ------------------------------------------------------------------
     # Squall
     # ------------------------------------------------------------------
-    # "squall": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SQUALL/20260624_181503",
-    #     "ground_truths_path": GT_SQUALL,
-    #     "expect_json_response": False,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_SQUALL": {
-    #             "name": "Overall Translation Quality (Squall)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_SQUALL),
-    #             "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_SQUALL.prompt.md",
-    #         },
-    #     },
-    # },
+    "squall": {
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SQUALL/20260624_181503",
+        "ground_truths_path": GT_SQUALL,
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_SQUALL": {
+                "name": "Overall Translation Quality (Squall)",
+                "weight": 1.0,
+                "query_ids": query_ids_from_ground_truth(GT_SQUALL),
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_SQUALL.prompt.md",
+            },
+        },
+    },
     # ------------------------------------------------------------------
     # GraphQ Tree
     # ------------------------------------------------------------------
-    # "graphq_tree": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260624_190556",
-    #     "ground_truths_path": GT_GRAPHQ_TREE,
-    #     "expect_json_response": False,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_GRAPHQ_TREE": {
-    #             "name": "Overall Translation Quality (GraphQ Tree)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_GRAPHQ_TREE),
-    #             "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_GRAPHQ_TREE.prompt.md",
-    #         },
-    #     },
-    # },
-    # ------------------------------------------------------------------
-    # SemGIR
-    # ------------------------------------------------------------------
-    # "semgir": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR/20260625_035103",
-    #     "ground_truths_path": GT_SEMGIR,
-    #     "expect_json_response": True,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_SEMGIR": {
-    #             "name": "Overall Translation Quality (SemGIR)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_SEMGIR),
-    #             "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
-    #         },
-    #     },
-    # },
+    "graphq_tree": {
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_GRAPHQ_TREE/20260624_190556",
+        "ground_truths_path": GT_GRAPHQ_TREE,
+        "expect_json_response": False,
+        "criteria_config": {
+            "EVAL_PROMPT_GRAPHQ_TREE": {
+                "name": "Overall Translation Quality (GraphQ Tree)",
+                "weight": 1.0,
+                "query_ids": query_ids_from_ground_truth(GT_GRAPHQ_TREE),
+                "prompt_file": f"{PROMPTS_DIR}/grammars/eval/EVAL_PROMPT_GRAPHQ_TREE.prompt.md",
+            },
+        },
+    },
     # ------------------------------------------------------------------
     # SemGIR Base
     # ------------------------------------------------------------------
-    # "semgir_base": {
-    #     "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_BASE/20260625_072350",
-    #     "ground_truths_path": GT_SEMGIR,
-    #     "expect_json_response": True,
-    #     "criteria_config": {
-    #         "EVAL_PROMPT_SEMGIR": {
-    #             "name": "Overall Translation Quality (SemGIR)",
-    #             "weight": 1.0,
-    #             "query_ids": query_ids_from_ground_truth(GT_SEMGIR),
-    #             "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
-    #         },
-    #     },
-    # },
-    # ------------------------------------------------------------------
-    # SemGIR 15
-    # ------------------------------------------------------------------
-    "semgir_15": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_15/20260629_122956",
+    "semgir_base": {
+        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_BASE/20260625_072350",
         "ground_truths_path": GT_SEMGIR,
         "expect_json_response": True,
         "criteria_config": {
             "EVAL_PROMPT_SEMGIR": {
-                "name": "Overall Translation Quality (SemGIR 15)",
+                "name": "Overall Translation Quality (SemGIR)",
                 "weight": 1.0,
                 "query_ids": query_ids_from_ground_truth(GT_SEMGIR),
                 "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
@@ -198,31 +165,15 @@ GRAMMARS_CONFIG = {
         },
     },
     # ------------------------------------------------------------------
-    # SemGIR 16
+    # SemGIR
     # ------------------------------------------------------------------
-    "semgir_16": {
-        "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_16/20260629_154111",
-        "ground_truths_path": GT_SEMGIR,
-        "expect_json_response": True,
-        "criteria_config": {
-            "EVAL_PROMPT_SEMGIR": {
-                "name": "Overall Translation Quality (SemGIR 16)",
-                "weight": 1.0,
-                "query_ids": query_ids_from_ground_truth(GT_SEMGIR),
-                "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",
-            },
-        },
-    },
-    # ------------------------------------------------------------------
-    # SemGIR 17
-    # ------------------------------------------------------------------
-    "semgir_17": {
+    "semgir": {
         "summary_run_dir": "outputs/model_eval/SYSTEM_PROMPT_SEM_GIR_17/20260629_190401",
         "ground_truths_path": GT_SEMGIR,
         "expect_json_response": True,
         "criteria_config": {
             "EVAL_PROMPT_SEMGIR": {
-                "name": "Overall Translation Quality (SemGIR 17)",
+                "name": "Overall Translation Quality (SemGIR)",
                 "weight": 1.0,
                 "query_ids": query_ids_from_ground_truth(GT_SEMGIR),
                 "prompt_file": f"{PROMPTS_DIR}/evaluator.prompt.md",

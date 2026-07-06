@@ -2,12 +2,14 @@ import os
 from pathlib import Path
 from typing import Optional
 
+
 class PromptStore:
     """
     Manages the storage, versioning, and retrieval of prompt templates.
     Baseline prompts are read from the main project folder, while
     optimized champion prompts are stored inside autoresearch/prompts/.
     """
+
     def __init__(self, generator_prompt_path: str, prompts_dir: str):
         self.generator_prompt_path = Path(generator_prompt_path)
         self.prompts_dir = Path(prompts_dir)
@@ -26,12 +28,12 @@ class PromptStore:
         versioned_path = self.prompts_dir / f"champion_v{version}.prompt.md"
         with open(versioned_path, "w", encoding="utf-8") as f:
             f.write(full_prompt_content)
-        
+
         # Save as latest
         latest_path = self.prompts_dir / "champion_latest.prompt.md"
         with open(latest_path, "w", encoding="utf-8") as f:
             f.write(full_prompt_content)
-            
+
         return versioned_path
 
     def get_latest_prompt_content(self) -> Optional[str]:
@@ -43,11 +45,11 @@ class PromptStore:
         if latest_path.exists():
             with open(latest_path, "r", encoding="utf-8") as f:
                 return f.read()
-        
+
         if self.generator_prompt_path.exists():
             with open(self.generator_prompt_path, "r", encoding="utf-8") as f:
                 return f.read()
-                
+
         return None
 
     def get_prompt_path(self, version: int) -> Path:
