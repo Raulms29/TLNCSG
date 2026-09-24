@@ -2,7 +2,7 @@ import json
 import time
 from typing import Tuple, Dict, Any
 from ollama import Client
-import utils
+from autoresearch.services.services_utils import _extract_json_text
 
 
 class EvaluatorAgent:
@@ -36,7 +36,7 @@ class EvaluatorAgent:
         """
         Extracts and parses JSON from raw LLM output, selecting the last JSON block.
         """
-        json_str = utils._extract_json_text(raw_text)
+        json_str = _extract_json_text(raw_text)
         try:
             return json.loads(json_str, strict=False)
         except Exception as e:

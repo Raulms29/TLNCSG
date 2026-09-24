@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from autoresearch.core.query import Query
-import utils
+from autoresearch.services.services_utils import _extract_json_text
 from autoresearch.services.generator import GeneratorClient
 from autoresearch.services.evaluator import EvaluatorAgent
 
@@ -94,7 +94,7 @@ class ValidationRunner:
                     candidate_raw = self.generator.generate_translation(
                         system_prompt, query.text
                     )
-                    candidate_json = utils._extract_json_text(candidate_raw)
+                    candidate_json = _extract_json_text(candidate_raw)
                 except Exception as e:
                     score = 0.0
                     rationale = f"Generator execution failed: {str(e)}"
