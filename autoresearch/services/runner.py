@@ -172,8 +172,7 @@ class ValidationRunner:
             run_timestamp_str = time.strftime("%Y%m%d_%H%M%S")
 
         outputs_dir = (
-            Path(__file__).parent.parent
-            / "archive"
+            Path("archive")
             / f"run_{run_timestamp_str}"
             / "outputs"
         )
