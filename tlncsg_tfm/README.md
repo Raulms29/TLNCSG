@@ -40,9 +40,9 @@ OLLAMA_SERVER = "http://localhost:11434"
 
 ---
 
-## Execution Scripts (`scripts/`)
+## Execution Scripts (`../scripts`)
 
-For convenience, use the provided helper scripts in the `scripts/` directory. They automatically handle directory routing, logging with timestamps, and error redirection. The scripts are organised into `scripts/windows/` (`.ps1`) and `scripts/linux/` (`.sh`).
+For convenience, use the provided helper scripts in the `../scripts` directory. They automatically handle directory routing, logging with timestamps, and error redirection. The scripts are organised into `../scripts` (`.ps1`) and `../scripts` (`.sh`).
 
 > **Tip:** For long runs, it is highly recommended to use `tmux` so the process survives SSH disconnections:
 > ```bash
@@ -52,7 +52,7 @@ For convenience, use the provided helper scripts in the `scripts/` directory. Th
 > ```
 
 **To run a script:**
-- **Linux/macOS:** Run `./scripts/linux/<script_name>.sh` from the terminal.
+- **Linux/macOS:** Run `../scripts` from the terminal.
 - **Windows:** Run `.\scripts\windows\<script_name>.ps1` from PowerShell.
 
 ### Detailed Script Behaviors
