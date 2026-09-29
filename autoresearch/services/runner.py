@@ -5,7 +5,7 @@ from autoresearch.core.query import Query
 from autoresearch.services.services_utils import _extract_json_text
 from autoresearch.services.generator import GeneratorClient
 from autoresearch.services.evaluator import EvaluatorAgent
-
+from autoresearch.core.constants import AUTORESEARCH_DIR
 
 class ValidationRunner:
     """
@@ -172,7 +172,8 @@ class ValidationRunner:
             run_timestamp_str = time.strftime("%Y%m%d_%H%M%S")
 
         outputs_dir = (
-            Path("archive")
+            AUTORESEARCH_DIR
+            / "archive"
             / f"run_{run_timestamp_str}"
             / "outputs"
         )

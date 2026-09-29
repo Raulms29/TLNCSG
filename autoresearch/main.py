@@ -2,12 +2,17 @@ import sys
 import os
 import json
 import signal
-import time
 import argparse
 import shutil
 from datetime import datetime
+from pathlib import Path
 
-from autoresearch.core import Query, Experiment
+# Bootstrap: Add project root to path so absolute imports work
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+from autoresearch.core.constants import AUTORESEARCH_DIR, PROJECT_ROOT
+
+from autoresearch.core import Experiment
 from autoresearch.storage import PromptStore, ExperimentLogger
 from autoresearch.services import (
     PromptAssembler,
@@ -49,7 +54,7 @@ def load_config(config_path: str) -> dict:
 def main():
     global graceful_stop
 
-    config_path = "config.json"
+    config_path = str(AUTORESEARCH_DIR / "config.json")
     if not os.path.exists(config_path):
         print(f"Error: Configuration file not found at {config_path}")
         sys.exit(1)
@@ -64,8 +69,8 @@ def main():
 
     config = load_config(config_path)
 
-    prompts_dir = config["paths"]["prompts_dir"]
-    log_path = "experiments.json"
+    prompts_dir = str(PROJECT_ROOT / config["paths"]["prompts_dir"])
+    log_path = str(AUTORESEARCH_DIR / "experiments.json")
 
     # Handle the --reset flag by archiving previous files
     if args.reset:
@@ -82,7 +87,7 @@ def main():
             except Exception:
                 pass  # fallback to current time
 
-        archive_dir = os.path.join("archive", f"run_{run_timestamp_str}")
+        archive_dir = str(AUTORESEARCH_DIR / "archive" / f"run_{run_timestamp_str}")
         files_to_move = []
         if os.path.exists(log_path):
             files_to_move.append(log_path)
@@ -249,7 +254,7 @@ def main():
             break
 
         # Check for file-based kill switch
-        stop_file_path = "stop.txt"
+        stop_file_path = str(AUTORESEARCH_DIR / "stop.txt")
         if os.path.exists(stop_file_path):
             print(
                 f"Graceful stop flagged via '{stop_file_path}' file. Exiting loop cleanly."
