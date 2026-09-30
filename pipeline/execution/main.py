@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 from pipeline.clients import OllamaClient
 from pipeline.datasets import AmbrosiaDataset, GrailQADataset, QueryDataset
@@ -28,6 +29,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress excessive HTTP request logs from the underlying Ollama (httpx) client
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # ---------------------------------------------------------------------------
 # Dataset factory
@@ -53,12 +56,20 @@ def _load_queries(config: ExecutionConfig):
     queries = dataset.sample(
         n=config.dataset.n_queries, seed=config.dataset.seed
     )
+
+    print(queries)
+    # Save the selected queries
+    ds_path = Path(config.dataset.path)
+    save_path = ds_path.parent / "selected" / f"selected_queries_{ds_type}_n{config.dataset.n_queries}_seed{config.dataset.seed}.csv"
+    dataset.save_selected_queries(queries, save_path)
+
     logger.info(
         "Loaded %d queries from %s dataset (%s)",
         len(queries),
         ds_type,
         config.dataset.path,
     )
+    logger.info("Saved selected queries to %s", save_path)
     return queries
 
 
