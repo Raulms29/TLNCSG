@@ -136,6 +136,14 @@ class ExecutionRunner:
         run_dir = output_root_parent / run_dir_name
         run_dir.mkdir(parents=True, exist_ok=True)
 
+        # Set up file logging
+        log_file = run_dir / "execution.log"
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s", "%Y-%m-%d %H:%M:%S")
+        )
+        logging.getLogger().addHandler(file_handler)
+
         logger.info(
             "=== Execution started: %s (%d queries, %d runs/model) ===",
             run_dir_name,
@@ -178,13 +186,18 @@ class ExecutionRunner:
         end_time = datetime.now()
         self._save_manifest(run_dir, execution_id, start_time, end_time)
 
+
         # Rename directory to include end timestamp
         end_stamp = end_time.strftime("%d%m%y")
         final_name = f"{start_stamp}_{end_stamp}_{execution_id}"
         final_dir = output_root_parent / final_name
-        run_dir.rename(final_dir)
 
         logger.info("=== Execution finished: %s ===", final_name)
+        # Clean up the file handler
+        logging.getLogger().removeHandler(file_handler)
+        file_handler.close()
+
+        run_dir.rename(final_dir)
         return final_dir
 
     # ------------------------------------------------------------------
@@ -265,7 +278,7 @@ class ExecutionRunner:
 
                 # Save per-query CSV
                 pd.DataFrame(records, columns=PER_QUERY_COLUMNS).to_csv(
-                    csv_path, index=False, encoding="utf-8"
+                    csv_path, index=False, encoding="utf-8", float_format="%.4f"
                 )
                 all_records.extend(records)
 
@@ -322,7 +335,7 @@ class ExecutionRunner:
                     "Query": query.text,
                     "Prompt Tokens": meta.get("prompt_eval_count", 0),
                     "Completion Tokens": meta.get("eval_count", 0),
-                    "Inference Time (s)": round(inference_s, 6),
+                    "Inference Time (s)": round(inference_s, 4),
                     "Response": content,
                     "Reasoning": reasoning or "",
                     "Timestamp": datetime.now().isoformat(),
@@ -362,6 +375,7 @@ class ExecutionRunner:
             model_dir / "summary_per_query.csv",
             index=False,
             encoding="utf-8",
+            float_format="%.4f",
         )
 
         # ---- Overall summary (one row per thinking mode) ----
@@ -380,7 +394,7 @@ class ExecutionRunner:
             .reset_index()
         )
         overall.to_csv(
-            model_dir / "summary.csv", index=False, encoding="utf-8"
+            model_dir / "summary.csv", index=False, encoding="utf-8", float_format="%.4f"
         )
 
     # ------------------------------------------------------------------
