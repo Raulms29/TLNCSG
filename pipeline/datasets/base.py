@@ -8,6 +8,44 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
+
+def _stratified_sample(
+    df: pd.DataFrame,
+    strata_cols: list[str],
+    n: int,
+    seed: int,
+) -> list[int]:
+    """Proportional stratified sampling, returning row indices from *df*.
+
+    Each stratum gets ``max(1, round(stratum_size / total * n))`` samples.
+    A final adjustment pass ensures we return exactly *n* items.
+    """
+    frac = n / len(df)
+
+    sampled_groups = [
+        group.sample(
+            n=max(1, min(len(group), round(len(group) * frac))),
+            random_state=seed,
+        )
+        for _, group in df.groupby(strata_cols, group_keys=False)
+    ]
+    sampled = pd.concat(sampled_groups) if sampled_groups else df.iloc[0:0]
+
+    # Adjust to exactly n
+    if len(sampled) > n:
+        sampled = sampled.sample(n=n, random_state=seed)
+    elif len(sampled) < n:
+        remaining = df.drop(sampled.index)
+        extra = remaining.sample(
+            n=min(n - len(sampled), len(remaining)),
+            random_state=seed,
+        )
+        sampled = pd.concat([sampled, extra])
+
+    return sampled["idx"].tolist()
+
 
 @dataclass(frozen=True)
 class Query:
@@ -27,7 +65,7 @@ class QueryDataset(ABC):
             raise FileNotFoundError(f"Dataset not found: {self._path}")
 
     @abstractmethod
-    def load(self) -> list[Query]:
+    def load(self, seed: int = 42) -> list[Query]:
         """Load and return all eligible queries from the dataset."""
         ...
 

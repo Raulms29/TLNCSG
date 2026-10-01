@@ -57,7 +57,6 @@ def _load_queries(config: ExecutionConfig):
         n=config.dataset.n_queries, seed=config.dataset.seed
     )
 
-    print(queries)
     # Save the selected queries
     ds_path = Path(config.dataset.path)
     save_path = ds_path.parent / "selected" / f"selected_queries_{ds_type}_n{config.dataset.n_queries}_seed{config.dataset.seed}.csv"

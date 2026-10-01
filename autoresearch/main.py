@@ -273,9 +273,13 @@ def main():
 
         # 1. Invoke Optimizer to propose refinements
         print("Calling Optimizer Agent to refine instructions...")
+        current_prompt = assembler.assemble_prompt(prefix, champion_instructions, suffix)
+        base_prompt_reference = assembler.remove_grammar(current_prompt)
         try:
             new_instructions, rationale = optimizer.optimize_instructions(
-                current_instructions=champion_instructions, failures=active_failures
+                current_instructions=champion_instructions,
+                base_prompt_reference=base_prompt_reference,
+                failures=active_failures
             )
         except Exception as e:
             print(
