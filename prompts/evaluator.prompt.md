@@ -173,14 +173,14 @@ Evaluate the Candidate holistically across these dimensions:
 ## SCORING GUIDE
 
 - **1.0**: Semantically and structurally equivalent to the Ground Truth. Grammar-compliant. All constraints and targets correctly captured. Also applies to minor differences in structure or naming (e.g., slightly different role labels, reordered conditions) that do not affect correctness or meaning.
-- **0.85 – 0.95**: Semantically correct with one minor flaw that does not change query meaning (e.g., missing `distinct`, a redundant but harmless entity, a slightly wrong role label with no semantic impact).
+- **0.85 – 0.95**: Semantically correct with one minor flaw that does not change query meaning (e.g., missing `distinct`, a redundant but harmless entity, a slightly wrong or repeated role label with no semantic impact).
 - **0.7 – 0.84**: Mostly correct but with a noticeable gap: missing one meaningful constraint, wrong aggregation type (e.g., SUM instead of COUNT), or a single direct relationship used where a PATH is required, while the rest of the candidate is semantically coherent.
 - **0.5 – 0.6**: Partially correct. Core intent is visible but significant semantic errors are present: "ID Name Leaking" without value constraints, bypassing topology with string comparisons, wrong quantifier logic (e.g., ALL vs EXISTS), or type mismatch in operators.
 - **0.3 – 0.4**: Mostly incorrect. The `target` is wrong or missing, major constraints are absent, entities/relationships are hallucinated, directionality (`from`/`to`) is wrong, or there are heavy grammar violations.
 - **0.1 – 0.2**: Only superficial resemblance to a valid IR. Some valid JSON structure is present (e.g., entities declared) but the semantics are catastrophically wrong — no meaningful constraint, no target, or entirely wrong type system.
 - **0.0**: Completely uninterpretable. Empty output, invalid JSON, or semantically empty content with no recoverable meaning.
 
-> **JSON leniency**: If the JSON is slightly malformed but the intent is clearly readable, score the semantic content and deduct at most 0.1 for the formatting issue.
+> **JSON leniency**: If the JSON is slightly malformed but the intent is clearly readable, score the semantic content and deduct at most 0.2 for the formatting issue.
 
 ---
 
@@ -483,6 +483,6 @@ Evaluate the Candidate holistically across these dimensions:
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:
 
 {
-  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth. It must explain in a few words the problems identified and what should have been done structurally instead of what it was, with few detail about the specific query entities or data.",
+  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth. It must explain in a few words the problems identified and what should have been done structurally instead of what it was, with few to no detail about the specific query entities or data.",
   "score": [Float between 0.0 and 1.0]
 }

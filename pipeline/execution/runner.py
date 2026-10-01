@@ -278,7 +278,7 @@ class ExecutionRunner:
 
                 # Save per-query CSV
                 pd.DataFrame(records, columns=PER_QUERY_COLUMNS).to_csv(
-                    csv_path, index=False, encoding="utf-8", float_format="%.4f"
+                    csv_path, index=False, encoding="utf-8"
                 )
                 all_records.extend(records)
 
@@ -371,11 +371,16 @@ class ExecutionRunner:
             )
             .reset_index()
         )
+        per_query = per_query.round({
+            "Mean Inference Time (s)": 4,
+            "Std Inference Time (s)": 4,
+            "Mean Prompt Tokens": 1,
+            "Mean Completion Tokens": 1,
+        })
         per_query.to_csv(
             model_dir / "summary_per_query.csv",
             index=False,
             encoding="utf-8",
-            float_format="%.4f",
         )
 
         # ---- Overall summary (one row per thinking mode) ----
@@ -393,8 +398,14 @@ class ExecutionRunner:
             )
             .reset_index()
         )
+        overall = overall.round({
+            "Mean Inference Time (s)": 4,
+            "Std Inference Time (s)": 4,
+            "Mean Prompt Tokens": 1,
+            "Mean Completion Tokens": 1,
+        })
         overall.to_csv(
-            model_dir / "summary.csv", index=False, encoding="utf-8", float_format="%.4f"
+            model_dir / "summary.csv", index=False, encoding="utf-8"
         )
 
     # ------------------------------------------------------------------

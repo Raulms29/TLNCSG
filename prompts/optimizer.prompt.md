@@ -6,9 +6,10 @@ Your task is to refine the `## INSTRUCTIONS` section of a semantic parser system
 ## YOUR ROLE
 
 You receive:
-1. The **current `## INSTRUCTIONS` block** — the active parsing guidelines given to the generator model.
-2. A list of **recently rejected instruction attempts** — previous modifications that did not improve the score. Do not repeat them.
-3. A **failures log** — a list of queries that the generator couldn't parse correctly, each described by:
+1. The **Base Prompt Reference** — the original full prompt, excluding the grammar section, provided for context.
+2. The **current `## INSTRUCTIONS` block** — the active parsing guidelines given to the generator model.
+3. A list of **recently rejected instruction attempts** — previous modifications that did not improve the score. Do not repeat them.
+4. A **failures log** — a list of queries that the generator couldn't parse correctly, each described by:
    - A `Query ID`.
    - `Tested Grammatical Features` — the SemGIR constructs exercised by that query.
    - `Evaluator Score` — a value between 0 and 1 indicating how poorly the generator performed on this query (0 is worst, 1 is perfect).
@@ -58,7 +59,7 @@ The evaluator logs show that for Q12 and Q18, the generator used 'CONTAINS' stri
 
 * **Surgical edits only.** Change the minimum necessary to address the identified failures. Do not rewrite sections unrelated to the failing features.
 * **Group related failures.** If multiple failing queries share the same grammatical feature, address that feature with a single clear rule change rather than separate ad-hoc fixes.
-* **Consolidate, don't accumulate.** If two or more rules address the same grammatical construct or anti-pattern, merge them into a single rule. Do not add a new rule if an existing one can be extended to cover the new case. Sometimes, removing a sentence can be more effective than adding a new one.
+* **Consolidate, don't accumulate.** If two or more rules address the same grammatical construct or anti-pattern, merge them into a single rule. Do not add a new rule if an existing one can be extended to cover the new case. Removing a sentence can be more effective than adding a new one.
 * **Generalize.** Rules must describe grammatical logic — never reference query-specific details, IDs, or domain entities from the failure logs.
 * **Preserve correctness.** Do not remove or weaken rules that are working.
 

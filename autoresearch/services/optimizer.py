@@ -53,7 +53,7 @@ class OptimizerAgent:
         self.failure_history.clear()
 
     def _build_user_prompt(
-        self, current_instructions: str, failures: List[Dict[str, Any]]
+        self, current_instructions: str, base_prompt_reference: str, failures: List[Dict[str, Any]]
     ) -> str:
         # 1. Format failures log
         fail_blocks = []
@@ -78,6 +78,8 @@ class OptimizerAgent:
         history_log = "\n\n".join(history_blocks) if history_blocks else "None."
 
         user_content = (
+            f"### BASE PROMPT REFERENCE:\n"
+            f'"""\n{base_prompt_reference}\n"""\n\n'
             f"### CURRENT ## INSTRUCTIONS SECTION:\n"
             f'"""\n{current_instructions}\n"""\n\n'
             f"### RECENT REJECTED PROMPT CHANGES (DO NOT REPEAT):\n"
@@ -133,6 +135,7 @@ class OptimizerAgent:
     def optimize_instructions(
         self,
         current_instructions: str,
+        base_prompt_reference: str,
         failures: List[Dict[str, Any]],
         max_retries: int = 3,
     ) -> Tuple[str, str]:
@@ -142,7 +145,7 @@ class OptimizerAgent:
             Tuple[str, str]: (new_instructions, rationale)
         """
         system_prompt = self.system_prompt
-        user_prompt = self._build_user_prompt(current_instructions, failures)
+        user_prompt = self._build_user_prompt(current_instructions, base_prompt_reference, failures)
 
         options = {
             "temperature": self.temperature,

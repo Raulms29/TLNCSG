@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import random
+from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 
-from .base import Query, QueryDataset
+from .base import Query, QueryDataset, _stratified_sample
 
 logger = logging.getLogger(__name__)
 
@@ -19,27 +21,25 @@ class GrailQADataset(QueryDataset):
     by ``(function, num_node, num_edge)``.
     """
 
-    def load(self) -> list[Query]:
-        """Load all compositional queries, deduplicated by canonical qid."""
+    def load(self, seed: int = 42) -> list[Query]:
+        """Load all queries, deduplicated by canonical qid randomly with a seed."""
         with open(self._path, "r", encoding="utf-8") as f:
             raw: list[dict] = json.load(f)
 
-        # 1. Filter compositional-generalization subset
-        compositional = [e for e in raw if e.get("level") == "compositional"]
         logger.info(
-            "GrailQA: %d total entries, %d compositional",
+            "GrailQA: %d total entries",
             len(raw),
-            len(compositional),
         )
 
-        # 2. Deduplicate by first 8 digits of qid (canonical logical form)
-        seen_canonical: set[str] = set()
-        unique: list[dict] = []
-        for entry in compositional:
+        # 2. Group by canonical qid[:8]
+        canonical_groups = defaultdict(list)
+        for entry in raw:
             canonical = str(entry["qid"])[:8]
-            if canonical not in seen_canonical:
-                seen_canonical.add(canonical)
-                unique.append(entry)
+            canonical_groups[canonical].append(entry)
+
+        # 3. Select one paraphrase per canonical cluster
+        rng = random.Random(seed)
+        unique = [rng.choice(group) for group in canonical_groups.values()]
 
         logger.info(
             "GrailQA: %d unique canonical forms after deduplication",
@@ -65,7 +65,7 @@ class GrailQADataset(QueryDataset):
         """Stratified sample by ``(function, num_node, num_edge)``
         using pandas groupby sampling.
         """
-        all_queries = self.load()
+        all_queries = self.load(seed=seed)
 
         if n >= len(all_queries):
             logger.warning(
@@ -95,38 +95,3 @@ class GrailQADataset(QueryDataset):
         )
         return selected
 
-
-def _stratified_sample(
-    df: pd.DataFrame,
-    strata_cols: list[str],
-    n: int,
-    seed: int,
-) -> list[int]:
-    """Proportional stratified sampling, returning row indices from *df*.
-
-    Each stratum gets ``max(1, round(stratum_size / total * n))`` samples.
-    A final adjustment pass ensures we return exactly *n* items.
-    """
-    frac = n / len(df)
-
-    sampled_groups = [
-        group.sample(
-            n=max(1, min(len(group), round(len(group) * frac))),
-            random_state=seed,
-        )
-        for _, group in df.groupby(strata_cols, group_keys=False)
-    ]
-    sampled = pd.concat(sampled_groups) if sampled_groups else df.iloc[0:0]
-
-    # Adjust to exactly n
-    if len(sampled) > n:
-        sampled = sampled.sample(n=n, random_state=seed)
-    elif len(sampled) < n:
-        remaining = df.drop(sampled.index)
-        extra = remaining.sample(
-            n=min(n - len(sampled), len(remaining)),
-            random_state=seed,
-        )
-        sampled = pd.concat([sampled, extra])
-
-    return sampled["idx"].tolist()
