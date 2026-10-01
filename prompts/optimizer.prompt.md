@@ -121,7 +121,7 @@ PATH := {
   id: PATH_ID, // new fresh unique ID of the path
   start?: ENTITY_ID,  // ID of an entity declared in this query
   end?: ENTITY_ID,    // ID of an entity declared in this query
-  roles: [ROLE, ...]
+  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
 LIST := {
