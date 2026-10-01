@@ -60,7 +60,7 @@ PATH := {
   id: PATH_ID, // new fresh unique ID of the path
   start?: ENTITY_ID,  // existing ID of an entity in the JSON document
   end?: ENTITY_ID,    // existing ID of an entity in the JSON document
-  roles: [ROLE, ...]
+  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
 LIST := {
@@ -150,12 +150,13 @@ Evaluate the Candidate holistically across these dimensions:
 
 3. **Structural & Graph Quality:**
    - **Graph Modeling:** Correctly distinguishes between entities and relationships.
-   - **Directionality:** `from` and `to` fields in relationships make logical, semantic sense.
+   - **Directionality:** `from` and `to` fields must make logical, semantic sense (e.g., `parent_of` going from child to parent instead of parent to child).
    - **Paths:** Multi-hop traversals use `paths`. Verify `start` and `end` are valid `ENTITY_ID`s.
    - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, `EXISTS`, `ALL`.
-   - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using string comparisons to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
+   - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using **string comparison operators** (`CONTAINS`, `MATCHES_REGEX`) to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
 
 4. **Type Safety, Aggregations & Projections:**
+   - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, penalize under **Minimality** (deduct at most 0.1).
    - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS` on strings).
    - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`. 
    - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
@@ -172,8 +173,8 @@ Evaluate the Candidate holistically across these dimensions:
 
 ## SCORING GUIDE
 
-- **1.0**: Semantically and structurally equivalent to the Ground Truth. Grammar-compliant. All constraints and targets correctly captured. Also applies to minor differences in structure or naming (e.g., slightly different role labels, reordered conditions) that do not affect correctness or meaning.
-- **0.85 – 0.95**: Semantically correct with one minor flaw that does not change query meaning (e.g., missing `distinct`, a redundant but harmless entity, a slightly wrong or repeated role label with no semantic impact).
+- **1.0**: Semantically and structurally equivalent to the Ground Truth. Grammar-compliant. All constraints and targets correctly captured. No redundant elements. Minor differences in naming only (e.g., slightly different role labels, reordered conditions) that do not affect correctness or meaning.
+- **0.85 – 0.95**: Semantically correct with one minor flaw that does not change query meaning (e.g., missing `distinct`, a redundant but harmless entity or relationship, an overly complex but valid target expression, a slightly wrong or repeated role label with no semantic impact).
 - **0.7 – 0.84**: Mostly correct but with a noticeable gap: missing one meaningful constraint, wrong aggregation type (e.g., SUM instead of COUNT), or a single direct relationship used where a PATH is required, while the rest of the candidate is semantically coherent.
 - **0.5 – 0.6**: Partially correct. Core intent is visible but significant semantic errors are present: "ID Name Leaking" without value constraints, bypassing topology with string comparisons, wrong quantifier logic (e.g., ALL vs EXISTS), or type mismatch in operators.
 - **0.3 – 0.4**: Mostly incorrect. The `target` is wrong or missing, major constraints are absent, entities/relationships are hallucinated, directionality (`from`/`to`) is wrong, or there are heavy grammar violations.

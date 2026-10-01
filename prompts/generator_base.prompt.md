@@ -664,4 +664,3 @@ Output:
 * DO NOT assume any specific database schema.
 * Prefer simple structures over complex nesting.
 * Follow the GRAMMAR strictly.
-
