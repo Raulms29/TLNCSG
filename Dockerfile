@@ -12,3 +12,4 @@ RUN pip install --no-cache-dir matplotlib
 RUN pip install --no-cache-dir seaborn
 RUN pip install --no-cache-dir ipykernel
 RUN pip install --no-cache-dir jinja2
+RUN pip install --no-cache-dir streamlit

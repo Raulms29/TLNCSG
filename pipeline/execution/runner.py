@@ -84,16 +84,15 @@ def _query_csv_path(model_dir: Path, query_id: str, thinking: bool) -> Path:
 
 def _next_execution_id(output_dir: Path) -> str:
     """Scan *output_dir* for existing 4-digit IDs and return the next one."""
-    existing_ids: list[int] = []
-    if output_dir.exists():
-        for child in output_dir.iterdir():
-            if child.is_dir():
-                # Extract trailing 4-digit ID from folder name
-                match = re.search(r"_(\d{4})$", child.name)
-                if match:
-                    existing_ids.append(int(match.group(1)))
-    next_id = max(existing_ids, default=0) + 1
-    return f"{next_id:04d}"
+    if not output_dir.exists():
+        return "0001"
+        
+    existing = [
+        int(m.group(1))
+        for child in output_dir.iterdir()
+        if child.is_dir() and (m := re.search(r"_(\d{4})$", child.name))
+    ]
+    return f"{max(existing, default=0) + 1:04d}"
 
 
 # --------------------------------------------------------------------------

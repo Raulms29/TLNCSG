@@ -69,11 +69,22 @@ class GroundTruthStore:
 
         for idx, entry in enumerate(filtered, start=1):
             qid = f"{self._ambrosia_qid_prefix}{idx:04d}"
+
+            interpretations = entry.get("interpretations", [])
+            formatted_gt = []
+
+            for i, interp in enumerate(interpretations, start=1):
+                interp_q = interp.get("question", "")
+                interp_sql = interp.get("gold_queries", "").strip()
+                formatted_gt.append(
+                    f"Interpretation {i}:\nMeaning: {interp_q}\nSQL: {interp_sql}\n"
+                )
+
             self._ambrosia[qid] = GroundTruth(
                 dataset="ambrosia",
                 db_dump=entry.get("db_dump", ""),
-                gold_queries=entry.get("ambig_queries", ""),
-                num_interpretations=len(entry.get("interpretations", [])),
+                gold_queries="\n".join(formatted_gt),
+                num_interpretations=len(interpretations),
             )
 
         logger.info("Loaded %d Ambrosia ground truth entries", len(self._ambrosia))
