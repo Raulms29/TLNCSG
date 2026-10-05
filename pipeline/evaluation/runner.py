@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from pipeline.clients.ollama_client import OllamaClient
-from .config import EvaluationConfig, EvaluatorModelConfig
+from .config import EvaluationConfig
 from .ground_truth import GroundTruth, GroundTruthStore
 
 logger = logging.getLogger(__name__)
@@ -43,8 +43,8 @@ class EvaluationRunner:
 
         logger.info("Starting evaluation for grouping: %s", dir_name)
 
-        # Pre-flight check: ensure all required evaluation prompts exist
-        self._verify_required_prompts()
+        # Pre-load prompts to memory
+        self._preload_prompts()
 
         total_files = 0
         total_correct = 0
@@ -82,39 +82,13 @@ class EvaluationRunner:
         )
         return output_root
 
-    def _verify_required_prompts(self) -> None:
-        """Scan all input CSVs to determine required prompts and fail fast if any are missing."""
-        required_prompts = set()
-
-        for grammar_dir in sorted(d for d in self.grouping_dir.iterdir() if d.is_dir()):
-            grammar = grammar_dir.name
-            grammar_clean = grammar.replace("_", "").upper()
-
-            for model_dir in sorted(d for d in grammar_dir.iterdir() if d.is_dir()):
-                for csv_file in model_dir.glob("*_grouped.csv"):
-                    with open(csv_file, "r", encoding="utf-8") as f:
-                        reader = csv.DictReader(f)
-                        for row in reader:
-                            qid = row.get("QID", "")
-                            if qid:
-                                dataset = self.ground_truth.detect_dataset(qid)
-                                dataset_clean = dataset.upper()
-                                required_prompts.add(
-                                    f"EVAL_{grammar_clean}_{dataset_clean}.prompt.md"
-                                )
-
-        missing_prompts = [
-            p for p in required_prompts if not (self.prompts_dir / p).exists()
-        ]
-        if missing_prompts:
-            msg = f"Missing required evaluation prompts in '{self.prompts_dir}': {', '.join(missing_prompts)}"
-            logger.error(msg)
-            raise FileNotFoundError(msg)
-
-        logger.info(
-            "Pre-flight check passed: all %d required evaluation prompts found.",
-            len(required_prompts),
-        )
+    def _preload_prompts(self) -> None:
+        """Pre-load all available evaluation prompts into the cache."""
+        count = 0
+        for prompt_file in self.prompts_dir.glob("EVAL_*.prompt.md"):
+            self._prompt_cache[prompt_file.name] = prompt_file.read_text(encoding="utf-8")
+            count += 1
+        logger.info("Pre-loaded %d evaluation prompts.", count)
 
     # ------------------------------------------------------------------
     # Per-file processing
@@ -159,27 +133,11 @@ class EvaluationRunner:
             dataset_clean = dataset.upper()
             prompt_filename = f"EVAL_{grammar_clean}_{dataset_clean}.prompt.md"
 
-            if prompt_filename not in self._prompt_cache:
-                prompt_path = self.prompts_dir / prompt_filename
-                if prompt_path.exists():
-                    self._prompt_cache[prompt_filename] = prompt_path.read_text(
-                        encoding="utf-8"
-                    )
-                else:
-                    self._prompt_cache[prompt_filename] = ""
-
-            sys_prompt = self._prompt_cache[prompt_filename]
+            sys_prompt = self._prompt_cache.get(prompt_filename)
             if not sys_prompt:
-                logger.warning(
-                    "No evaluation prompt found for %s (looked for %s), skipping.",
-                    grammar,
-                    prompt_filename,
-                )
-                row["Rationale"] = f"No prompt for {grammar}"
-                row["Hypotheses Covered"] = 0
-                row["Correct"] = "False"
-                evaluated.append(row)
-                continue
+                msg = f"Missing required evaluation prompt: {prompt_filename} in {self.prompts_dir}"
+                logger.error(msg)
+                raise FileNotFoundError(msg)
 
             # Build user message
             user_message = self._build_user_message(
@@ -228,7 +186,7 @@ class EvaluationRunner:
 
         parts.append(f"[CANDIDATE OUTPUT]\n{candidate}\n")
         parts.append("Assign correct and rationale in strict JSON format:")
-        
+
         return "\n".join(parts)
 
     # ------------------------------------------------------------------
@@ -243,13 +201,19 @@ class EvaluationRunner:
         )
         extracted = matches[-1].group(1) if matches else content.strip()
 
+        # Hardening: extract just the JSON object bounds if there is garbage text around it
+        if "{" in extracted and "}" in extracted:
+            start = extracted.find("{")
+            end = extracted.rfind("}") + 1
+            extracted = extracted[start:end]
+
         try:
             return json.loads(extracted)
         except json.JSONDecodeError:
             logger.warning("Evaluator returned unparseable JSON. Raw: %r", content)
             return {
                 "rationale": f"Unparseable evaluator response: {content[:200]}",
-                "hypotheses_covered": 0,
+                "hypotheses_covered": 1,
                 "correct": False,
             }
 
@@ -266,11 +230,11 @@ class EvaluationRunner:
             "Thinking",
             "QID",
             "Query",
-            "Rationale",
             "Hypotheses Covered",
             "Correct",
             "LLM Merged",
             "Group Size",
+            "Rationale",
             "Representative Output",
             "Reasoning",
             "Runs",

@@ -45,11 +45,11 @@ class GroupingRunner:
         total_rows_after = 0
 
         # Traverse: GRAMMAR / model / Q1.csv
-        for grammar_dir in [d for d in self.execution_dir.iterdir() if d.is_dir()]:
+        for grammar_dir in (d for d in self.execution_dir.iterdir() if d.is_dir()):
             grammar = grammar_dir.name
             out_grammar = output_root / grammar
 
-            for model_dir in [d for d in grammar_dir.iterdir() if d.is_dir()]:
+            for model_dir in (d for d in grammar_dir.iterdir() if d.is_dir()):
                 model = model_dir.name
                 out_model = out_grammar / model
                 out_model.mkdir(parents=True, exist_ok=True)
@@ -105,14 +105,14 @@ class GroupingRunner:
         for norm_out, cluster in groups.items():
             first_run = cluster[0]
 
-            # Extract run IDs and sort them numerically if possible
-            run_ids = []
-            for r in cluster:
+            # Extract run IDs and sort them numerically
+            def _parse_run(r: dict) -> int | str:
                 try:
-                    run_ids.append(int(r["Run"]))
+                    return int(r["Run"])
                 except ValueError:
-                    run_ids.append(r["Run"])
-            run_ids = sorted(run_ids, key=lambda x: (isinstance(x, str), x))
+                    return r["Run"]
+                    
+            run_ids = sorted([_parse_run(r) for r in cluster], key=lambda x: (isinstance(x, str), x))
 
             final_rows.append(
                 {
