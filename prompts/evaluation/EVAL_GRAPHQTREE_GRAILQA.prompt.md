@@ -9,7 +9,7 @@ Your evaluation must reflect how well the Candidate captures the intended meanin
 ## GRAMMAR
 
 // The root of a GraphQ IR sequence must be one of the supported query types
-S := EntityQuery | AttributeQuery | RelationQuery | QualifierQuery | CountQuery | VerifyQuery | ValueQuery
+S := EntityQuery | AttributeQuery | RelationQuery | QualifierQuery | CountQuery | VerifyQuery | ValueQuery | SelectQuery
 
 // Query type definitions mapping to their expected return structures
 EntityQuery := "what is" EntitySet
@@ -19,20 +19,22 @@ QualifierQuery := "what is the qualifier" Qualifier "of" EntitySet Constraint
 CountQuery := "how many" EntitySet
 VerifyQuery := "whether" EntitySet Constraint
 ValueQuery := "what is" Value
+SelectQuery := "which one has the" SOP Attribute "among" EntitySet
 
 // EntitySet represents a collection of nodes in the graph
 EntitySet := "<ES>" EntitySet LOP EntitySet "</ES>"    // Logical operation between two sets
+           | "<ES>" EntitySet "(" EntitySet ")" "</ES>" // Intersection between two sets using parentheses
            | "<ES>" EntitySet Constraint "</ES>"     // A set filtered by a constraint
-           | "<ES>" Concept EntitySet "</ES>"        // A set filtered by a concept
-           | Concept | Entity | "ones"             // Terminal nodes (ones = anonymous/blank node)
+           | "<ES>" Concept EntitySet? "</ES>"       // A set filtered by a concept (EntitySet is optional)
+           | Concept | Entity | "ones" | "entities"  // Terminal nodes (ones/entities = anonymous/blank node)
 
 // Constraints filter an EntitySet by its attributes or relations
 Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
 
 // Specific constraint types
-AttributeConstraint := "whose" Attribute COP Value | "that" "have" SOP Attribute
-RelationConstraint := "that" Relation DIR "to" (COP Value?)? EntitySet | "that" Relation DIR "to" SOP EntitySet
-QualifierConstraint := Qualifier COP Value
+AttributeConstraint := "whose" Attribute COP Value | "that" "have" ("top" "[number]")? SOP Attribute
+RelationConstraint := "that" Relation DIR "to" (COP Value?)? EntitySet | "that" Relation DIR "to" ("top" "[number]")? SOP EntitySet
+QualifierConstraint := "(" Qualifier COP Value ")"   // Qualifier constraints must be wrapped in parentheses
 
 // Terminal nodes wrapped in explicit XML tags
 Concept := "<C>" [name] "</C>"
@@ -41,16 +43,17 @@ Relation := "<R>" [name] "</R>"
 Attribute := "<A>" [name] "</A>"
 Qualifier := "<Q>" [name] "</Q>"
 
-// Values can be aggregates, attributes, or literals with a specific type
+// Values can be aggregates, attributes, literals with a specific type, or logical unions
 Value := VTYPE "<V>" Literal "</V>"                  // (VTYPE can be "numeric", "string", "date", "year", "time", "month")
+       | Value "or" Value                            // Logical union between values
        | VOP "of" Value                              // Aggregation over a value
        | Attribute "of" EntitySet                    // Extraction of an attribute from a set
 
 // Operators defining logic, aggregation, comparison, superlatives, and direction
 LOP := "and" | "or" | "not"                          // Logical operators
 VOP := "sum" | "average" | "maximum" | "minimum"     // Value operators (Aggregations)
-COP := "is" | "is not" | "larger than" | "smaller than" | "at least" | "at most"  // Comparison operators
-SOP := "largest" | "smallest"                        // Superlative operators
+COP := "is" | "equal to" | "is not" | "not equal to" | "larger than" | "more than" | "smaller than" | "less than" | "at least" | "at most"
+SOP := "largest" | "most" | "smallest" | "least"     // Superlative operators
 DIR := "forward" | "backward"                        // Edge direction in the graph
 
 ---
@@ -62,7 +65,7 @@ Evaluate the Candidate holistically across these dimensions:
 1. **Well-formedness & AST Grammar Compliance:**
    - The output must be a valid ASCII Abstract Syntax Tree with `S` as the root.
    - It must correctly use `├── ` and `└── ` branches.
-   - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Value`, `Qualifier`) MUST have exactly three children: the opening tag (e.g., `├── "<C>"`), the string value, and the closing tag (e.g., `└── "</C>"`).
+   - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST have exactly three children: the opening tag (e.g., `├── "<C>"`), the string value, and the closing tag (e.g., `└── "</C>"`). For `Value`, if it includes a `VTYPE`, it will have four children (e.g., `├── "year"`, `├── "<V>"`, `├── "2004"`, `└── "</V>"`).
    - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent `EntitySet` node must wrap its children with `"<ES>"` and `"</ES>"`.
 
 2. **Semantic Faithfulness & Intent:**

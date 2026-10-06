@@ -23,7 +23,7 @@ Your task is to first formulate the query in Representation 1, and then return O
 
 **Step 3. Convert to Representation 2 (ASCII AST) & Shape Results**
 *   **Parse Tree Boundaries (CRITICAL)**: In the AST representation, terminal nodes like Concepts, Entities, Relations, Attributes, Qualifiers, and Values are represented as XML tags (e.g., `<C>`). You MUST wrap these elements with their corresponding XML tags.
-    *   **Terminal Node Triplet Rule**: Whenever you declare a `Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`, or `Value`, it MUST have exactly three children: `├── "<TAG>"`, `├── "[Name]"`, and `└── "</TAG>"`.
+    *   **Terminal Node Formatting Rule**: Terminal nodes like `Concept`, `Entity`, `Relation`, `Attribute`, and `Qualifier` MUST have exactly three children: `├── "<TAG>"`, `├── "[Name]"`, and `└── "</TAG>"`. For `Value`, if it includes a `VTYPE`, it will naturally have four children (e.g., `├── "year"`, `├── "<V>"`, `├── "2004"`, `└── "</V>"`).
     *   **Constraint Wrapping Rule**: Whenever an `EntitySet` is modified by a `Constraint`, the parent `EntitySet` MUST wrap its children with XML tags: `├── "<ES>"`, the base `EntitySet`/`Concept`, the `Constraint`, and `└── "</ES>"`.
 
 ---
@@ -31,7 +31,7 @@ Your task is to first formulate the query in Representation 1, and then return O
 ## GRAMMAR
 
 // The root of a GraphQ IR sequence must be one of the supported query types
-S := EntityQuery | AttributeQuery | RelationQuery | QualifierQuery | CountQuery | VerifyQuery | ValueQuery
+S := EntityQuery | AttributeQuery | RelationQuery | QualifierQuery | CountQuery | VerifyQuery | ValueQuery | SelectQuery
 
 // Query type definitions mapping to their expected return structures
 EntityQuery := "what is" EntitySet
@@ -41,20 +41,22 @@ QualifierQuery := "what is the qualifier" Qualifier "of" EntitySet Constraint
 CountQuery := "how many" EntitySet
 VerifyQuery := "whether" EntitySet Constraint
 ValueQuery := "what is" Value
+SelectQuery := "which one has the" SOP Attribute "among" EntitySet
 
 // EntitySet represents a collection of nodes in the graph
 EntitySet := "<ES>" EntitySet LOP EntitySet "</ES>"    // Logical operation between two sets
+           | "<ES>" EntitySet "(" EntitySet ")" "</ES>" // Intersection between two sets using parentheses
            | "<ES>" EntitySet Constraint "</ES>"     // A set filtered by a constraint
-           | "<ES>" Concept EntitySet "</ES>"        // A set filtered by a concept
-           | Concept | Entity | "ones"             // Terminal nodes (ones = anonymous/blank node)
+           | "<ES>" Concept EntitySet? "</ES>"       // A set filtered by a concept (EntitySet is optional)
+           | Concept | Entity | "ones" | "entities"  // Terminal nodes (ones/entities = anonymous/blank node)
 
 // Constraints filter an EntitySet by its attributes or relations
 Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
 
 // Specific constraint types
-AttributeConstraint := "whose" Attribute COP Value | "that" "have" SOP Attribute
-RelationConstraint := "that" Relation DIR "to" (COP Value?)? EntitySet | "that" Relation DIR "to" SOP EntitySet
-QualifierConstraint := Qualifier COP Value
+AttributeConstraint := "whose" Attribute COP Value | "that" "have" ("top" "[number]")? SOP Attribute
+RelationConstraint := "that" Relation DIR "to" (COP Value?)? EntitySet | "that" Relation DIR "to" ("top" "[number]")? SOP EntitySet
+QualifierConstraint := "(" Qualifier COP Value ")"   // Qualifier constraints must be wrapped in parentheses
 
 // Terminal nodes wrapped in explicit XML tags
 Concept := "<C>" [name] "</C>"
@@ -63,16 +65,17 @@ Relation := "<R>" [name] "</R>"
 Attribute := "<A>" [name] "</A>"
 Qualifier := "<Q>" [name] "</Q>"
 
-// Values can be aggregates, attributes, or literals with a specific type
+// Values can be aggregates, attributes, literals with a specific type, or logical unions
 Value := VTYPE "<V>" Literal "</V>"                  // (VTYPE can be "numeric", "string", "date", "year", "time", "month")
+       | Value "or" Value                            // Logical union between values
        | VOP "of" Value                              // Aggregation over a value
        | Attribute "of" EntitySet                    // Extraction of an attribute from a set
 
 // Operators defining logic, aggregation, comparison, superlatives, and direction
 LOP := "and" | "or" | "not"                          // Logical operators
 VOP := "sum" | "average" | "maximum" | "minimum"     // Value operators (Aggregations)
-COP := "is" | "is not" | "larger than" | "smaller than" | "at least" | "at most"  // Comparison operators
-SOP := "largest" | "smallest"                        // Superlative operators
+COP := "is" | "equal to" | "is not" | "not equal to" | "larger than" | "more than" | "smaller than" | "less than" | "at least" | "at most"
+SOP := "largest" | "most" | "smallest" | "least"     // Superlative operators
 DIR := "forward" | "backward"                        // Edge direction in the graph
 
 ---
@@ -167,27 +170,26 @@ Representation 1: whether <E> London </E> that <R> capital </R> forward to <E> F
 S
 └── VerifyQuery
     ├── "whether"
-    └── Verify
-        ├── EntitySet
-        │   └── Entity
-        │       ├── "<E>"
-        │       ├── "London"
-        │       └── "</E>"
-        └── Constraint
-            └── RelationConstraint
-                ├── "that"
-                ├── Relation
-                │   ├── "<R>"
-                │   ├── "capital"
-                │   └── "</R>"
-                ├── DIR
-                │   └── "forward"
-                ├── "to"
-                └── EntitySet
-                    └── Entity
-                        ├── "<E>"
-                        ├── "France"
-                        └── "</E>"
+    ├── EntitySet
+    │   └── Entity
+    │       ├── "<E>"
+    │       ├── "London"
+    │       └── "</E>"
+    └── Constraint
+        └── RelationConstraint
+            ├── "that"
+            ├── Relation
+            │   ├── "<R>"
+            │   ├── "capital"
+            │   └── "</R>"
+            ├── DIR
+            │   └── "forward"
+            ├── "to"
+            └── EntitySet
+                └── Entity
+                    ├── "<E>"
+                    ├── "France"
+                    └── "</E>"
 ```
 
 Input: How many awards did Marie Curie win?
@@ -283,6 +285,147 @@ S
         │               ├── "<E>"
         │               ├── "Japan"
         │               └── "</E>"
+        └── "</ES>"
+```
+
+Input: Friends of people who joined their jobs before 2005
+Output:
+<thinking>
+Representation 1: what is <ES> <ES> <C> person </C> </ES> that <R> friend </R> backward to <ES> <C> employee </C> <ES> ones whose <A> employment start date </A> at most year <V> 2004 </V> </ES> </ES> </ES>
+</thinking>
+```graphq_tree
+S
+└── EntityQuery
+    ├── "what is"
+    └── EntitySet
+        ├── "<ES>"
+        ├── EntitySet
+        │   ├── "<ES>"
+        │   ├── Concept
+        │   │   ├── "<C>"
+        │   │   ├── "person"
+        │   │   └── "</C>"
+        │   └── "</ES>"
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── "that"
+        │       ├── Relation
+        │       │   ├── "<R>"
+        │       │   ├── "friend"
+        │       │   └── "</R>"
+        │       ├── DIR
+        │       │   └── "backward"
+        │       ├── "to"
+        │       └── EntitySet
+        │           ├── "<ES>"
+        │           ├── Concept
+        │           │   ├── "<C>"
+        │           │   ├── "employee"
+        │           │   └── "</C>"
+        │           ├── EntitySet
+        │           │   ├── "<ES>"
+        │           │   ├── EntitySet
+        │           │   │   └── "ones"
+        │           │   ├── Constraint
+        │           │   │   └── AttributeConstraint
+        │           │   │       ├── "whose"
+        │           │   │       ├── Attribute
+        │           │   │       │   ├── "<A>"
+        │           │   │       │   ├── "employment start date"
+        │           │   │       │   └── "</A>"
+        │           │   │       ├── COP
+        │           │   │       │   └── "at most"
+        │           │   │       └── Value
+        │           │   │           ├── VTYPE
+        │           │   │           │   └── "year"
+        │           │   │           ├── "<V>"
+        │           │   │           ├── "2004"
+        │           │   │           └── "</V>"
+        │           │   └── "</ES>"
+        │           └── "</ES>"
+        └── "</ES>"
+```
+
+Input: Which has less elevation above sea level, Rome that is the filming location of To Rome with Love or Lisbon which is the twinned administrative body of Santo Domingo?
+Output:
+<thinking>
+Representation 1: which one has the smallest <A> elevation above sea level </A> among <ES> <ES> <E> Rome </E> (<ES> ones that <R> filming location </R> backward to <E> To Rome with Love </E> </ES>) </ES> or <ES> <E> Lisbon </E> (<ES> ones that <R> twinned administrative body </R> backward to <E> Santo Domingo </E> </ES>) </ES> </ES>
+</thinking>
+```graphq_tree
+S
+└── SelectQuery
+    ├── "which one has the"
+    ├── SOP
+    │   └── "smallest"
+    ├── Attribute
+    │   ├── "<A>"
+    │   ├── "elevation above sea level"
+    │   └── "</A>"
+    ├── "among"
+    └── EntitySet
+        ├── "<ES>"
+        ├── EntitySet
+        │   ├── "<ES>"
+        │   ├── EntitySet
+        │   │   └── Entity
+        │   │       ├── "<E>"
+        │   │       ├── "Rome"
+        │   │       └── "</E>"
+        │   ├── "("
+        │   ├── EntitySet
+        │   │   ├── "<ES>"
+        │   │   ├── EntitySet
+        │   │   │   └── "ones"
+        │   │   ├── Constraint
+        │   │   │   └── RelationConstraint
+        │   │   │       ├── "that"
+        │   │   │       ├── Relation
+        │   │   │       │   ├── "<R>"
+        │   │   │       │   ├── "filming location"
+        │   │   │       │   └── "</R>"
+        │   │   │       ├── DIR
+        │   │   │       │   └── "backward"
+        │   │   │       ├── "to"
+        │   │   │       └── EntitySet
+        │   │   │           └── Entity
+        │   │   │               ├── "<E>"
+        │   │   │               ├── "To Rome with Love"
+        │   │   │               └── "</E>"
+        │   │   └── "</ES>"
+        │   ├── ")"
+        │   └── "</ES>"
+        ├── LOP
+        │   └── "or"
+        ├── EntitySet
+        │   ├── "<ES>"
+        │   ├── EntitySet
+        │   │   └── Entity
+        │   │       ├── "<E>"
+        │   │       ├── "Lisbon"
+        │   │       └── "</E>"
+        │   ├── "("
+        │   ├── EntitySet
+        │   │   ├── "<ES>"
+        │   │   ├── EntitySet
+        │   │   │   └── "ones"
+        │   │   ├── Constraint
+        │   │   │   └── RelationConstraint
+        │   │   │       ├── "that"
+        │   │   │       ├── Relation
+        │   │   │       │   ├── "<R>"
+        │   │   │       │   ├── "twinned administrative body"
+        │   │   │       │   └── "</R>"
+        │   │   │       ├── DIR
+        │   │   │       │   └── "backward"
+        │   │   │       ├── "to"
+        │   │   │       └── EntitySet
+        │   │   │           └── Entity
+        │   │   │               ├── "<E>"
+        │   │   │               ├── "Santo Domingo"
+        │   │   │               └── "</E>"
+        │   │   └── "</ES>"
+        │   ├── ")"
+        │   └── "</ES>"
         └── "</ES>"
 ```
 
