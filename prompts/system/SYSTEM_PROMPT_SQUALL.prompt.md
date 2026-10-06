@@ -14,7 +14,7 @@ The output must be:
 * **Imperative Extraction**: For single-variable queries, you may use "Give me [CLASS_PHRASE] .".
 * **Aggregation & Grouping**: Use "What is the [AGGREGATION] of..." or "How many [CLASS]...". To group results, append "per [CLASS]".
 * **Boolean (Yes/No) Strict Format**: Queries MUST start with the word "Whether...", or use standard subject-auxiliary inversion (e.g., "Does [RESOURCE]...").
-* **String Concatenation Rule**: To concatenate strings or group multiple outputs into a flat text format, use the syntax `Return concat(...) of/per [CLASS] ?`.
+* **String Concatenation Rule**: To concatenate strings or group multiple outputs into a flat text format, use the syntax `Return concat(...) of/per [CLASS] .`
 * **Updates/Insertions**: To assert new facts, formulate an affirmative sentence ending in a period.
 
 **Step 2. Prefix Specific Entities & Enforce Semantic Boundaries**
@@ -58,12 +58,12 @@ QUESTION := 'Which' CLASS_PHRASE PREDICATE_PHRASE                             //
           | 'Every' CLASS_NAME 'of which' CLASS_PHRASE PREDICATE_PHRASE       // Universal quantification
           | QUESTION 'in graph' RESOURCE                                      // Targeting specific Named Graphs
           | 'In which graph' (RESOURCE | CLASS_PHRASE) PREDICATE_PHRASE       // Querying graph provenance
-          | 'Return concat(' CONCAT_ARGS ')' ('of' | 'per') CLASS_PHRASE      // String concatenation results
 
 // Action and command structures
-IMPERATIVE_QUERY := 'Give me' CLASS_PHRASE ('in graph' RESOURCE)? '.'
+IMPERATIVE_QUERY := ('Give me' | 'Return') CLASS_PHRASE ('in graph' RESOURCE)? '.'
+                  | 'Return concat(' CONCAT_ARGS ')' ('of' | 'per') CLASS_PHRASE '.' // String concatenation results
 DESCRIBE_QUERY := 'Describe' (RESOURCE | CLASS_PHRASE) ('in graph' RESOURCE)? '.'
-CONSTRUCT_LITERAL := 'For every' CLASS_PHRASE 'and every' CLASS_PHRASE ','? 'if' VARIABLE 'relates' VARIABLE 'to' VARIABLE ','? 'return {' ASSERTION '}'
+CONSTRUCT_LITERAL := 'For every' CLASS_PHRASE ('and every' CLASS_PHRASE)* ','? ('if' VARIABLE 'relates' VARIABLE 'to' VARIABLE ',')? 'return that' ASSERTION
 
 // Asserting new facts in the knowledge base
 UPDATE := ASSERTION | ASSERTION UPDATE
@@ -84,12 +84,15 @@ CONCAT_ARGS := ('the' PROPERTY | STRING) (',' ('the' PROPERTY | STRING))*
 // Predicates defining the relationship to other entities or literal values
 PREDICATE_PHRASE := 'maybe'? VERB ('+'|'*'|'?')? (RESOURCE | VARIABLE | CLASS_PHRASE)       // Verbal relations, with optional path closures
                   | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? (PROPERTY | MATH_EXPRESSION) ('greater than' | 'less than' | 'equal to' | 'greater than or equal to' | 'less than or equal to') (VALUE | AGGREGATION_PHRASE) // Numeric comparisons
-                  | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? PROPERTY (RESOURCE | VARIABLE | CLASS_PHRASE)  // Property relations
+                  | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? (PROPERTY | MATH_EXPRESSION) 'between' VALUE 'and' VALUE
+                  | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? PROPERTY (RESOURCE | VARIABLE | CLASS_PHRASE | COLLECTION_PATTERN)  // Property relations
                   | 'maybe'? ('has' | 'have') ('not' | 'no')? CLASS_PHRASE
                   | 'maybe'? ('has' | 'have') AGGREGATION_PHRASE
                   | (PROPERTY | MATH_EXPRESSION)? ('is' | 'are') ('not')? ('greater than' | 'less than' | 'equal to' | 'greater than or equal to' | 'less than or equal to') (VALUE | AGGREGATION_PHRASE)
+                  | (PROPERTY | MATH_EXPRESSION)? ('is' | 'are') ('not')? 'between' VALUE 'and' VALUE
                   | PROPERTY? ('is' | 'are') ('not')? (RESOURCE | VARIABLE | CLASS_PHRASE | 'the' ORDINAL)
                   | ('greater than' | 'less than' | 'equal to' | 'greater than or equal to' | 'less than or equal to') (VALUE | AGGREGATION_PHRASE)
+                  | 'between' VALUE 'and' VALUE
                   | ('does not' | 'has not') VERB (RESOURCE | VARIABLE | CLASS_PHRASE)
                   | 'starts with' STRING | 'ends with' STRING | 'contains' STRING           // String filters
                   | PREDICATE_PHRASE ('and' | 'or') PREDICATE_PHRASE                        // Logical connectives
@@ -113,6 +116,8 @@ VARIABLE := '?' CHAR (e.g., ?X, ?Y, ?P)
 VALUE := NUMBER | STRING | STRING'^^xsd:date'
 QUANTIFIER := 'a' | 'every' | 'no' | 'some' | 'at least' NUMBER | 'the most' | 'the'
 ORDINAL := NUMBER ('st' | 'nd' | 'rd' | 'th') (e.g., 2nd, 5th)
+COLLECTION_PATTERN := '[' COLLECTION_ELEMENT (',' COLLECTION_ELEMENT)* ']'
+COLLECTION_ELEMENT := RESOURCE | VARIABLE | 'who' | 'what' | '...' | '_'
 
 ---
 
@@ -121,7 +126,7 @@ ORDINAL := NUMBER ('st' | 'nd' | 'rd' | 'th') (e.g., 2nd, 5th)
 Input: Give me the concatenated first and last names of all authors of Paper42.
 Output:
 ```squall
-Return concat(the firstname, " ", the lastname) of all author-s of res:Paper42 ?
+Return concat(the firstname, " ", the lastname) of all author-s of res:Paper42 .
 ```
 
 Input: Which employees have a net income (gross salary minus tax) of more than 50000?
