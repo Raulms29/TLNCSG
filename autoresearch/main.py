@@ -74,18 +74,26 @@ def main():
 
     # Handle the --reset flag by archiving previous files
     if args.reset:
-        run_timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_timestamp_str = ""
         if os.path.exists(log_path):
             try:
                 with open(log_path, "r", encoding="utf-8") as f:
                     logs = json.load(f)
-                    if logs and isinstance(logs, list) and "timestamp" in logs[0]:
-                        first_ts = logs[0]["timestamp"]
-                        # Convert ISO format to compact string
-                        dt = datetime.fromisoformat(first_ts)
-                        run_timestamp_str = dt.strftime("%Y%m%d_%H%M%S")
+                    if logs and isinstance(logs, list):
+                        if "results_file" in logs[0] and logs[0]["results_file"]:
+                            parts = logs[0]["results_file"].replace("\\", "/").split("/")
+                            for p in parts:
+                                if p.startswith("run_"):
+                                    run_timestamp_str = p[4:]
+                                    break
+                        if not run_timestamp_str and "timestamp" in logs[0]:
+                            first_ts = logs[0]["timestamp"]
+                            dt = datetime.fromisoformat(first_ts)
+                            run_timestamp_str = dt.strftime("%Y%m%d_%H%M%S")
             except Exception:
-                pass  # fallback to current time
+                pass
+        if not run_timestamp_str:
+            run_timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         archive_dir = str(AUTORESEARCH_DIR / "archive" / f"run_{run_timestamp_str}")
         files_to_move = []
@@ -106,8 +114,8 @@ def main():
 
     # 1. Initialize Storage layers
     prompt_store = PromptStore(
-        generator_prompt_path=config["paths"]["generator_prompt"],
-        prompts_dir=config["paths"]["prompts_dir"],
+        generator_prompt_path=str(AUTORESEARCH_DIR / config["paths"]["generator_prompt"]),
+        prompts_dir=prompts_dir,
     )
 
     logger = ExperimentLogger(log_path)
@@ -163,12 +171,19 @@ def main():
     # Establish a persistent run timestamp for the current active execution
     # If we have history, we might want to continue appending to the same folder.
     run_timestamp_str = ""
-    if history and isinstance(history, list) and history[0].timestamp:
-        try:
-            dt = datetime.fromisoformat(history[0].timestamp)
-            run_timestamp_str = dt.strftime("%Y%m%d_%H%M%S")
-        except Exception:
-            pass
+    if history and isinstance(history, list):
+        if hasattr(history[0], "results_file") and history[0].results_file:
+            parts = history[0].results_file.replace("\\", "/").split("/")
+            for p in parts:
+                if p.startswith("run_"):
+                    run_timestamp_str = p[4:]
+                    break
+        if not run_timestamp_str and hasattr(history[0], "timestamp") and history[0].timestamp:
+            try:
+                dt = datetime.fromisoformat(history[0].timestamp)
+                run_timestamp_str = dt.strftime("%Y%m%d_%H%M%S")
+            except Exception:
+                pass
     if not run_timestamp_str:
         run_timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -273,13 +288,9 @@ def main():
 
         # 1. Invoke Optimizer to propose refinements
         print("Calling Optimizer Agent to refine instructions...")
-        current_prompt = assembler.assemble_prompt(prefix, champion_instructions, suffix)
-        base_prompt_reference = assembler.remove_grammar(current_prompt)
         try:
             new_instructions, rationale = optimizer.optimize_instructions(
-                current_instructions=champion_instructions,
-                base_prompt_reference=base_prompt_reference,
-                failures=active_failures
+                current_instructions=champion_instructions, failures=active_failures
             )
         except Exception as e:
             print(

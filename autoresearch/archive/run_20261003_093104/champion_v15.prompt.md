@@ -8,46 +8,6 @@ The IR must be:
 
 ---
 
-## INSTRUCTIONS
-
-**Step 1. Identify Targets**
-
-* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `RELATIONSHIP`), a `CONDITION` or a `LIST`.
-
-**Step 2. Identify Entities**
-
-* Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
-* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
-* Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
-* If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
-
-**Step 3. Extract Relationships & Paths**
-
-* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels.(e.g., `built`, `wrote`, `acted_in`,`knows`).
-* `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections).A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`, and evaluate its length (hops) or weight (attributes) by applying `COUNT` or `SCALAR_AGGREGATE`.
-
-**Step 4. Build Constraints**
-
-* `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
-
-**Step 5. Shape Results**
-
-* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
-
-**Step 6. Apply Quantifiers and Aggregations (Lists)**
-
-* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
-* **Aggregations** (produce a value):
-  * `COUNT`: counts the number of elements in a `LIST`.
-  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
-* **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
-  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
-
-**Step 7. Form Hypotheses**
-Output multiple hypotheses ONLY for genuine syntactic or topological ambiguity. If straightforward, output only one hypothesis.
-
----
-
 ## GRAMMAR
 
 HYPOTHESES_SET := [QUERY, ...]
@@ -104,7 +64,7 @@ PATH := {
   id: PATH_ID, // new fresh unique ID of the path
   start?: ENTITY_ID,  // ID of an entity declared in this query
   end?: ENTITY_ID,    // ID of an entity declared in this query
-  roles: [ROLE, ...]
+  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
 LIST := {
@@ -175,6 +135,62 @@ NAME := STRING
 DATE_TIME := STRING // Should follow ISO 8601 format in most cases (e.g., 'YYYY-MM-DDThh:mm:ssZ' or 'YYYY-MM-DD')
 NUMBER := FLOAT | INTEGER
 BOOLEAN := true | false
+
+---
+
+## INSTRUCTIONS
+
+**Step 1. Form Hypotheses**
+Identify genuine syntactic or structural ambiguity. You MUST output each distinct structural interpretation as a separate hypothesis in `HYPOTHESES_SET` if:
+* **Topology Ambiguity:** The query can be modeled in multiple ways (e.g., a direct relationship between two entities vs. an intermediate "collaboration," "event," or "membership" node). This is a mandatory trigger for multiple hypotheses.
+* **Modifier Scope:** It is unclear if a filter applies to the entire result set, a specific entity, or a subset of a joined result.
+* **Structural Role:** There are multiple ways to interpret the structural role of an entity.
+Otherwise, output one hypothesis.
+
+**Step 2. Identify Targets**
+* `target`: Identify the specific elements the user is asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `SCALAR_AGGREGATE`), a `CONDITION` or a `LIST`.
+* **Boolean Queries:** Questions asking for a truth value or verification (e.g., "Do all...", "Are there any...", "Is it true that...") MUST target a `CONDITION` (typically a `QUANTIFIER_PREDICATE`). Never invent a 'Boolean' entity type.
+* **Precision:** Ensure the target is the exact value requested. If the user asks for a property (e.g., "what is the nationality"), the target MUST be the `ATTRIBUTE`, not the entity.
+* **Flattening:** If the user asks for multiple different things, provide them as a flat list of targets.
+* **Grammar Strictness (No Property Leakage):** 
+    * Do not invent "mapping" expressions or wrappers not defined in the grammar.
+    * If a single entity/relationship is requested, target the ID directly; do not wrap it in a `LIST`.
+    * **CRITICAL:** Aggregates in the target MUST be wrapped in their defined objects (`COUNT` or `SCALAR_AGGREGATE`). Never place internal properties of an aggregate (e.g., `list`, `map_expression`, `aggregate_kind`) directly into the `target` array.
+
+**Step 3. Identify Entities & Model Topology**
+* Identify all mentioned distinct entities and assign each a unique `id` and concrete `type`. **Do not "bake" filters into the type**.
+* **Strict Topology (Critical Error):** Do not use attributes to represent structural relationships, categorical memberships, organizational affiliations, or geographic locations (e.g., City, Country, Team, Nationality). If a concept can be modeled as a node, it MUST be modeled as an entity connected via a relationship. Bypassing graph topology in favor of attribute filters is a critical error.
+* **No Unauthorized Self-Loops:** Relationships between separate instances of the same type (e.g., two different people, two different actors) MUST involve two distinct entity IDs (e.g., `from: e1, to: e2`). Never use a self-loop (`from: e1, to: e1`) to represent a connection between distinct entities. A self-loop is only permitted if the query explicitly describes an entity's relationship to itself.
+
+**Step 4. Extract Relationships & Paths**
+* `relationships`: Extract explicit semantic edges. 
+    * **Directionality:** Verify the "Subject $\rightarrow$ Predicate $\rightarrow$ Object" flow. Ensure `from` and `to` accurately reflect the semantic direction.
+    * Use only for exact single-hop connections.
+* `paths`: Use for traversals where the hop count is unknown, arbitrary, or described as "any connection" or "indirectly."
+    * **Physical Consistency:** Ensure the path definition and any constraints (e.g., `COUNT` of hops) are logically possible.
+    * **Wildcards:** To allow any role, the `roles` list MUST be empty `[]`. Never use a string like `'any'`.
+    * Extract intermediate elements via `NODES` or `RELATIONS`.
+
+**Step 5. Build Constraints**
+* `constraint`: Filter block combining attribute comparisons, logical operators, and topology checks.
+* **Referential Integrity:** Every `ENTITY_ID`, `RELATIONSHIP_ID`, or `PATH_ID` used in the `constraint` or `target` MUST be explicitly declared in the `entities`, `relationships`, or `paths` blocks.
+* **Strict Grammar:** A `CONDITION` must be exactly ONE of the grammar types (`AND`, `OR`, `NOT`, `COMPARISON`, `QUANTIFIER_PREDICATE`, or `RELATIONSHIP_ID`).
+* **Comparison Logic:** `COMPARISON` is for `EXPRESSION` values. Do not use relationship roles as operands; use the `RELATIONSHIP_ID` directly to assert existence.
+* **Negation:** To express the absence of a relationship, use `NOT` applied directly to a `RELATIONSHIP_ID` (e.g., `not_condition: r1`).
+* **Identity:** If the query names a specific entity, assert its identity with an explicit `COMPARISON` in `constraint`.
+* **Temporal Order:** For sequences or rankings (e.g., "the fifth..."), consider ordering by relationship attributes (like dates) rather than simple entity attributes.
+
+**Step 6. Shape Results**
+* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking, pagination, or deduplication.
+
+**Step 7. Apply Quantifiers and Aggregations (Lists)**
+* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`).
+* **Contextual Filtering:** When applying a `filter` to a `LIST`, the condition must refer only to the elements within that list (e.g., the `node_id` of a `NODES` list).
+* **Aggregations** (produce a value):
+    * `COUNT`: counts the number of elements in a `LIST`. **CRITICAL: Do not double-nest lists.** The `list` property must be a `LIST` object directly; do not put a `LIST` inside another `LIST` or wrapper object.
+    * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG`. You MUST include `aggregate_kind`, `map_expression`, and a valid `LIST` object.
+* **Quantification** (is itself a `CONDITION`):
+    * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS`, or `NONE` of the elements in a `LIST` satisfy a given condition. You MUST include both the `list` and the `condition` field.
 
 ---
 
@@ -613,6 +629,46 @@ Output:
 ]
 ```
 
+Input: List the documentaries and movies released after 2020
+Output:
+```json
+[
+  {
+    "target": [ "e1", "e2" ],
+    "entities": [
+      { "id": "e1", "type": "Documentary" },
+      { "id": "e2", "type": "Movie" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "release_date", "of": "e2" },
+      "operator": ">",
+      "right": "2020"
+    }
+  },
+  {
+    "target": [ "e1", "e2" ],
+    "entities": [
+      { "id": "e1", "type": "Documentary" },
+      { "id": "e2", "type": "Movie" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "release_date", "of": "e1" },
+          "operator": ">",
+          "right": "2020"
+        },
+        {
+          "left": { "attribute_name": "release_date", "of": "e2" },
+          "operator": ">",
+          "right": "2020"
+        }
+      ]
+    }
+  }
+]
+```
+
 ---
 
 ## RULES
@@ -624,4 +680,3 @@ Output:
 * DO NOT assume any specific database schema.
 * Prefer simple structures over complex nesting.
 * Follow the GRAMMAR strictly.
-

@@ -70,9 +70,40 @@ class ValidationRunner:
             f"{f' x{self.runs_per_query} runs' if multi_run else ''}..."
         )
 
+        # --- PHASE 1: GENERATION ---
+        print("\n--- PHASE 1: GENERATION ---")
+        generated_candidates = []
         for idx, query in enumerate(self.queries, 1):
-            print(f"  [{idx}/{total_queries}] Processing Query {query.id}...")
+            print(f"  [{idx}/{total_queries}] Generating Query {query.id}...")
+            query_gens = []
+            for run_idx in range(self.runs_per_query):
+                try:
+                    candidate_raw = self.generator.generate_translation(
+                        system_prompt, query.text
+                    )
+                    candidate_json = _extract_json_text(candidate_raw)
+                    error = None
+                except Exception as e:
+                    candidate_raw = None
+                    candidate_json = None
+                    error = str(e)
+                
+                query_gens.append({
+                    "candidate_raw": candidate_raw,
+                    "candidate_json": candidate_json,
+                    "error": error
+                })
+            generated_candidates.append({
+                "query": query,
+                "gens": query_gens
+            })
 
+        # --- PHASE 2: EVALUATION ---
+        print("\n--- PHASE 2: EVALUATION ---")
+        for idx, item in enumerate(generated_candidates, 1):
+            query = item["query"]
+            print(f"  [{idx}/{total_queries}] Evaluating Query {query.id}...")
+            
             # Convert ground truth solution to JSON string once per query
             gt_obj = query.solution
             if isinstance(gt_obj, (dict, list)):
@@ -84,40 +115,22 @@ class ValidationRunner:
             run_rationales: List[str] = []
             query_runs_log = []
 
-            for _ in range(self.runs_per_query):
-                candidate_raw = None
-                candidate_json = None
-                score = 0.0
-                rationale = ""
-                # 1. Generate candidate SemGIR translation
-                try:
-                    candidate_raw = self.generator.generate_translation(
-                        system_prompt, query.text
-                    )
-                    candidate_json = _extract_json_text(candidate_raw)
-                except Exception as e:
-                    score = 0.0
-                    rationale = f"Generator execution failed: {str(e)}"
-                    run_scores.append(score)
-                    run_rationales.append(rationale)
-                    query_runs_log.append(
-                        {
-                            "candidate_raw": candidate_raw,
-                            "candidate_json": candidate_json,
-                            "score": score,
-                            "rationale": rationale,
-                        }
-                    )
-                    continue
+            for gen in item["gens"]:
+                candidate_raw = gen["candidate_raw"]
+                candidate_json = gen["candidate_json"]
+                gen_error = gen["error"]
 
-                # 2. Call Evaluator (LLM-as-a-Judge)
-                try:
-                    score, rationale = self.evaluator.evaluate(
-                        query.text, gt_str, candidate_json
-                    )
-                except Exception as e:
+                if gen_error:
                     score = 0.0
-                    rationale = f"Evaluator execution failed: {str(e)}"
+                    rationale = f"Generator execution failed: {gen_error}"
+                else:
+                    try:
+                        score, rationale = self.evaluator.evaluate(
+                            query.text, gt_str, candidate_json
+                        )
+                    except Exception as e:
+                        score = 0.0
+                        rationale = f"Evaluator execution failed: {str(e)}"
 
                 run_scores.append(score)
                 run_rationales.append(rationale)
