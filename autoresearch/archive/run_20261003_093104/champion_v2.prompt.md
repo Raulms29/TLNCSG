@@ -8,57 +8,6 @@ The IR must be:
 
 ---
 
-## INSTRUCTIONS
-
-**Step 1. Identify Targets**
-
-* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `RELATIONSHIP`), a `CONDITION` or a `LIST`.
-* **Reference Integrity:** Ensure any ID used in the `target` is explicitly declared in the `entities`, `relationships`, or `paths` blocks.
-
-**Step 2. Identify Entities**
-
-* Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
-* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
-* **Strict Topology:** Do NOT use string attributes for categorical or structural data. Model the following as separate entities connected via relationships: Locations (City, Country), Organizations (Team, Company), and Categories/Nationalities. 
-* Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
-* If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
-
-**Step 3. Extract Relationships & Paths**
-
-* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels. 
-* **Topology Logic:** 
-  * Attributes can be attached to either an entity or a relationship.
-  * **No Invalid Self-Loops:** Avoid self-loops (e.g., `from: e1, to: e1`). To represent a relationship "between" two or more people/objects, you must declare distinct entity IDs for each party involved.
-* `paths`: Use for traversals where the hop count is unknown or specifically defined. A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`. Ensure the path's structural definition is logically consistent with any `COUNT` constraints applied to it.
-
-**Step 4. Build Constraints**
-
-* `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. 
-* **Relationship as Condition:** A `RELATIONSHIP_ID` can appear directly as a `CONDITION` to assert that the edge must exist. It must be a standalone value in the condition tree; do not wrap it inside another object (like a comparison) unless it is a child of a logical operator (`AND`, `OR`, `NOT`) or a quantifier.
-* **Strict Grammar:** A `CONDITION` must be exactly one of the allowed types. Do not mix fields from different types in a single object (e.g., do not combine `and_conditions` and `operator` at the same level).
-
-**Step 5. Shape Results**
-
-* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking, pagination, or deduplication.
-* **Ordinality & Ranking:** To find a specific rank or ordinal element (e.g., "the top 3", "the fifth"), you MUST use `order_by` on the underlying value combined with `skip` and `limit`. Do NOT hallucinate "rank", "order", or "sequence" attributes.
-
-**Step 6. Apply Quantifiers and Aggregations (Lists)**
-
-* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
-* **Aggregations** (produce a value):
-  * `COUNT`: counts the number of elements in a `LIST`.
-  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG`. **Crucial:** The `list`, `map_expression`, and `aggregate_kind` must be sibling fields within the aggregate object. Never nest the `map_expression` or `aggregate_kind` inside the `list` object.
-* **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
-  * `QUANTIFIER_PREDICATE`: Must include both the `list` and the `condition` as sibling fields. Valid kinds are `ALL`, `EXISTS`, or `NONE`.
-
-**Step 7. Form Hypotheses**
-Output multiple hypotheses if there is genuine ambiguity in:
-1. **Entity Type:** (e.g., "Mice" could be `Animal` or `Computer Product`).
-2. **Modeling Pattern:** (e.g., a "Collaboration" could be a direct relationship between two people OR a separate `Collaboration` entity linked to both).
-If the query is straightforward, output only one hypothesis.
-
----
-
 ## GRAMMAR
 
 HYPOTHESES_SET := [QUERY, ...]
@@ -115,7 +64,7 @@ PATH := {
   id: PATH_ID, // new fresh unique ID of the path
   start?: ENTITY_ID,  // ID of an entity declared in this query
   end?: ENTITY_ID,    // ID of an entity declared in this query
-  roles: [ROLE, ...]
+  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
 LIST := {
@@ -186,6 +135,49 @@ NAME := STRING
 DATE_TIME := STRING // Should follow ISO 8601 format in most cases (e.g., 'YYYY-MM-DDThh:mm:ssZ' or 'YYYY-MM-DD')
 NUMBER := FLOAT | INTEGER
 BOOLEAN := true | false
+
+---
+
+## INSTRUCTIONS
+
+**Step 1. Form Hypotheses**
+Identify genuine syntactic or structural ambiguity (e.g., ambiguous scope of modifiers, multiple possible graph patterns). You MUST output each distinct interpretation as a separate hypothesis in `HYPOTHESES_SET`; otherwise, output one hypothesis.
+
+**Step 2. Identify Targets**
+
+* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `SCALAR_AGGREGATE`), a `CONDITION` or a `LIST`. Do not invent types (e.g., "Boolean") not defined in the grammar.
+
+**Step 3. Identify Entities**
+
+* Identify all mentioned distinct entities and assign each a unique `id`. 
+* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
+* **Avoid Self-Loops:** Do not link an entity to itself (`from: e1, to: e1`) unless the query explicitly describes a self-referential relationship. Relationships between different people/objects must involve distinct entity IDs.
+
+**Step 4. Extract Relationships & Paths**
+
+* `relationships`: Extract explicit semantic edges. Ensure the `from` and `to` directionality accurately reflects the semantic flow of the relationship. Use only for exact single-hop connections.
+* `paths`: Use for traversals where the hop count is unknown or arbitrary (e.g., "any connection," "reachability," "chains"). A `PATH` spans multiple hops. Extract intermediate elements via `NODES` or `RELATIONS`.
+
+**Step 5. Build Constraints**
+
+* `constraint`: Filter block combining attribute comparisons, logical operators, and topology checks.
+  * **Topology over Attributes:** Do not use attributes to represent structural relationships (e.g., use a 'Country' entity and 'king_of' relationship instead of a 'kingdom' attribute on a 'King' entity).
+  * **Strict Grammar:** A `CONDITION` must be exactly ONE of the grammar types (`AND`, `OR`, `NOT`, `COMPARISON`, `QUANTIFIER_PREDICATE`, or `RELATIONSHIP_ID`). Do not mix different condition types at the same level; use `AND` or `OR` to nest them.
+  * **Identity:** If the query names a specific entity, assert its identity with an explicit `COMPARISON` in `constraint`.
+  * **Temporal Order:** For sequences or rankings (e.g., "the fifth..."), consider ordering by relationship attributes (like dates) rather than simple entity attributes.
+
+**Step 6. Shape Results**
+
+* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
+
+**Step 7. Apply Quantifiers and Aggregations (Lists)**
+
+* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
+* **Aggregations** (produce a value):
+  * `COUNT`: counts the number of elements in a `LIST`. Ensure `list` is not double-nested.
+  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG`. You MUST include `map_expression` to specify the attribute to extract from each element.
+* **Quantification** (is itself a `CONDITION`):
+  * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS`, or `NONE` of the elements in a `LIST` satisfy a given condition. You MUST include both the `list` and the `condition` field.
 
 ---
 
@@ -624,6 +616,46 @@ Output:
 ]
 ```
 
+Input: List the documentaries and movies released after 2020
+Output:
+```json
+[
+  {
+    "target": [ "e1", "e2" ],
+    "entities": [
+      { "id": "e1", "type": "Documentary" },
+      { "id": "e2", "type": "Movie" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "release_date", "of": "e2" },
+      "operator": ">",
+      "right": "2020"
+    }
+  },
+  {
+    "target": [ "e1", "e2" ],
+    "entities": [
+      { "id": "e1", "type": "Documentary" },
+      { "id": "e2", "type": "Movie" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "release_date", "of": "e1" },
+          "operator": ">",
+          "right": "2020"
+        },
+        {
+          "left": { "attribute_name": "release_date", "of": "e2" },
+          "operator": ">",
+          "right": "2020"
+        }
+      ]
+    }
+  }
+]
+```
+
 ---
 
 ## RULES
@@ -635,4 +667,3 @@ Output:
 * DO NOT assume any specific database schema.
 * Prefer simple structures over complex nesting.
 * Follow the GRAMMAR strictly.
-

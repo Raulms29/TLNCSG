@@ -62,14 +62,3 @@ class PromptAssembler:
         # Build prompt
         assembled = f"{prefix_clean}\n\n## INSTRUCTIONS\n\n{instructions_clean}\n\n{suffix_clean}"
         return assembled
-
-    def remove_grammar(self, full_prompt_content: str) -> str:
-        """
-        Removes the ## GRAMMAR section from the prompt to provide a concise reference.
-        """
-        return re.sub(
-            r"##\s*GRAMMAR\s*[\s\S]*?(?=##\s*INSTRUCTIONS)", 
-            "", 
-            full_prompt_content, 
-            flags=re.IGNORECASE
-        )

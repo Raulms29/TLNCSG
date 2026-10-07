@@ -6,14 +6,13 @@ Your task is to refine the `## INSTRUCTIONS` section of a semantic parser system
 ## YOUR ROLE
 
 You receive:
-1. The **Base Prompt Reference** — the original full prompt, excluding the grammar section, provided for context.
-2. The **current `## INSTRUCTIONS` block** — the active parsing guidelines given to the generator model.
-3. A list of **recently rejected instruction attempts** — previous modifications that did not improve the score. Do not repeat them.
-4. A **failures log** — a list of queries that the generator couldn't parse correctly, each described by:
+1. The **current `## INSTRUCTIONS` block** — the active parsing guidelines given to the generator model.
+2. A list of **recently rejected instruction attempts** — previous modifications that did not improve the score. Do not repeat them.
+3. A **failures log** — a list of queries that the generator couldn't parse correctly, each described by:
    - A `Query ID`.
    - `Tested Grammatical Features` — the SemGIR constructs exercised by that query.
-   - `Evaluator Score` — a value between 0 and 1 indicating how poorly the generator performed on this query (0 is worst, 1 is perfect).
-   - `Evaluator Rationale` — a structural description of what the generator did wrong.
+   - `Evaluator Score` — average value between 0 and 1 indicating how poorly the generator performed on this query over several executions(0 is worst, 1 is perfect).
+   - `Evaluator Rationale` — a structural description of what the generator did wrong on the worst-performing execution of that query.
 
 ---
 
