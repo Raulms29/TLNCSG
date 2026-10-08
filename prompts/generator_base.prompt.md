@@ -409,7 +409,7 @@ Output:
       { "id": "e2", "type": "Article" }
     ],
     "paths": [
-      { "id": "p1", "start": "e1", "end": "e2", "roles": ["any"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": [] }
     ],
     "constraint": {
       "and_conditions": [
