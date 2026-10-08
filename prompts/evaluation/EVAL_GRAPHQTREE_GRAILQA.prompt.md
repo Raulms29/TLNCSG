@@ -89,6 +89,184 @@ Evaluate the Candidate holistically across these dimensions:
 
 ---
 
+## EXAMPLES
+
+=== EXAMPLE 1: PERFECT MATCH (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the movies directed by Eastwood."
+
+[GROUND TRUTH LISP]
+(AND film.film (JOIN (R film.director.film) m.eastwood))
+
+[CANDIDATE AST]
+S
+└── EntityQuery
+    ├── "what is"
+    └── EntitySet
+        ├── "<ES>"
+        ├── EntitySet
+        │   └── Concept
+        │       ├── "<C>"
+        │       ├── "movie"
+        │       └── "</C>"
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── "that"
+        │       ├── Relation
+        │       │   ├── "<R>"
+        │       │   ├── "director"
+        │       │   └── "</R>"
+        │       ├── DIR
+        │       │   └── "forward"
+        │       ├── "to"
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── "<E>"
+        │               ├── "Eastwood"
+        │               └── "</E>"
+        └── "</ES>"
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly structures the relational constraint and matches the entity. The semantic graph traversal perfectly mirrors the Ground Truth LISP's JOIN and constraints.",
+  "correct": true
+}
+```
+
+=== EXAMPLE 2: DIRECTIONALITY MISMATCH (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the movies directed by Eastwood."
+
+[GROUND TRUTH LISP]
+(AND film.film (JOIN (R film.director.film) m.eastwood))
+
+[CANDIDATE AST]
+S
+└── EntityQuery
+    ├── "what is"
+    └── EntitySet
+        ├── "<ES>"
+        ├── EntitySet
+        │   └── Concept
+        │       ├── "<C>"
+        │       ├── "movie"
+        │       └── "</C>"
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── "that"
+        │       ├── Relation
+        │       │   ├── "<R>"
+        │       │   ├── "director"
+        │       │   └── "</R>"
+        │       ├── DIR
+        │       │   └── "backward"
+        │       ├── "to"
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── "<E>"
+        │               ├── "Eastwood"
+        │               └── "</E>"
+        └── "</ES>"
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate uses a 'backward' direction on the relation from the movie to Eastwood, but the semantic relationship logically requires a 'forward' traversal to match the Ground Truth LISP. The structural directionality is flawed.",
+  "correct": false
+}
+```
+
+=== EXAMPLE 3: INCORRECT QUERY TYPE (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Tell me whether the actors of Matrix are taller than 160 cm."
+
+[GROUND TRUTH LISP]
+(AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
+
+[CANDIDATE AST]
+S
+└── EntityQuery
+    ├── "what is"
+    └── EntitySet
+        ├── "<ES>"
+        ├── EntitySet
+        │   └── Concept
+        │       ├── "<C>"
+        │       ├── "actor"
+        │       └── "</C>"
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── "that"
+        │       ├── Relation
+        │       │   ├── "<R>"
+        │       │   ├── "actor"
+        │       │   └── "</R>"
+        │       ├── DIR
+        │       │   └── "backward"
+        │       ├── "to"
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── "<E>"
+        │               ├── "Matrix"
+        │               └── "</E>"
+        └── "</ES>"
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Ground Truth LISP is a boolean evaluation, but the Candidate hallucinates an EntityQuery (extraction) instead of using a VerifyQuery. It also completely misses the height > 160 constraint.",
+  "correct": false
+}
+```
+
+=== EXAMPLE 4: MISSING CONSTRAINT (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Tell me whether the actors of Matrix are taller than 160 cm."
+
+[GROUND TRUTH LISP]
+(AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
+
+[CANDIDATE AST]
+S
+└── VerifyQuery
+    ├── "whether"
+    └── EntitySet
+        ├── "<ES>"
+        ├── EntitySet
+        │   └── Concept
+        │       ├── "<C>"
+        │       ├── "actor"
+        │       └── "</C>"
+        ├── Constraint
+        │   └── RelationConstraint
+        │       ├── "that"
+        │       ├── Relation
+        │       │   ├── "<R>"
+        │       │   ├── "actor"
+        │       │   └── "</R>"
+        │       ├── DIR
+        │       │   └── "backward"
+        │       ├── "to"
+        │       └── EntitySet
+        │           └── Entity
+        │               ├── "<E>"
+        │               ├── "Matrix"
+        │               └── "</E>"
+        └── "</ES>"
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "While the Candidate correctly identifies the VerifyQuery and the relation to Matrix, it fails to include the AttributeConstraint for height > 160 cm that is clearly present in the Ground Truth LISP.",
+  "correct": false
+}
+```
+
 ## OUTPUT FORMAT
 
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:

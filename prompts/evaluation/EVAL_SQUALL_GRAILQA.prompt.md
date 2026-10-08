@@ -72,9 +72,9 @@ AGGREGATION_PHRASE := 'the' PROPERTY('-s')? ('of' CLASS_PHRASE)?
 
 // Terminal types
 RESOURCE := 'res:' STRING (e.g., res:Tesla, res:Inception)
-CLASS_NAME := STRING (e.g., laptop, actor, city, enrollment)
+CLASS_NAME := STRING('-s')? (e.g., laptop, actor, actor-s, city)
 PROPERTY := STRING (e.g., height, salary, price, year, month)
-VERB := STRING (e.g., influence, direct, know, connect)
+VERB := STRING('-s' | '-es')? (e.g., influence, direct, know-s, teach-es)
 VARIABLE := '?' CHAR (e.g., ?X, ?Y, ?P)
 VALUE := NUMBER | STRING | STRING'^^xsd:date'
 QUANTIFIER := 'a' | 'every' | 'no' | 'some' | 'at least' NUMBER | 'the most' | 'the'
@@ -91,6 +91,7 @@ Evaluate the Candidate holistically across these dimensions:
 1. **Well-formedness & Grammar Compliance:**
    - The output must be a valid SQUALL sentence, completely compliant with controlled English syntax.
    - **Prefixes:** Specific individuals/entities must be prefixed with `res:` (e.g., `res:Tesla`), while classes and properties must be bare words.
+   - **Plurals and Verb Conjugation:** Plural nouns MUST append the `-s` suffix explicitly (e.g., `author-s`). 3rd-person singular verbs MUST append `-s` or `-es` explicitly (e.g., `know-s`).
 
 2. **Semantic Faithfulness & Intent:**
    - Captures all entities, relationships, constraints, and meaning of the natural language query.
@@ -114,6 +115,103 @@ Evaluate the Candidate holistically across these dimensions:
    - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
 
 ---
+
+## EXAMPLES
+
+=== EXAMPLE 1: PERFECT EQUIVALENCE (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"what is the name of the subatomic particle that's part of the same family of particles as the bottom quark?"
+
+[GROUND TRUTH LISP]
+(AND Subatomic particle (JOIN Family (JOIN Particles Bottom quark)))
+
+[CANDIDATE SQUALL]
+Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly maps the nested relationships and captures the entity using the 'res:' prefix. The logical meaning is completely equivalent to the Ground Truth LISP graph traversal.",
+  "correct": true
+}
+```
+
+=== EXAMPLE 2: MISSING ENTITY PREFIX (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"what is the number of video games designed by jeffrey kaplan?"
+
+[GROUND TRUTH LISP]
+(COUNT (AND Video game (JOIN (R Games Designed) Jeffrey Kaplan)))
+
+[CANDIDATE SQUALL]
+How many video_game-s are the games_designed of Jeffrey_Kaplan ?
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate perfectly identifies the aggregation and grammar, but fails to apply the 'res:' prefix to the specific entity 'Jeffrey_Kaplan'. SQUALL strictly requires specific entities to be prefixed.",
+  "correct": false
+}
+```
+
+=== EXAMPLE 3: INCORRECT QUERY FORM (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Is it true that every movie directed by Christopher Nolan after 2005 has an IMDB rating greater than 8.0?"
+
+[GROUND TRUTH LISP]
+(ASK (AND Movie (JOIN Directed By Christopher Nolan) (> Release Year 2005) (> IMDB Rating 8.0)))
+
+[CANDIDATE SQUALL]
+Which movie that was directed by res:Christopher_Nolan and whose release_year is greater than 2005 has a IMDB_rating greater than 8.0 ?
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate failed to identify this as a Boolean query, generating an open extraction query ('Which movie...') instead of an ASK query ('Whether...'). While entities are correctly prefixed, the fundamental intent differs from the Ground Truth.",
+  "correct": false
+}
+```
+
+=== EXAMPLE 4: SEVERE SYNTAX VIOLATION (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Tell me the nodes reachable from Node A through zero or more network links."
+
+[GROUND TRUTH LISP]
+(AND Node (JOIN Connects* Node A))
+
+[CANDIDATE SQUALL]
+Which node connects* res:Node_A where links >= 0 ?
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate hallucinated a SQL-like 'where' clause instead of following SQUALL controlled English syntax for conditions.",
+  "correct": false
+}
+```
+
+=== EXAMPLE 5: MINOR SYNTACTIC FLAW (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"What is the average salary of the engineers who work in a department located in London?"
+
+[GROUND TRUTH LISP]
+(AVG (JOIN Salary (AND Engineer (JOIN Works In (AND Department (JOIN Location London))))))
+
+[CANDIDATE SQUALL]
+What is the average salary of the engineer who work in a department whose location is res:London ?
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate accurately models the aggregation intent and prefixes the location, but forgets to append the plural '-s' suffix to the class name 'engineer', which is grammatically required in SQUALL.",
+  "correct": false
+}
+```
 
 ## OUTPUT FORMAT
 

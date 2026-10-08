@@ -174,13 +174,267 @@ Evaluate the Candidate holistically across these dimensions:
 
 ---
 
+## EXAMPLES
+
+=== EXAMPLE 1: PERFECT MATCH (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the names of the Authors who have written at least 5 books published after 2010."
+
+[GROUND TRUTH SQL]
+SELECT Authors.name FROM Authors JOIN Books ON Authors.id = Books.author_id WHERE Books.publish_year > 2010 GROUP BY Authors.id HAVING COUNT(Books.id) >= 5
+
+[CANDIDATE JSON]
+[
+  {
+    "target": [{ "attribute_name": "name", "of": "e1" }],
+    "entities": [
+      { "id": "e1", "type": "Author" },
+      { "id": "e2", "type": "Book" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "author_of", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" },
+          "filter": { "left": { "attribute_name": "publish_year", "of": "e2" }, "operator": ">", "right": 2010 }
+        }
+      },
+      "operator": ">=",
+      "right": 5
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate is semantically and structurally identical to the Ground Truth SQL intent. Grammar-compliant bare array output, correct COUNT with LIST and filter mapped to the SQL WHERE and HAVING clauses.",
+  "hypotheses_covered": 1,
+  "correct": true
+}
+```
+
+=== EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me all the groups that directly or indirectly influenced Queen."
+
+[GROUND TRUTH SQL]
+SELECT DISTINCT Group1.id FROM Groups Group1 JOIN Influences ON Group1.id = Influences.influencer_id WHERE Influences.influenced_id = (SELECT id FROM Groups WHERE name = 'Queen')
+
+[CANDIDATE JSON]
+[
+  [
+    {
+      "id": "q1",
+      "target": ["e1"],
+      "entities": [
+        { "id": "e2", "type": "Band" },
+        { "id": "e1", "type": "Band" }
+      ],
+      "relationships": [
+        { "id": "r1", "role": "influenced", "from": "e1", "to": "e2" }
+      ],
+      "constraint": {
+        "left": { "attribute_name": "name", "of": "e2" }, "operator": "=", "right": "Queen"
+      }
+    }
+  ]
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate uses a nested array instead of a flat bare array, a hard structural grammar violation. It also uses a single direct relationship instead of a PATH, losing the multi-hop semantics required for 'directly or indirectly influenced'.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
+=== EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the third-degree relatives of Alfonso X."
+
+[GROUND TRUTH SQL]
+SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2 ON r1.p2_id = p2.id JOIN Relatives r2 ON p2.id = r2.p1_id JOIN Person p3 ON r2.p2_id = p3.id JOIN Relatives r3 ON p3.id = r3.p1_id JOIN Person p4 ON r3.p2_id = p4.id WHERE p1.name = 'Alfonso X'
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e4"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e4", "type": "Person" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "relative_of", "from": "e1", "to": "e4" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The traversal is modeled as a single direct relationship, while the Ground Truth SQL strictly requires three multi-hop JOINs (third-degree). This structural gap leaves the core multi-hop intent unresolved.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
+=== EXAMPLE 4: CORRECT MULTI-HOP (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the third-degree relatives of Alfonso X."
+
+[GROUND TRUTH SQL]
+SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2 ON r1.p2_id = p2.id JOIN Relatives r2 ON p2.id = r2.p1_id JOIN Person p3 ON r2.p2_id = p3.id JOIN Relatives r3 ON p3.id = r3.p1_id JOIN Person p4 ON r3.p2_id = p4.id WHERE p1.name = 'Alfonso X'
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e4"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e2", "type": "Person" },
+      { "id": "e3", "type": "Person" },
+      { "id": "e4", "type": "Person" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "relative_of", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "relative_of", "from": "e2", "to": "e3" },
+      { "id": "r3", "role": "relative_of", "from": "e3", "to": "e4" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
+    }
+  },
+  {
+    "target": ["e2"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e2", "type": "Person" }
+    ],
+    "paths": [
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["relative_of"] }
+    ],
+    "constraint": {
+      "and": [
+        {
+          "left": { "attribute_name": "name", "of": "e1" },
+          "operator": "=",
+          "right": "Alfonso X"
+        },
+        {
+          "left": {
+            "count": {
+              "list": { "rels_of": "p1", "rel_id": "r_p" }
+            }
+          },
+          "operator": "=",
+          "right": 3
+        }
+      ]
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly models the multi-hop traversal of third-degree relatives. It successfully captures two semantically valid hypotheses: one using explicit intermediate entities and relationships, and the other using SemGIR's `paths` array with a hop count constraint. Both perfectly match the topology of the Ground Truth SQL.",
+  "hypotheses_covered": 1,
+  "correct": true
+}
+```
+
+=== EXAMPLE 5: TOPOLOGY BYPASS VIA STRING COMPARISON (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the employees of companies located in Madrid."
+
+[GROUND TRUTH SQL]
+SELECT Employees.id FROM Employees JOIN Companies ON Employees.company_id = Companies.id JOIN Cities ON Companies.city_id = Cities.id WHERE Cities.name = 'Madrid'
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e1"],
+    "entities": [
+      { "id": "e1", "type": "Employee" },
+      { "id": "e2", "type": "Company" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "works_at", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "location", "of": "e2" }, "operator": "CONTAINS", "right": "Madrid"
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The city constraint is expressed as `location CONTAINS 'Madrid'` on the company rather than via a proper topological relationship mapping to the Ground Truth SQL JOIN on the Cities table. This topology bypass is a significant semantic error.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
+=== EXAMPLE 6: MINOR FLAW — MISSING DISTINCT (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the names of actors who have appeared in more than 10 films."
+
+[GROUND TRUTH SQL]
+SELECT DISTINCT Actors.name FROM Actors JOIN Performances ON Actors.id = Performances.actor_id GROUP BY Actors.id HAVING COUNT(Performances.film_id) > 10
+
+[CANDIDATE JSON]
+[
+  {
+    "target": [{ "attribute_name": "name", "of": "e1" }],
+    "entities": [
+      { "id": "e1", "type": "Actor" },
+      { "id": "e2", "type": "Film" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" }
+        }
+      },
+      "operator": ">",
+      "right": 10
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly applies the COUNT aggregation. The only gap is the missing `distinct: true`, which is required to prevent duplicate actor names in the results as specified by the DISTINCT in the Ground Truth SQL.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
 ## OUTPUT FORMAT
 
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:
 
 ```json
 {
-  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth LISP. Explain any structural flaws or why they are equivalent.",
+  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth SQL. Explain any structural flaws or why they are equivalent.",
   "hypotheses_covered": [Integer specifiying how many hypotheses are covered by the Candidate],
   "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.]
 }

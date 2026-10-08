@@ -129,9 +129,9 @@ class GroundTruthStore:
             friendly = node.get("friendly_name", "")
             if raw_id and friendly:
                 id_map[raw_id] = friendly
-            # Also map the class if it differs from id
+            # Also map the class if it differs from id and this is actually a class node
             raw_class = node.get("class", "")
-            if raw_class and raw_class != raw_id and friendly:
+            if raw_class and raw_class != raw_id and friendly and node.get("node_type") != "entity":
                 id_map[raw_class] = friendly
 
         for edge in graph_query.get("edges", []):

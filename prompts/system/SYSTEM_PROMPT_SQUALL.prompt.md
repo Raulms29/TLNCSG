@@ -20,6 +20,7 @@ The output must be:
 **Step 2. Prefix Specific Entities & Enforce Semantic Boundaries**
 * **Prefixing Mandate**: All specific named entities, individuals, or concrete locations MUST be prefixed with `res:` (e.g., `res:Tesla`, `res:London`).
 * **Absolute Class/Property Boundary**: Classes and properties MUST remain as normal English bare words without prefixes.
+* **Plural Nouns and Verb Conjugation**: SQUALL has no linguistic knowledge. Plural nouns MUST be formed by explicitly appending the `-s` suffix to the noun (e.g., `author-s`, `child-s`). Similarly, 3rd-person singular present verbs MUST explicitly append `-s` or `-es` (e.g., `know-s`, `teach-es`).
 
 **Step 3. Handle Variables and Comparisons**
 * **Variable Binding**: Bind variables (`?X`, `?Y`) to class phrases to reference them later. Ensure all referenced variables are explicitly declared.
@@ -109,9 +110,9 @@ AGGREGATION_PHRASE := 'the' PROPERTY('-s')? ('of' CLASS_PHRASE)?
 
 // Terminal types
 RESOURCE := 'res:' STRING (e.g., res:Tesla, res:Inception)
-CLASS_NAME := STRING (e.g., laptop, actor, city, enrollment)
+CLASS_NAME := STRING('-s')? (e.g., laptop, actor, actor-s, city)
 PROPERTY := STRING (e.g., height, salary, price, year, month)
-VERB := STRING (e.g., influence, direct, know, connect)
+VERB := STRING('-s' | '-es')? (e.g., influence, direct, know-s, teach-es)
 VARIABLE := '?' CHAR (e.g., ?X, ?Y, ?P)
 VALUE := NUMBER | STRING | STRING'^^xsd:date'
 QUANTIFIER := 'a' | 'every' | 'no' | 'some' | 'at least' NUMBER | 'the most' | 'the'
@@ -132,19 +133,19 @@ Return concat(the firstname, " ", the lastname) of all author-s of res:Paper42 .
 Input: Which employees have a net income (gross salary minus tax) of more than 50000?
 Output:
 ```squall
-Which employee has the gross_salary - the tax greater than 50000 ?
+Which employee-s have the gross_salary - the tax greater than 50000 ?
 ```
 
 Input: Tell me the books whose publication year is the 2nd latest.
 Output:
 ```squall
-What are the book-s whose publication_year is the 2nd latest ?
+What are the book-s that have the 2nd latest publication_year-s ?
 ```
 
 Input: Which researchers have at least 3 publications?
 Output:
 ```squall
-Which researcher has at least 3 publication-s ?
+Which researcher-s have at least 3 publication-s ?
 ```
 
 Input: Add the fact that corporation Alpha and startup Beta are located in Paris.
@@ -156,19 +157,43 @@ res:Corporation_Alpha and res:Startup_Beta have location res:Paris .
 Input: Which writers and publishers belong to a company located in Paris?
 Output:
 ```squall
-Which writer and which publisher-s belong to a company whose location is res:Paris ?
+Which writer-s and which publisher-s belong to a company whose location is res:Paris ?
 ```
 
 Input: Tell me the nodes reachable from Node A through zero or more network links.
 Output:
 ```squall
-Which node is connect* res:Node_A ?
+Which node connects* res:Node_A ?
 ```
 
 Input: Which animals have a top speed greater than the top speed of their predator?
 Output:
 ```squall
-Which animal ?X has a top_speed greater than the top_speed of the predator of ?X ?
+Which animal-s ?X have a top_speed greater than the top_speed of the predator of ?X ?
+```
+
+Input: Is it true that every movie directed by Christopher Nolan after 2005 has an IMDB rating greater than 8.0?
+Output:
+```squall
+Whether every movie that was directed by res:Christopher_Nolan and whose release_year is greater than 2005 has a IMDB_rating greater than 8.0 ?
+```
+
+Input: What is the average salary of the engineers who work in a department located in London?
+Output:
+```squall
+What is the average salary of the engineer-s who work in a department whose location is res:London ?
+```
+
+Input: Which company employs the highest number of employees who hold a PhD degree?
+Output:
+```squall
+Which company employ-s the most employee-s who hold a degree res:PhD ?
+```
+
+Input: Did any researcher who has more than 50 citations collaborate directly or indirectly with Einstein?
+Output:
+```squall
+Whether some researcher who has at least 50 citation-s collaborated_with+ res:Einstein ?
 ```
 
 ---

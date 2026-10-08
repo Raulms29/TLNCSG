@@ -174,6 +174,260 @@ Evaluate the Candidate holistically across these dimensions:
 
 ---
 
+## EXAMPLES
+
+=== EXAMPLE 1: PERFECT MATCH (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the names of the Authors who have written at least 5 books published after 2010."
+
+[GROUND TRUTH LISP]
+(AND book.author (>= (COUNT (JOIN (R book.book.author) (AND book.book (> book.book.publish_year 2010)))) 5))
+
+[CANDIDATE JSON]
+[
+  {
+    "target": [{ "attribute_name": "name", "of": "e1" }],
+    "entities": [
+      { "id": "e1", "type": "Author" },
+      { "id": "e2", "type": "Book" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "author_of", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" },
+          "filter": { "left": { "attribute_name": "publish_year", "of": "e2" }, "operator": ">", "right": 2010 }
+        }
+      },
+      "operator": ">=",
+      "right": 5
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate is semantically and structurally identical to the Ground Truth LISP intent. Grammar-compliant bare array output, correct COUNT with LIST and filter mapped to the LISP nested aggregations.",
+  "hypotheses_covered": 1,
+  "correct": true
+}
+```
+
+=== EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me all the groups that directly or indirectly influenced Queen."
+
+[GROUND TRUTH LISP]
+(AND music.group (JOIN music.group.influenced m.queen))
+
+[CANDIDATE JSON]
+[
+  [
+    {
+      "id": "q1",
+      "target": ["e1"],
+      "entities": [
+        { "id": "e2", "type": "Band" },
+        { "id": "e1", "type": "Band" }
+      ],
+      "relationships": [
+        { "id": "r1", "role": "influenced", "from": "e1", "to": "e2" }
+      ],
+      "constraint": {
+        "left": { "attribute_name": "name", "of": "e2" }, "operator": "=", "right": "Queen"
+      }
+    }
+  ]
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate uses a nested array instead of a flat bare array, a hard structural grammar violation. It also uses a single direct relationship instead of a PATH, losing the multi-hop semantics required for 'directly or indirectly influenced'.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
+=== EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the third-degree relatives of Alfonso X."
+
+[GROUND TRUTH LISP]
+(AND people.person (JOIN people.person.relative (JOIN people.person.relative (JOIN people.person.relative m.alfonso_x))))
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e4"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e4", "type": "Person" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "relative_of", "from": "e1", "to": "e4" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The traversal is modeled as a single direct relationship, while the Ground Truth LISP strictly requires three hops (third-degree). This structural gap leaves the core multi-hop intent unresolved.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
+=== EXAMPLE 4: CORRECT MULTI-HOP (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the third-degree relatives of Alfonso X."
+
+[GROUND TRUTH LISP]
+(AND people.person (JOIN people.person.relative (JOIN people.person.relative (JOIN people.person.relative m.alfonso_x))))
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e4"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e2", "type": "Person" },
+      { "id": "e3", "type": "Person" },
+      { "id": "e4", "type": "Person" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "relative_of", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "relative_of", "from": "e2", "to": "e3" },
+      { "id": "r3", "role": "relative_of", "from": "e3", "to": "e4" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
+    }
+  },
+  {
+    "target": ["e2"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e2", "type": "Person" }
+    ],
+    "paths": [
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["relative_of"] }
+    ],
+    "constraint": {
+      "and": [
+        {
+          "left": { "attribute_name": "name", "of": "e1" },
+          "operator": "=",
+          "right": "Alfonso X"
+        },
+        {
+          "left": {
+            "count": {
+              "list": { "rels_of": "p1", "rel_id": "r_p" }
+            }
+          },
+          "operator": "=",
+          "right": 3
+        }
+      ]
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly models the multi-hop traversal of third-degree relatives. It successfully captures two semantically valid hypotheses: one using explicit intermediate entities and relationships, and the other using SemGIR's `paths` array with a hop count constraint. Both perfectly match the topology of the Ground Truth LISP.",
+  "hypotheses_covered": 1,
+  "correct": true
+}
+```
+
+=== EXAMPLE 5: TOPOLOGY BYPASS VIA STRING COMPARISON (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the employees of companies located in Madrid."
+
+[GROUND TRUTH LISP]
+(AND business.employee (JOIN business.employee.company (AND business.company (JOIN business.company.location m.madrid))))
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e1"],
+    "entities": [
+      { "id": "e1", "type": "Employee" },
+      { "id": "e2", "type": "Company" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "works_at", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "location", "of": "e2" }, "operator": "CONTAINS", "right": "Madrid"
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The city constraint is expressed as `location CONTAINS 'Madrid'`. Since the model has no knowledge of the target knowledge base, this might be passable in some situations; however, it is marked incorrect here because it completely bypasses the proper entity relationship mapped in the Ground Truth LISP (`JOIN business.company.location m.madrid`).",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
+=== EXAMPLE 6: MINOR FLAW — MISSING DISTINCT (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the names of actors who have appeared in more than 10 films."
+
+[GROUND TRUTH LISP]
+(AND film.actor (> (COUNT (JOIN (R film.performance.actor) film.performance.film)) 10))
+
+[CANDIDATE JSON]
+[
+  {
+    "target": [{ "attribute_name": "name", "of": "e1" }],
+    "entities": [
+      { "id": "e1", "type": "Actor" },
+      { "id": "e2", "type": "Film" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" }
+        }
+      },
+      "operator": ">",
+      "right": 10
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly applies the COUNT aggregation. The only gap is the missing `distinct: true`, which is required to prevent duplicates (for instance, if an actor played two roles in the same film, the film might be counted twice). This strict requirement must be satisfied to match the dataset intent.",
+  "hypotheses_covered": 0,
+  "correct": false
+}
+```
+
 ## OUTPUT FORMAT
 
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:

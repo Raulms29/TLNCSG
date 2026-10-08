@@ -104,7 +104,7 @@ PATH := {
   id: PATH_ID, // new fresh unique ID of the path
   start?: ENTITY_ID,  // ID of an entity declared in this query
   end?: ENTITY_ID,    // ID of an entity declared in this query
-  roles: [ROLE, ...]
+  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
 LIST := {
@@ -409,7 +409,7 @@ Output:
       { "id": "e2", "type": "Article" }
     ],
     "paths": [
-      { "id": "p1", "start": "e1", "end": "e2", "roles": ["any"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": [] }
     ],
     "constraint": {
       "and_conditions": [
@@ -606,6 +606,46 @@ Output:
           "left": { "attribute_name": "location", "of": "e2" },
           "operator": "!=",
           "right": "London"
+        }
+      ]
+    }
+  }
+]
+```
+
+Input: List the documentaries and movies released after 2020
+Output:
+```json
+[
+  {
+    "target": [ "e1", "e2" ],
+    "entities": [
+      { "id": "e1", "type": "Documentary" },
+      { "id": "e2", "type": "Movie" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "release_date", "of": "e2" },
+      "operator": ">",
+      "right": "2020"
+    }
+  },
+  {
+    "target": [ "e1", "e2" ],
+    "entities": [
+      { "id": "e1", "type": "Documentary" },
+      { "id": "e2", "type": "Movie" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "release_date", "of": "e1" },
+          "operator": ">",
+          "right": "2020"
+        },
+        {
+          "left": { "attribute_name": "release_date", "of": "e2" },
+          "operator": ">",
+          "right": "2020"
         }
       ]
     }
