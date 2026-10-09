@@ -89,30 +89,30 @@ COLLECTION_ELEMENT := RESOURCE | VARIABLE | 'who' | 'what' | '...' | '_'
 Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Grammar Compliance:**
-   - The output must be a valid SQUALL sentence, completely compliant with controlled English syntax.
-   - **Prefixes:** Specific individuals/entities must be prefixed with `res:` (e.g., `res:Tesla`), while classes and properties must be bare words.
-   - **Plurals and Verb Conjugation:** Plural nouns MUST append the `-s` suffix explicitly (e.g., `author-s`). 3rd-person singular verbs MUST append `-s` or `-es` explicitly (e.g., `know-s`).
+  - The output must be a valid SQUALL sentence, completely compliant with controlled English syntax.
+  - **Prefixes:** Specific individuals/entities must be prefixed with `res:` (e.g., `res:Tesla`), while classes and properties must be bare words.
+  - **Plurals and Verb Conjugation:** Plural nouns MUST append the `-s` suffix explicitly (e.g., `author-s`). 3rd-person singular verbs MUST append `-s` or `-es` explicitly (e.g., `know-s`).
 
 2. **Semantic Faithfulness & Intent:**
-   - Captures all entities, relationships, constraints, and meaning of the natural language query.
-   - **Query Forms:** Open questions for SELECT, `Whether...` or auxiliary inversion for ASK, and affirmative sentences for UPDATEs.
+  - Captures all entities, relationships, constraints, and meaning of the natural language query.
+  - **Query Forms:** Open questions for SELECT, `Whether...` or auxiliary inversion for ASK, and affirmative sentences for UPDATEs.
 
 3. **Structural & Graph Quality:**
-   - **Path Closures:** Are `+`, `*`, `?` suffixes applied correctly on verbs for transitive/reflexive paths?
-   - **Coordination:** Correct logical application of `and`, `or`, and `not`.
-   - **Graph Extraction:** Subgraphs must correctly use the `For every... return { ... }` construct.
+  - **Path Closures:** Are `+`, `*`, `?` suffixes applied correctly on verbs for transitive/reflexive paths?
+  - **Coordination:** Correct logical application of `and`, `or`, and `not`.
+  - **Graph Extraction:** Subgraphs must correctly use the `For every... return { ... }` construct.
 
 4. **Aggregations & Functions:**
-   - **Counting & Math:** Are grouping clauses (`per`), math expressions, and superlatives properly structured?
-   - **String Concatenation:** Correct use of the `Return concat(...)` construct for string formatting.
+  - **Counting & Math:** Are grouping clauses (`per`), math expressions, and superlatives properly structured?
+  - **String Concatenation:** Correct use of the `Return concat(...)` construct for string formatting.
 
 5. **Equivalence to Ground Truth:**
-   - Semantically equivalent alternatives are acceptable. Does the Candidate express the same logical meaning as the Ground Truth, even if using an equivalent phrase (e.g. `Which author wrote...` vs `Which author is the writer of...`)?
+  - Semantically equivalent alternatives are acceptable. Does the Candidate express the same logical meaning as the Ground Truth, even if using an equivalent phrase (e.g. `Which author wrote...` vs `Which author is the writer of...`)?
 
 6. **Cross-Format Equivalence (SQUALL vs LISP):**
-   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
-   - You must verify if the graph topology modeled in the Candidate's SQUALL string logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-   - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
+  - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
+  - You must verify if the graph topology modeled in the Candidate's SQUALL string logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
+  - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
 
 ---
 

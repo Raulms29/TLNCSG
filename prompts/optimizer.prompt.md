@@ -42,11 +42,14 @@ Inside an `<instructions>` tag, provide the completely updated `## INSTRUCTIONS`
 ### Output Format Example
 ```xml
 <rationale>
-The evaluator logs show that for Q12 and Q18, the generator used 'CONTAINS' string checks to establish city locations instead of creating proper entities and relationships (topology bypass). The current instructions mention "topology checks" but don't explicitly forbid this anti-pattern. I need to add a strong rule against bypassing graph topology to Step 3.
+The evaluator logs reveal three recurring issues across the failing queries:
+1. In Q08 and Q14 (e.g., "French film awards"), the generator encountered genuine modifier attachment ambiguity but collapsed the output into a single hypothesis rather than emitting multiple interpretations in `HYPOTHESES_SET`. I need to reinforce Step 1 with explicit guidance that modifier attachment and polysemous references require separate hypothesis branches.
+2. In Q23 and Q31, the generator assigned named entities descriptive IDs (e.g., 'e_nolan') but omitted the explicit name comparison in the `constraint` block. While Step 3 notes that descriptive IDs do not replace constraints, Step 5 needs a more explicit mandate that any literal entity name mentioned in the query must map to an attribute comparison.
+3. In Q12 and Q18, the generator used 'CONTAINS' string checks to establish city locations instead of creating proper entities and relationships (topology bypass). While establishing a city location as an attribute instead of a relationship may not always strictly be an error, it is strongly recommended to model entities like cities as distinct graph nodes and relations. I need to update Step 3 and Step 4 to explicitly encourage relational modeling over flat attribute comparisons for geographic entities.
 </rationale>
 
 <instructions>
-**Step 1. Identify Targets**
+**Step 1. Form Hypotheses**
 ...
 (complete instructions go here)
 </instructions>
@@ -61,7 +64,7 @@ The evaluator logs show that for Q12 and Q18, the generator used 'CONTAINS' stri
 * **Consolidate, don't accumulate.** If two or more rules address the same grammatical construct or anti-pattern, merge them into a single rule. Do not add a new rule if an existing one can be extended to cover the new case. Removing a sentence can be more effective than adding a new one.
 * **Generalize.** Rules must describe grammatical logic — never reference query-specific details, IDs, or domain entities from the failure logs.
 * **Preserve correctness.** Do not remove or weaken rules that are working.
-* **Strict Grammar Adherence.** Never propose instructions that violate or redefine the fundamental definitions of the provided grammar.
+* **Strict Grammar Adherence.** Do not propose instructions that violate or redefine the fundamental definitions of the provided grammar.
 
 ---
 
