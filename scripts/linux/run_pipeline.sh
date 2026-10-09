@@ -4,6 +4,7 @@
 # ./scripts/linux/run_pipeline.sh grouping --execution-dir outputs/execution/300926_300926_0001
 # ./scripts/linux/run_pipeline.sh evaluation --grouping-dir outputs/grouping/011026_011026_0001
 # ./scripts/linux/run_pipeline.sh review
+# ./scrips/linux/run_pipeline.sh metrics --review-dir outputs/review/011026_011026_0001
 
 cd "$(dirname "$0")/../.." || exit
 
@@ -49,6 +50,14 @@ case $MODULE in
       -w /opt/project \
       virtualuser/tlncsg:latest \
       bash -c 'python3 -m streamlit run pipeline/review/app.py "$@"' _ "$@"
+    ;;
+  metrics)
+    docker run --rm \
+      --name metrics \
+      -v "$PWD:/opt/project" \
+      -w /opt/project \
+      virtualuser/tlncsg:latest \
+      bash -c 'python3 -u -m pipeline.metrics.main --config metrics_config.json "$@"' _ "$@"
     ;;
   *)
     echo "Unknown module: $MODULE"
