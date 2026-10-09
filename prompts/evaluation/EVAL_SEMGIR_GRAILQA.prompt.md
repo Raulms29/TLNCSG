@@ -170,7 +170,7 @@ Evaluate the Candidate holistically across these dimensions:
    - You must verify if the graph topology modeled in the Candidate's `entities` and `relationships` logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
    - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
 
-> **Note on Hypotheses:** Do not evaluate based on the number of generated hypotheses. A single correct interpretation is sufficient and should not be penalized.
+> **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array). If a Candidate does this, output `"correct": false`.
 
 ---
 

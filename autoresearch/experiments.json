@@ -1,12 +1,12 @@
 [
   {
     "iteration": 1,
-    "timestamp": "2026-10-06T14:03:58.071838",
-    "score": 0.9379259259259258,
+    "timestamp": "2026-10-08T10:45:52.754368",
+    "score": 0.9400740740740741,
     "delta": 0.0,
     "status": "CHAMPION_INIT",
     "prompt_path": "/opt/project/autoresearch/prompts/champion_v1.prompt.md",
-    "results_file": "/opt/project/autoresearch/archive/run_20261006_112506/outputs/validation_results_iter1_20261006_140358.csv",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter1_20261008_104552.csv",
     "failures": [
       {
         "id": "Q11",
@@ -14,7 +14,7 @@
           "multi_hypothesis",
           "complex_constraints"
         ],
-        "rationale": "The Candidate fails to capture the core semantic intent of the query. It treats 'Mouse' as an entity type rather than a value constraint on a product or animal, and it treats 'Sales' as an attribute of the mouse rather than a separate 'SalesData' entity. Furthermore, it incorrectly applies the '> 100' constraint to the Sydney results, whereas the natural language query implies the threshold only applies to the Austin results ('mice in Sydney together with those from Austin that exceed 100'). The structure is also overly simplified compared to the Ground Truth's handling of the multi-hypothesis nature of the query.",
+        "rationale": "The Candidate fails to capture the full logic of the query. It interprets 'mice' as an entity type rather than a value constraint on a product or animal attribute. More importantly, it applies the '> 100' constraint to both Sydney and Austin, whereas the natural language query implies the threshold only applies to the Austin data ('mice in Sydney together with those from Austin that exceed 100'). Additionally, the Candidate uses a 'list' in the target which is unnecessary for returning entities, and it misses the 'SalesData' entity type, attempting to find sales as an attribute of the 'Mouse' entity itself.",
         "score": 0.4
       },
       {
@@ -23,15 +23,23 @@
           "multi_hypothesis",
           "complex_constraints"
         ],
-        "rationale": "The Candidate provides a valid and semantically correct interpretation of the query by using a single entity with a nationality attribute. While the Ground Truth provides two hypotheses (one using a graph traversal to a Country entity and one using a flat attribute), the Candidate's approach is a concise and valid way to represent the intent. The minor difference in attribute naming ('weight_kg' vs 'weight') is acceptable.",
-        "score": 0.9983333333333333
+        "rationale": "The Candidate provides a valid and concise interpretation of the query. While the Ground Truth offers two hypotheses (one using a graph traversal to a Country entity and one using a flat attribute), the Candidate's approach of using a 'nationality' attribute is a semantically valid way to represent the query intent. It is grammatically correct and captures all constraints (nationality and weight).",
+        "score": 0.95
+      },
+      {
+        "id": "Q19",
+        "features": [
+          "negation"
+        ],
+        "rationale": "The Candidate attempts to use a QUANTIFIER_PREDICATE (NONE) to express the negation, which is a valid logical approach. However, it contains a significant grammar violation: the 'condition' inside the QUANTIFIER_PREDICATE is structured as a COMPARISON between a RELATIONSHIP_ID ('r1') and a BOOLEAN ('true'), which is not a valid use of the COMPARISON operator according to the grammar (which expects EXPRESSIONS on both sides). The Ground Truth uses the more direct and grammar-compliant 'not_condition' on the relationship ID. Additionally, the Candidate's use of a nested 'list' within 'list' is redundant/incorrectly structured.",
+        "score": 0.5966666666666666
       },
       {
         "id": "Q31",
         "features": [
           "aggregations"
         ],
-        "rationale": "The Candidate suffers from 'ID Name Leaking' and semantic inconsistency. Instead of using a generic entity type (Species) and filtering by a classification attribute (Mammal), it defines the entity type itself as 'Mammal' and then applies a redundant and potentially conflicting constraint on a 'type' attribute. This collapses the distinction between the entity's semantic type and its attribute values, which is a deviation from proper graph modeling and the Ground Truth logic.",
+        "rationale": "The Candidate suffers from 'ID Name Leaking' and semantic inconsistency. Instead of using a generic entity type (Species) and filtering by a classification attribute as the Ground Truth does, the Candidate defines the entity type itself as 'Mammal' and then applies a redundant and potentially conflicting constraint on a 'type' attribute. This conflates the entity's semantic type with its attribute value, which is a poor modeling practice in this IR.",
         "score": 0.5
       },
       {
@@ -41,15 +49,31 @@
           "complex_constraints",
           "aggregations"
         ],
-        "rationale": "The Candidate fails to capture the core intent of the query. The target is a list of Player entities rather than the requested 'salaries' (attributes). While the graph structure, constraints, and entity types are logically sound and follow the grammar, the projection (target) is incorrect, making the query return the wrong data type.",
-        "score": 0.5
+        "rationale": "The Candidate attempts to use a LIST with a map_expression in the target, which is a valid way to represent 'a list of salaries'. However, it fails to follow the grammar for the map_expression; the grammar defines ESCALAR_AGGREGATE as having a map_expression, but the LIST type itself does not support a map_expression field. Furthermore, the Candidate's approach to generating the list is structurally different from the Ground Truth's approach (which uses a list of attributes/entities), but the primary issue is the invalid use of map_expression within a LIST object according to the provided schema.",
+        "score": 0.6033333333333333
+      },
+      {
+        "id": "Q34",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate is semantically correct and follows the grammar. While it swaps the entity IDs (using e2 for Actor instead of e1) and reverses the direction of the relationship compared to the Ground Truth, the logic remains sound: the target is the Actor, the constraint correctly filters the Movie by name, and the ordering is applied to the Actor's height. The change in sort direction (ASC vs DESC) is a minor semantic variation.",
+        "score": 0.9516666666666665
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate uses a more complex but valid target expression (ESCALAR_AGGREGATE/LIST mapping) to achieve the same result as the Ground Truth's direct attribute target. While the Ground Truth targets the attribute of the player directly, the Candidate's approach of collecting players and mapping their nationality is semantically equivalent. The directionality of the relationship is reversed compared to the Ground Truth (Player to Team vs Team to Player), but the 'from' and 'to' logic remains consistent with the entity definitions and the constraint. The Candidate correctly implements the 'distinct' requirement within the target expression.",
+        "score": 0.9516666666666665
       },
       {
         "id": "Q37",
         "features": [
           "modifiers"
         ],
-        "rationale": "The Candidate attempts to solve the 'fifth' requirement by adding a hypothetical 'ordinal_number' attribute to the King entity. However, in a graph database context for historical sequences, the correct way to determine order is through temporal sorting (order_by start_date) combined with skip/limit logic, as seen in the Ground Truth. The Candidate's approach relies on an unverified attribute rather than the graph's inherent temporal structure, making it semantically less robust for this type of query.",
+        "rationale": "The Candidate attempts to solve the 'fifth' requirement by adding a hypothetical 'ordinal_number' attribute to the King entity. However, in a graph database context for historical sequences, the correct way to determine order is through temporal properties (like start_date) combined with skip/limit logic, as shown in the Ground Truth. The Candidate's approach relies on an unverified attribute rather than the graph's inherent temporal structure, making it semantically less robust for this type of query.",
         "score": 0.6
       },
       {
@@ -58,7 +82,7 @@
           "multi_hypothesis",
           "complex_constraints"
         ],
-        "rationale": "The Candidate introduces a different graph topology than the Ground Truth, adding an extra 'Project' entity (e3) to link the collaboration to Planck. While the Ground Truth models the collaboration as an entity itself (e3) that connects two scientists and a university, the Candidate models it as a relationship between a collaboration entity and a project. However, the Candidate's logic is semantically coherent: it identifies a scientist (e1) connected to a collaboration (e2) which is on a project (e3) named 'Planck', where that project is funded by a German university (e4). This is a valid alternative interpretation of the query's structure.",
+        "rationale": "The Candidate introduces a different graph topology than the Ground Truth, adding an extra 'Project' entity (e3) to link collaborations to Planck. While the Ground Truth provides two different ways to interpret the query (one via a Collaboration entity and one via direct Scientist-to-Scientist collaboration), the Candidate chooses a single, specific interpretation. Although the schema/topology differs, the Candidate is semantically faithful to the natural language query, correctly captures all constraints (Planck and Germany), and follows the grammar perfectly.",
         "score": 0.9
       },
       {
@@ -66,8 +90,8 @@
         "features": [
           "relationships"
         ],
-        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Ground Truth targets the related entity (e1) and uses the person as the anchor (e2), the Candidate targets the person (e2) and uses the person as the anchor (e1). However, the query asks for 'any entity that is related to Javier Bardem', meaning the target should be the related entity, not Javier Bardem himself. The Candidate's target is the person, which is semantically the opposite of the request. Additionally, the inclusion of 'limit: 1' is a minor addition not requested, though it aligns with 'any'.",
-        "score": 0.7099999999999999
+        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Candidate swaps the IDs for the target and the constrained entity compared to the Ground Truth (targeting the person instead of the related entity), it remains semantically valid for the query 'Give me any entity...'. The addition of a 'limit: 1' is a reasonable interpretation of 'any entity'.",
+        "score": 0.95
       },
       {
         "id": "Q48",
@@ -75,8 +99,437 @@
           "aggregations",
           "modifiers"
         ],
-        "rationale": "The Candidate correctly implements the complex aggregation logic (top 5 directors' salaries summed) and the target/entities. However, it contains a directionality error in the relationship: the role 'father_of' is defined from 'e2' (the father) to 'e1' (the actor), but the constraint compares the money of 'e2' to the sum. While the logic holds, the relationship role 'father_of' usually implies 'A is the father of B', so 'e2' (father) to 'e1' (actor) is semantically correct for the role name, but the Ground Truth used 'has_father' from actor to father. The primary issue is that the Candidate's relationship direction and role name are slightly inconsistent with standard graph modeling for 'has_father' vs 'father_of', but it is semantically functional. The most significant issue is that the relationship direction 'from e2 to e1' with role 'father_of' is actually correct for the meaning, but the Ground Truth used 'has_father' from e1 to e2. The Candidate is highly faithful.",
+        "rationale": "The Candidate correctly implements the complex logic of the query, including the top-N aggregation and the comparison. However, it contains a directionality error in the relationship: it defines 'father_of' from Person (e2) to Actor (e1), but the constraint then checks the 'money' attribute of e2 (the father) to compare against the actor's father. While the logic holds, the role name 'father_of' usually implies the direction from parent to child, which matches the 'from/to' used, but the Ground Truth uses 'has_father' from child to parent. More importantly, the Candidate uses 'money' for directors instead of 'salary' as used in the Ground Truth, though this is a minor semantic variation. The core logic is sound.",
+        "score": 0.9
+      }
+    ],
+    "rationale": null
+  },
+  {
+    "iteration": 2,
+    "timestamp": "2026-10-08T13:32:11.156021",
+    "score": 0.9378518518518518,
+    "delta": -0.0022222222222222365,
+    "status": "DISCARDED",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_latest.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter2_20261008_133211.csv",
+    "failures": [
+      {
+        "id": "Q05",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate captures the core intent but fails to fully satisfy the query's request for 'the relationships between them' (plural). It only defines a single relationship between two actors, whereas the Ground Truth implies a more complete set of connections. Additionally, the target selection is slightly different from the Ground Truth, though it remains semantically related. The structural modeling of the actors and the movie constraint is correct.",
+        "score": 0.8
+      },
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate attempts to model the query using a single hypothesis with an OR/AND logic structure, which is a valid way to interpret the 'together with' requirement. However, it suffers from significant semantic and structural issues: 1) The target is a LIST of a single element, which is redundant and less direct than targeting the entity itself. 2) It incorrectly identifies the main entity 'e1' as 'Product' instead of 'SalesData', which makes the 'sales' attribute constraint semantically misplaced (it should be on the sales record, not the product). 3) It uses a 'Location' entity instead of a 'City' entity, which is a minor semantic difference, but the core failure to distinguish between the product (mice) and the sales data (the target) results in a loss of the query's primary intent.",
+        "score": 0.6
+      },
+      {
+        "id": "Q17",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate provides a valid and concise interpretation of the query. While the Ground Truth offers two hypotheses (one using a graph traversal to a Country entity and one using a flat attribute), the Candidate's approach of using a 'nationality' attribute is a semantically valid way to represent the query intent. It is grammatically correct and captures all constraints (nationality and weight).",
+        "score": 0.95
+      },
+      {
+        "id": "Q18",
+        "features": [
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces an unnecessary 'and_conditions' block containing a relationship ID ('r1') inside the OR clause. While the intent is to link the movie name to the actor via the relationship, the grammar for 'AND' expects a list of conditions, and simply placing a relationship ID there is a non-standard way to express a join compared to the Ground Truth's cleaner approach. However, the core logic (OR between earnings and movie name) and the graph structure are semantically sound.",
+        "score": 0.85
+      },
+      {
+        "id": "Q27",
+        "features": [
+          "aggregations"
+        ],
+        "rationale": "The Candidate contains a grammar violation in the constraint block. The 'count' object's 'list' property is nested twice (a 'list' containing a 'list'), whereas the grammar defines 'count' as taking a 'LIST' object directly. This structural error makes the expression invalid according to the provided schema.",
+        "score": 0.6033333333333333
+      },
+      {
+        "id": "Q31",
+        "features": [
+          "aggregations"
+        ],
+        "rationale": "The Candidate is semantically and structurally almost identical to the Ground Truth. It correctly implements the ESCALAR_AGGREGATE logic within the target, uses the correct entity type, and applies the necessary filter. The only difference is a minor variation in the attribute name used for the constraint ('class' vs 'classification'), which is a semantic naming difference that does not affect the query's logic or grammar.",
         "score": 0.9983333333333333
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate fails to capture the core intent of the query. The target is a list of 'Player' entities (e2) rather than the requested 'salaries' (an attribute). While the graph structure, entities, and constraints are logically sound and correctly implemented, the projection (target) is incorrect, making the query return the wrong data type.",
+        "score": 0.6
+      },
+      {
+        "id": "Q34",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate is semantically correct and follows the grammar. While it swaps the entity IDs (using e2 for Actor instead of e1) and reverses the direction of the relationship compared to the Ground Truth, the logic remains sound: the target is the Actor, the constraint correctly filters the Movie by name, and the ordering is applied to the Actor's height. The change in sort direction (ASC vs DESC) is a minor semantic variation.",
+        "score": 0.9516666666666665
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target expression. Instead of projecting the 'nationality' attribute of the players, it attempts to create a list of the player entities themselves. Additionally, while the relationship direction is logically sound (player plays for team), the target does not capture the specific semantic requirement of the query (nationalities).",
+        "score": 0.5
+      },
+      {
+        "id": "Q37",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate attempts to solve the 'fifth' requirement by adding a hypothetical 'ordinal_number' attribute to the King entity. However, in a graph database context for historical sequences, the correct way to determine order is through temporal properties (like start_date) combined with skip/limit logic, as shown in the Ground Truth. The Candidate's approach relies on an unverified attribute rather than the graph's inherent temporal structure, making it semantically less robust for this type of query.",
+        "score": 0.6
+      },
+      {
+        "id": "Q41",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces a different graph topology than the Ground Truth, adding an extra 'Project' entity (e3) to link collaborations to Planck. While the Ground Truth provides two different ways to interpret the query (one via a Collaboration entity and one via direct Scientist-to-Scientist collaboration), the Candidate chooses a single, specific interpretation. Although the schema/topology differs, the Candidate is semantically faithful to the natural language query, correctly captures all constraints (Planck and Germany), and follows the grammar perfectly.",
+        "score": 0.9
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Candidate swaps the IDs for the target and the constrained entity compared to the Ground Truth (targeting the person instead of the related entity), it remains semantically valid for the query 'Give me any entity...'. The addition of a 'limit: 1' is a reasonable interpretation of 'any entity'.",
+        "score": 0.95
+      },
+      {
+        "id": "Q48",
+        "features": [
+          "aggregations",
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly implements the complex logic of the query, including the top-N aggregation and the comparison. However, it contains a directionality error in the relationship: it defines 'father_of' from Person (e2) to Actor (e1), but the constraint then checks the 'money' attribute of e2 (the father) to compare against the actor's father. While the logic holds, the role name 'father_of' usually implies the direction from parent to child, which matches the 'from/to' used, but the Ground Truth uses 'has_father' from child to parent. More importantly, the Candidate uses 'money' for directors instead of 'salary' as used in the Ground Truth, though this is a minor semantic variation. The core logic is sound.",
+        "score": 0.9
+      }
+    ],
+    "rationale": "Analyzing the failures by priority:\n\n**Group A \u2013 Negation misuse (Q19, Score 0.597):** The generator expressed \"no relationship exists\" by wrapping a `RELATIONSHIP_ID` inside a `QUANTIFIER_PREDICATE(NONE)` whose inner `condition` was a `COMPARISON` between the `RELATIONSHIP_ID` and the boolean `true`. This is a grammar violation (a `RELATIONSHIP_ID` is not a valid `EXPRESSION` for a `COMPARISON`). The correct pattern is simply `NOT` wrapping the `RELATIONSHIP_ID` directly. The current instructions mention that a `RELATIONSHIP_ID` \"can appear directly as a condition\" but do not explicitly show the negation pattern nor forbid the quantifier workaround.\n\n**Group B \u2013 Entity type vs. attribute value conflation (Q31 Score 0.5, Q11 Score 0.4):** The generator encoded domain sub-classifications (e.g., \"Mammal\", \"mice\") in the ENTITY `type` field and then also (or instead) tried to filter on a redundant `type` attribute. The `type` field is a schema-level category; specific classification values belong in attribute constraints. The instructions say \"Assign a concrete type (e.g., Director, Movie, \u2026)\" which may encourage using overly specific sub-labels. A clarifying sentence is needed.\n\n**Group C \u2013 `map_expression` placed inside a `LIST` (Q32, Score 0.603):** The generator added a `map_expression` field to a `LIST` object. Per the grammar, `map_expression` is exclusive to `SCALAR_AGGREGATE`. Step 7 currently describes `LIST` and `SCALAR_AGGREGATE` separately but does not explicitly prohibit `map_expression` from appearing in a `LIST`.\n\n**Group D \u2013 Constraint scoping within OR (Q11, Score 0.4):** A threshold condition meant for only one disjunct was incorrectly applied to both branches. This is a general logical-scoping issue; a brief reminder in Step 5 that each OR/AND branch must contain only the predicates relevant to that branch will help.\n\n**Lower-priority items (Q17, Q34, Q36, Q41, Q42, Q48 \u2013 all \u2265 0.9):** These are valid alternative interpretations or minor directionality differences. No instruction change is warranted.\n\nThe edits are surgical: one sentence added to Step 3, two sentences added to Step 5, and one clarifying sentence added to Step 7."
+  },
+  {
+    "iteration": 3,
+    "timestamp": "2026-10-08T16:18:28.740622",
+    "score": 0.9478148148148148,
+    "delta": 0.007740740740740715,
+    "status": "KEEP",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_v3.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter3_20261008_161828.csv",
+    "failures": [
+      {
+        "id": "Q09",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate makes a different but valid modeling choice by treating 'Marriage' as an entity rather than a relationship. However, it fails to match the Ground Truth's logic regarding where the 'year' attribute resides. In the Ground Truth, the year is an attribute of the 'married' relationship, whereas the Candidate places it on a 'Marriage' entity. While semantically similar, the Candidate's use of 'title' instead of 'name' for the movie constraint is a minor deviation. The core logic of connecting actors to the movie and then to the marriage event is preserved.",
+        "score": 0.85
+      },
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate suffers from several major issues. First, it attempts to model the 'together with' logic by using an 'AND' constraint across two separate entity instances (e1 and e2) within a single query object, which is logically incorrect for retrieving two distinct sets of results (it would only return results if both conditions were met simultaneously by the same set of data, or it fails to represent the union/disjunction intended). Second, it performs a 'topology bypass' by treating 'product' and 'location' as flat attributes of the SalesData entity instead of using the graph structure (entities for Product/Animal and City) defined in the Ground Truth. Third, the target includes two entity IDs, which doesn't align with the intent of retrieving the sales data itself. Overall, it fails to capture the multi-hypothesis nature of the query and the graph topology.",
+        "score": 0.3
+      },
+      {
+        "id": "Q17",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate provides a valid and concise interpretation of the query. While the Ground Truth offers two hypotheses (one using a graph traversal to a Country entity and one using a flat attribute), the Candidate's approach of using a 'nationality' attribute is a semantically valid way to represent the query intent. It is grammatically correct and captures all constraints (nationality and weight).",
+        "score": 0.95
+      },
+      {
+        "id": "Q18",
+        "features": [
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces an unnecessary and grammatically questionable 'and_conditions' block within the OR clause. It attempts to include the relationship ID 'r1' as a condition alongside an attribute comparison, which is not a standard way to express a traversal in this IR. The Ground Truth correctly expresses the logic by simply linking the Actor and Movie entities via a relationship and applying the name constraint to the Movie entity. The Candidate's approach is overly complex and deviates from the intended logic of the schema.",
+        "score": 0.8466666666666666
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate makes a significant modeling error by treating 'Salary' as a separate entity type rather than an attribute of the 'Player' entity. This leads to an unnecessary relationship ('has_salary') and a target that attempts to list an entity ID rather than the attribute value itself. While the logical constraints (team name and age) are correctly captured, the structural approach deviates from the standard way to access properties in this IR.",
+        "score": 0.5033333333333333
+      },
+      {
+        "id": "Q34",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate is semantically correct and follows the grammar. While it swaps the entity IDs (using e2 for Actor instead of e1) and reverses the direction of the relationship compared to the Ground Truth, the logic remains sound: the target is the Actor, the constraint correctly filters the Movie by name, and the ordering is applied to the Actor's height. The change in sort direction (ASC vs DESC) is a minor semantic variation.",
+        "score": 0.9516666666666665
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target expression. Instead of projecting the 'nationality' attribute of the players, it attempts to create a list of the player entities themselves. Additionally, while the relationship direction is logically sound (player plays for team), the target does not capture the specific semantic requirement of the query (nationalities).",
+        "score": 0.5
+      },
+      {
+        "id": "Q41",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces a 'Project' entity and a 'funds' relationship direction that differs from the Ground Truth, but it maintains a logically coherent graph structure to represent the query. It captures the core intent (Scientist -> Collaboration -> Project/Planck and University -> Project/Planck) and correctly applies the constraints for 'Planck' and 'Germany'. While the schema interpretation of how a university funds a collaboration/project varies slightly from the Ground Truth, the Candidate is semantically faithful to the natural language query.",
+        "score": 0.9
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Candidate swaps the IDs for the target and the constrained entity compared to the Ground Truth (targeting the person instead of the related entity), it remains semantically valid for the query 'Give me any entity...'. The addition of a 'limit: 1' is a reasonable interpretation of 'any entity'.",
+        "score": 0.95
+      },
+      {
+        "id": "Q48",
+        "features": [
+          "aggregations",
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly implements the complex aggregation logic (top 5 directors' salaries summed) and the target/entities. However, it contains a directionality error in the relationship: the role 'father_of' is defined from 'e2' (the father) to 'e1' (the actor), but the constraint 'money of e2' is applied to the father. While the logic holds, the relationship role 'father_of' usually implies 'A is the father of B', so 'from: e2, to: e1' is semantically correct for that role, but the Ground Truth used 'has_father' from actor to person. The primary issue is that the Candidate's relationship direction and role name are slightly inconsistent with standard graph modeling for 'actor's father', but it is semantically functional. The most significant deviation is the role name/directionality mismatch compared to the Ground Truth's 'has_father' (e1 -> e2).",
+        "score": 0.9
+      }
+    ],
+    "rationale": "Analyzing the failures by shared root cause and priority:\n\n**Group A \u2013 Entity `type` conflation (Q11 score 0.4, Q31 score 0.5):** Both failures show the generator placing a specific instance value or sub-classification (e.g., \"Mice\", \"Mammal\") into the `type` field instead of using a broad category and constraining the specific value via an attribute comparison. Q11 additionally misses a separate `SalesData` entity, treating sales as an attribute of the Mouse. This is a topology/modeling error (priority 1\u20132). The rejected attempt tried a prohibition-style rule; I will reframe it as a positive decision procedure integrated into Step 3 to avoid the same rejection.\n\n**Group B \u2013 Logical scoping in disjunctions (Q11 score 0.4):** The \"> 100\" qualifier is semantically bound only to the \"Austin\" branch of an OR, but the generator hoists it to apply to both branches. This is a semantic gap (priority 2). The rejected attempt used a \"do not hoist\" framing; I will reframe as a parsing strategy (identify modifier scope in the source sentence first).\n\n**Group C \u2013 Invalid negation encoding (Q19 score 0.60):** The generator wraps a `RELATIONSHIP_ID` in a `QUANTIFIER_PREDICATE` with a `COMPARISON` against a boolean, which violates the grammar (a `RELATIONSHIP_ID` is not an `EXPRESSION`). The correct form is `NOT` directly on the `RELATIONSHIP_ID`. This is a structural violation (priority 3). The rejected attempt stated this as a prohibition; I will show the correct positive pattern.\n\n**Group D \u2013 `map_expression` misplaced in `LIST` (Q32 score 0.60):** The generator puts `map_expression` inside a `LIST` object, but the grammar assigns it exclusively to `SCALAR_AGGREGATE`. This is a structural violation (priority 3). The rejected attempt noted the exclusivity; I will embed the clarification directly in the `SCALAR_AGGREGATE` bullet to keep the rule adjacent to the construct it governs.\n\n**Group E \u2013 Ordinal / Nth-element queries (Q37 score 0.60):** The generator invents an `ordinal_number` attribute instead of using `order_by` + `skip`/`limit` on a meaningful attribute (e.g., a date). This is a semantic gap (priority 2). The rejected attempt did not address this; it is a new addition.\n\nI will make surgical edits to Steps 3, 5, 6, and 7, keeping all existing working rules intact."
+  },
+  {
+    "iteration": 4,
+    "timestamp": "2026-10-08T19:11:28.212445",
+    "score": 0.9432962962962962,
+    "delta": -0.004518518518518588,
+    "status": "DISCARDED",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_latest.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter4_20261008_191128.csv",
+    "failures": [
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate fails to capture the core semantic intent of the query. First, it attempts to treat 'sales_data' as an attribute of a 'Product' entity, whereas the Ground Truth correctly identifies 'SalesData' as a distinct entity type that connects to both products and locations. Second, the Candidate uses a single entity for 'Location' instead of a 'City' entity, and more importantly, it attempts to apply a numerical comparison ('> 100') to an attribute named 'sales_data' which is being used as the target, creating a logical circularity/type mismatch. Finally, the Ground Truth provides multiple hypotheses to account for different possible schema interpretations (e.g., mice as an Animal vs. a Product), while the Candidate only provides one limited and structurally flawed interpretation.",
+        "score": 0.4
+      },
+      {
+        "id": "Q15",
+        "features": [
+          "paths",
+          "complex_constraints",
+          "aggregations",
+          "quantifiers"
+        ],
+        "rationale": "The Candidate is semantically equivalent to the Ground Truth. It correctly identifies the path as the target and uses a quantifier logic to exclude the city 'Huesca'. While the Ground Truth uses a 'NONE' quantifier, the Candidate uses a 'NOT EXISTS' logic, which is semantically identical. The Candidate also includes an extra entity declaration for 'e3' which is redundant since 'e4' is used in the constraint, but this is a minor minimality issue.",
+        "score": 0.9516666666666665
+      },
+      {
+        "id": "Q17",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate provides a valid and concise interpretation of the query. While the Ground Truth offers two hypotheses (one using a graph traversal to a Country entity and one using a flat attribute), the Candidate's approach of using a 'nationality' attribute is a semantically valid way to represent the query intent. It is grammatically correct and captures all constraints (nationality and weight).",
+        "score": 0.95
+      },
+      {
+        "id": "Q23",
+        "features": [
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate captures the core logic of the comparison and the aggregation correctly. However, it fails to include the constraint that filters the team to 'Rayo Vallecano'. Without this constraint, the query compares players' earnings to the combined earnings of *all* players in the database, rather than just those of the specific team mentioned. This is a significant semantic omission.",
+        "score": 0.65
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate fails to capture the core intent of the query. The target is a list of 'Player' entities (e2) rather than the requested 'salaries' (an attribute). While the graph structure, entities, and constraints are logically sound and correctly implemented, the projection (target) is incorrect, making the query return the wrong data type.",
+        "score": 0.6
+      },
+      {
+        "id": "Q34",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly identifies the entities, relationship, and name constraint. While it swaps the entity IDs (e1 for Movie, e2 for Actor) compared to the Ground Truth, it maintains internal consistency in the relationship direction (from Actor to Movie) and the order_by expression. The only discrepancy is the sort direction (ASC vs DESC), which is a minor semantic variation in ordering preference.",
+        "score": 0.95
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target expression. Instead of projecting the 'nationality' attribute of the players, it attempts to create a list of the player entities themselves. Additionally, while the relationship direction is logically sound (player plays for team), the target does not capture the specific semantic requirement of the query (nationalities).",
+        "score": 0.5
+      },
+      {
+        "id": "Q41",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces a different graph topology than the Ground Truth by adding an extra 'Project' entity (e3) to link collaborations to Planck. While the Ground Truth provides two different ways to model the query (one via a Collaboration entity and one via direct Scientist-to-Scientist collaboration), the Candidate's approach is a semantically plausible alternative interpretation of the natural language. It correctly captures all necessary constraints (Planck and Germany) and maintains valid grammar and connectivity.",
+        "score": 0.9
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the logic of the query, including the entities, relationship, and name constraint. While the target is swapped (it targets the person instead of the related entity), this is a minor semantic variation in a query asking for 'any entity' where the directionality of the relationship is arbitrary. The structure is grammar-compliant and semantically faithful.",
+        "score": 0.9983333333333333
+      },
+      {
+        "id": "Q43",
+        "features": [
+          "paths",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate fails to capture the 'any connection' requirement correctly by using a single direct relationship instead of a PATH. In graph queries, a 'connection' implies a traversal that could be multi-hop (indirect), which requires the PATH construct. By using a single relationship, the Candidate only finds direct connections, whereas the Ground Truth correctly uses a PATH to allow for any number of hops. Additionally, the target 'r1' refers to a relationship, which is more restrictive than the path-based target.",
+        "score": 0.6
+      },
+      {
+        "id": "Q48",
+        "features": [
+          "aggregations",
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly implements the complex aggregation logic (top 5 directors' salaries summed) and the target. However, it contains a directionality error in the relationship: the role 'father_of' is defined from 'e2' (the father) to 'e1' (the actor), but the constraint compares the money of 'e2' to the sum. While the logic holds, the relationship role 'father_of' usually implies the direction [Parent] -> [Child], which matches the 'from/to' provided, but the Ground Truth uses 'has_father' [Child] -> [Parent]. The primary issue is that the relationship direction and role name are slightly inconsistent with standard semantic modeling compared to the Ground Truth, but the core logic is preserved.",
+        "score": 0.9483333333333334
+      }
+    ],
+    "rationale": "Analyzing the failures by root cause and severity:\n\n**Group 1 \u2013 Entity/Relationship/Attribute boundary errors (Topology, highest priority):**\n- Q09 (0.85): \"Marriage\" modeled as an entity instead of a relationship; the year attribute misplaced on the entity rather than on the relationship.\n- Q32 (0.503): \"Salary\" modeled as a separate entity instead of an attribute of the Player.\n- Q11 (0.3): Product and City collapsed into flat attributes of a SalesData entity instead of being independent entities connected by relationships (topology bypass in the opposite direction).\n\nRoot cause: The current Step 3 rule (\"If the query involves a data-record concept\u2026 model it as its own entity\") is too vague and is being applied inconsistently. The generator cannot distinguish between (a) an inherent property of a subject (\u2192 attribute), (b) an independent participant (\u2192 entity), and (c) an event/connection (\u2192 relationship with its own attributes). I need a clearer decision rule.\n\n**Group 2 \u2013 Target identification (Semantic gap):**\n- Q36 (0.5): User asks for \"nationalities\" (an attribute/expression), but the generator targets the player entities.\n- Q11 (0.3): Target includes entity IDs rather than the specific data requested.\n\nRoot cause: Step 2 lists valid target types but doesn't emphasize that when the user asks for a *property* of an entity, the target must be the ATTRIBUTE (EXPRESSION), not the entity ID.\n\n**Group 3 \u2013 Redundant relationship assertion in constraint (Structural):**\n- Q18 (0.847): Relationship ID placed inside an `and_conditions` block alongside attribute comparisons, creating an unnecessarily complex constraint tree. The relationship is already declared in `relationships`, so re-asserting it in the constraint is redundant.\n\nRoot cause: Step 5 says \"A RELATIONSHIP_ID can appear directly as a condition to assert that the edge must exist\" without clarifying that this is only needed for special cases (negation, conditional edges). Positive existence is already guaranteed by the `relationships` array.\n\n**Group 4 \u2013 Disjunction / union modeling (Semantic):**\n- Q11 (0.3): \"Together with\" (union of two sets) modeled as AND within a single query instead of as separate hypotheses.\n\nRoot cause: Step 1 mentions hypotheses for \"syntactic or structural ambiguity\" but doesn't address the case where the user requests the *union* of two distinct result sets (e.g., \"X together with Y\"). These should be separate hypotheses.\n\nI will make surgical edits to Steps 1, 2, 3, and 5 to address all four groups."
+  },
+  {
+    "iteration": 5,
+    "timestamp": "2026-10-08T22:02:29.562353",
+    "score": 0.9380000000000001,
+    "delta": -0.00981481481481472,
+    "status": "DISCARDED",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_latest.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter5_20261008_220229.csv",
+    "failures": [
+      {
+        "id": "Q09",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate makes a different but valid modeling choice by treating 'Marriage' as an entity rather than a relationship. However, it fails to match the Ground Truth's logic regarding where the 'year' attribute resides. In the Ground Truth, the year is an attribute of the 'married' relationship, whereas the Candidate places it on a 'Marriage' entity. While semantically similar, the Candidate's use of 'title' instead of 'name' for the movie constraint is a minor deviation. The core logic of connecting actors to the movie and then to the marriage event is preserved.",
+        "score": 0.85
+      },
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate fails to capture the core semantic intent of the query. First, it attempts to treat 'sales_data' as an attribute of a 'Product' entity, whereas the Ground Truth correctly identifies 'SalesData' as a distinct entity type that connects to both products and locations. Second, the Candidate uses a single entity for 'Location' instead of a 'City' entity, and more importantly, it attempts to apply a numerical comparison ('> 100') to an attribute named 'sales_data' which is being used as the target, creating a logical circularity/type mismatch. Finally, the Ground Truth provides multiple hypotheses to account for different possible schema interpretations (e.g., mice as an Animal vs. a Product), while the Candidate only provides one limited and structurally flawed interpretation.",
+        "score": 0.4
+      },
+      {
+        "id": "Q17",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate provides a valid and concise interpretation of the query. While the Ground Truth offers two hypotheses (one using a graph traversal to a Country entity and one using a flat attribute), the Candidate's approach of using a 'nationality' attribute is a semantically valid way to represent the query intent. It is grammatically correct and captures all constraints (nationality and weight).",
+        "score": 0.95
+      },
+      {
+        "id": "Q27",
+        "features": [
+          "aggregations"
+        ],
+        "rationale": "The Candidate contains a grammar violation in the constraint block. The 'count' object's 'list' property is nested twice (a 'list' containing a 'list'), whereas the grammar defines 'count' as taking a 'LIST' object directly. This structural error makes the expression invalid according to the provided schema.",
+        "score": 0.6033333333333333
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate fails to capture the core intent of the query. The target is a list of 'Player' entities (e2) rather than the requested 'salaries' (an attribute). While the graph structure, entities, and constraints are logically sound and correctly implemented, the projection (target) is incorrect, making the query return the wrong data type.",
+        "score": 0.6
+      },
+      {
+        "id": "Q34",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate is semantically correct and follows the grammar. While it swaps the entity IDs (using e2 for Actor instead of e1) and reverses the direction of the relationship compared to the Ground Truth, the logic remains sound: the target is the Actor, the constraint correctly filters the Movie by name, and the ordering is applied to the Actor's height. The change in sort direction (ASC vs DESC) is a minor semantic variation.",
+        "score": 0.9516666666666665
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target expression. Instead of projecting the 'nationality' attribute of the players, it attempts to create a list of the player entities themselves. Additionally, while the relationship direction is logically sound (player plays for team), the target does not capture the specific semantic requirement of the query (nationalities).",
+        "score": 0.5
+      },
+      {
+        "id": "Q41",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces a different graph topology than the Ground Truth, adding an extra 'Project' entity (e3) to link collaborations to Planck. While the Ground Truth provides two different ways to interpret the query (one via a Collaboration entity and one via direct Scientist-to-Scientist collaboration), the Candidate chooses a single, specific interpretation. Although the schema/topology differs, the Candidate is semantically faithful to the natural language query, correctly captures all constraints (Planck and Germany), and follows the grammar perfectly.",
+        "score": 0.9
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Candidate swaps the IDs for the target and the constrained entity compared to the Ground Truth (targeting the person instead of the related entity), it remains semantically valid for the query 'Give me any entity...'. The addition of a 'limit: 1' is a reasonable interpretation of 'any entity'.",
+        "score": 0.95
+      },
+      {
+        "id": "Q48",
+        "features": [
+          "aggregations",
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly implements the complex aggregation logic (top 5 directors' salaries summed) and the target. However, it contains a semantic error in the relationship directionality: the role is 'father_of' but the 'from' and 'to' fields are reversed (from Person to Actor), which contradicts the logic of the constraint where the Person (e2) is the father. While the Ground Truth uses 'has_father' from Actor to Person, the Candidate's choice of 'father_of' with reversed directionality makes the graph traversal logically incorrect for the intended query.",
+        "score": 0.805
       },
       {
         "id": "Q49",
@@ -86,10 +539,212 @@
           "quantifiers",
           "complex_constraints"
         ],
-        "rationale": "The Candidate captures the core logic of the query, including the 'ALL' quantifier and the 'MAX' aggregation. However, it fails to implement the 'Argentine' constraint, which is a significant semantic omission. It attempts to compare all lead actors to the highest-paid actor overall, rather than specifically the highest-paid Argentine actor. This is a major gap in semantic faithfulness.",
-        "score": 0.6
+        "rationale": "The Candidate captures the core logic of the query: finding movies where all lead actors' salaries exceed the maximum salary of a specific group. However, it fails to include the constraint that the comparison group must be 'Argentine' actors. While the Ground Truth provides two hypotheses (one using a string attribute and one using a relationship to a Country entity), the Candidate omits the nationality filter entirely, which is a significant semantic omission.",
+        "score": 0.7
       }
     ],
-    "rationale": null
+    "rationale": "Analyzing the failures by priority:\n\n**Priority 1 \u2013 Topology error (Q11, Score 0.3):**\nTwo compounding issues: (a) \"together with\" was modeled as a single `AND` constraint across two entity instances instead of separate hypotheses (union of result sets); (b) Product and City/Location were collapsed into flat attributes of a SalesData entity instead of being modeled as separate entities connected by relationships. The current Step 3 mentions data-record concepts but doesn't clearly cover the case where a noun refers to an independently-identifiable entity *connected to* the subject. Step 1's \"genuine ambiguity\" is too vague to trigger multi-hypothesis for \"together with\" constructions.\n\n**Priority 2 \u2013 Attribute-vs-Entity / Target confusion (Q32 Score 0.503, Q36 Score 0.5):**\nQ32: Salary modeled as a separate entity with a `has_salary` relationship; target is the entity ID instead of the salary attribute. Q36: Nationality (an attribute) should be the target, but the generator targets the Player entity. Both share the root cause: the generator doesn't distinguish between \"the user wants a property value\" (target = ATTRIBUTE/EXPRESSION) and \"the user wants the entity\" (target = ENTITY_ID), and between \"a noun that is an intrinsic property\" (attribute) and \"a noun that is a connected independent entity\" (entity + relationship). The current Step 2 lists possible target types but doesn't give a decision rule.\n\n**Priority 3 \u2013 Redundant RELATIONSHIP_ID in positive constraints (Q18, Score 0.847):**\nThe generator placed `RELATIONSHIP_ID` inside an `AND` block as a positive assertion. The current Step 5 says \"A RELATIONSHIP_ID can appear directly as a condition to assert that the edge must exist,\" which inadvertently encourages this. The relationship is already asserted by declaring it in the `relationships` array; the RELATIONSHIP_ID as CONDITION is only needed for negation or genuinely conditional logic.\n\n**Priority 4 \u2013 Minor modeling variations (Q09, Q17, Q34, Q41, Q42, Q48):**\nAll scores \u2265 0.85. These reflect acceptable alternative modeling choices (role direction, entity naming, flat-attribute vs. graph-traversal for nationality). No instruction change needed.\n\n**Plan:**\n- Step 1: Add a specific clarification that \"together with / in addition to / plus\" joining two independent result sets constitutes structural ambiguity \u2192 separate hypotheses.\n- Step 2: Add a decision rule for target selection: property \u2192 ATTRIBUTE; entity as a whole \u2192 ENTITY_ID.\n- Step 3: Extend the existing data-record sentence to cover connected independent entities (not just data-records).\n- Step 5: Rewrite the RELATIONSHIP_ID-as-condition sentence to clarify it is for negation/conditional use only, not for redundant positive assertion."
+  },
+  {
+    "iteration": 6,
+    "timestamp": "2026-10-09T00:53:55.705254",
+    "score": 0.9538518518518518,
+    "delta": 0.006037037037037063,
+    "status": "KEEP",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_v6.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter6_20261009_005355.csv",
+    "failures": [
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate fails to capture the core semantic intent of the query. It treats 'Mouse' as an entity type rather than a value constraint on a product or animal, and it models 'SalesData' as an attribute of the mouse rather than a distinct entity. Furthermore, the target is incorrectly defined as a LIST of the mouse entity itself, rather than the sales data. While it attempts to split the query into two hypotheses (Sydney and Austin), the underlying graph model is fundamentally flawed compared to the Ground Truth.",
+        "score": 0.4
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate fails to capture the core intent of the query. The target is a list of 'Player' entities (e2) rather than the requested 'salaries' (an attribute). While the graph structure, entities, and constraints are logically sound and correctly implemented, the projection (target) is incorrect, making the query return the wrong data type.",
+        "score": 0.6
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target expression. Instead of projecting the 'nationality' attribute of the players, it attempts to create a list of the player entities themselves. Additionally, while the relationship direction is logically sound (player plays for team), the target does not capture the specific semantic requirement of the query (nationalities).",
+        "score": 0.5
+      },
+      {
+        "id": "Q41",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces a different graph topology than the Ground Truth, adding an extra 'Project' entity (e3) to link collaborations to Planck. While the Ground Truth provides two different ways to interpret the query (one via a Collaboration entity and one via direct Scientist-to-Scientist collaboration), the Candidate chooses a single, specific interpretation. Although the schema/topology differs, the Candidate is semantically faithful to the natural language query, correctly captures all constraints (Planck and Germany), and follows the grammar perfectly.",
+        "score": 0.9
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Ground Truth targets the related entity (e1) and constrains the person (e2), the Candidate targets the person (e2) and constrains the entity (e1). However, the query asks for 'any entity that is related to Javier Bardem', meaning the target should be the related entity, not the person themselves. The Candidate's target selection is semantically inverted relative to the natural language intent.",
+        "score": 0.7183333333333333
+      },
+      {
+        "id": "Q48",
+        "features": [
+          "aggregations",
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly implements the complex aggregation logic (top 5 directors' salaries summed) and the target. However, it contains a semantic error in the relationship directionality: the role is 'father_of' but the 'from' and 'to' fields are reversed (from Person to Actor), which contradicts the logic of the constraint where the Person (e2) is the father. While the Ground Truth uses 'has_father' from Actor to Person, the Candidate's choice of 'father_of' with reversed directionality makes the graph traversal logically incorrect for the intended query.",
+        "score": 0.805
+      }
+    ],
+    "rationale": "**Group 1 \u2013 Attribute vs. Entity vs. Relationship confusion (Q09, Q32, Q36; root cause shared):**\n- Q32 (0.50): \"Salary\" promoted to a separate entity with a `has_salary` relationship instead of being an attribute of Player.\n- Q36 (0.50): Target is the Player entity instead of the `nationality` ATTRIBUTE.\n- Q09 (0.85): \"Marriage\" modeled as an entity; the year placed on that entity instead of as an attribute of the `married` relationship.\n- Q11 (0.30): Inversely, \"Product\" and \"City\" collapsed into flat attributes instead of independent entities.\n\nShared root cause: The current Step 3 rule \"If the query involves a data-record concept (e.g., a sales figure, a measurement) that is semantically separate from the subject entity, model it as its own entity\" is too broad and triggers over-promotion of intrinsic values (salary, year) into entities, while the model still fails to promote genuine independent participants (product, city) into entities. A clear 3-way distinction is needed: intrinsic value \u2192 ATTRIBUTE; independent participant \u2192 ENTITY; connection/event \u2192 RELATIONSHIP (with its own attributes).\n\nAdditionally, Q36 and Q32 show the target is wrong: when the user asks for a property/value, the target must be the ATTRIBUTE (EXPRESSION), not the entity.\n\n**Group 2 \u2013 Redundant RELATIONSHIP_ID inside AND/OR blocks (Q18, score 0.85):**\nThe model embeds a RELATIONSHIP_ID as a condition alongside attribute comparisons inside an AND block. The relationship's existence is already asserted by declaring it in `relationships`. The current instructions explicitly *allow* this (\"A RELATIONSHIP_ID can appear directly as a condition\"), which invites the anti-pattern. A targeted restriction is needed: forbid REL_ID inside AND/OR blocks but still allow it as a standalone condition or inside NOT.\n\n**Group 3 \u2013 \"Together with\" union as multi-hypothesis (Q11, score 0.30):**\nQ11 merges two distinct result sets into a single AND-constrained query. The rejected attempts added multi-hypothesis rules but scored slightly lower (0.9433, 0.9380), likely because the rules were too verbose or conflicted with other instructions. I'll add a concise, narrowly-scoped rule in Step 1 that only triggers for genuinely different entity types/scope, and explicitly notes that same-type-different-filter cases are single-query with OR.\n\n**Priority ordering:** Group 1 is highest impact (scores 0.50, 0.30) and shares a root cause. Group 2 is moderate (0.85). Group 3 is high impact (0.30) but partially addressed in Group 1's topology fix."
+  },
+  {
+    "iteration": 7,
+    "timestamp": "2026-10-09T03:48:55.636465",
+    "score": 0.9655185185185184,
+    "delta": 0.011666666666666603,
+    "status": "KEEP",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_v7.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter7_20261009_034855.csv",
+    "failures": [
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate correctly identifies the two main logical components of the query: sales data for mice in Sydney, and sales data for mice in Austin that exceed 100. It uses a valid hypothesis-based approach (multiple objects in the array) to represent the 'together with' (OR) logic. While the Ground Truth is much more exhaustive in its hypotheses (exploring different entity types like Animal vs Product and different attribute names like quantity vs amount), the Candidate's interpretation is semantically sound and follows the grammar perfectly. The use of 'Location' instead of 'City' is a minor semantic variation.",
+        "score": 0.9966666666666666
+      },
+      {
+        "id": "Q17",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate provides a valid and concise interpretation of the query. While the Ground Truth offers two hypotheses (one using a graph traversal to a 'Country' entity and one using a 'nationality' attribute), the Candidate's choice to use a single attribute is a semantically valid way to represent the query. It captures all constraints (nationality and weight) and the correct target. The slight difference in attribute naming ('weight_kg' vs 'weight') is a minor detail.",
+        "score": 0.9516666666666665
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate fails to capture the specific target requested by the query. While the Ground Truth provides two ways to interpret the request (returning the attribute directly or returning a list of salaries), the Candidate returns a list of the 'Player' entities themselves. This is a semantic error in the projection/target, as the user specifically asked for the 'list of salaries', not the players.",
+        "score": 0.6
+      },
+      {
+        "id": "Q34",
+        "features": [
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly identifies the entities, relationship, and constraint. While it swaps the entity IDs (e1/e2) compared to the Ground Truth, it maintains internal consistency (the relationship 'from' and 'to' correctly link the actor to the movie). The direction of 'order_by' is 'ASC' instead of 'DESC', which is a minor semantic difference in sorting preference. The target is correctly set to the Actor entity.",
+        "score": 0.95
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target and semantic intent. Instead of targeting the 'nationality' attribute of the players, it attempts to return a list of the player entities themselves. Furthermore, the target structure is invalid according to the grammar, as it nests a LIST object inside the target array in a way that doesn't align with the intended attribute extraction. While the graph topology (Team-Player relationship) and the name constraint are correctly modeled, the core requirement of returning nationalities is lost.",
+        "score": 0.4
+      },
+      {
+        "id": "Q41",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate introduces a different graph topology than the Ground Truth by adding an extra 'Project' entity (e3) and a 'collaborates_on' relationship. While the Ground Truth models the collaboration as an entity itself (e3) that connects scientists, the Candidate models it as a relationship between a collaboration entity and a project. However, the Candidate's logic is semantically consistent with the query: it finds scientists (e1) connected to a project (e3) named 'Planck' via a collaboration (e2), where that project is funded by a German university (e4). It captures all necessary constraints and entities, representing a valid alternative interpretation of the graph structure.",
+        "score": 0.9
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the logic of the query, including the entities, relationship, and name constraint. However, it swaps the target and the constraint entity: it targets the person (e1) instead of the related entity (e2), and applies the name constraint to the target rather than the anchor. While the graph structure is valid, the query result would return the name 'Javier Bardem' itself rather than the entities related to him.",
+        "score": 0.7
+      },
+      {
+        "id": "Q48",
+        "features": [
+          "aggregations",
+          "modifiers"
+        ],
+        "rationale": "The Candidate correctly implements the complex aggregation logic (top 5 directors' salaries summed) and the target/entities. However, it contains a directionality error in the relationship: the role 'father_of' is defined from 'e2' (the father) to 'e1' (the actor), but the constraint then attempts to access the 'money' attribute of 'e2' as if 'e2' were the father. While the logic holds, the relationship role 'father_of' usually implies 'A is the father of B', so 'from: e2, to: e1' is semantically correct for that role, but the Ground Truth used 'has_father' from actor to person. The primary issue is that the Candidate's relationship direction and role name are slightly inconsistent with standard graph modeling for 'has_father', but it is semantically functional. More importantly, the relationship direction 'from e2 to e1' with role 'father_of' is logically sound, making this a very high-quality translation despite the minor role naming difference.",
+        "score": 0.95
+      }
+    ],
+    "rationale": "**Group A \u2013 Target projection onto entity instead of attribute (Q32, Q36, Q11-partial):**\nQ32 and Q36 both show the generator targeting a list of entity IDs (e.g., \"Player\" entities) when the user explicitly asks for a *value* (\"salaries\", \"nationalities\"). The existing Step 2 rule already states to target the ATTRIBUTE, but the generator is still wrapping the entity in a `LIST` and targeting that. The rule needs a concrete anti-pattern callout: do NOT build a `CREATE_LIST` of entity IDs and target the list when the user asks for the attribute value. For Q11, the generator also misclassifies \"SalesData\" as an attribute when it is a distinct entity (it has its own identity, participates in relationships), and misclassifies \"Mouse\" as a type when it is a specific instance. The existing entity/attribute decision rule in Step 3 covers the principle but the generator still folds specific names into `type` and demotes record-like entities to attributes. I will strengthen the anti-pattern language in Step 2 and add a clarifying sentence in Step 3.\n\n**Group B \u2013 Target inversion: naming the constraint entity as the target (Q42):**\nThe user asks \"what entities are related to Javier Bardem?\" The generator targets Javier Bardem (the named reference) instead of the unknown related entity. The current instructions do not explicitly distinguish the *discovered* entity (target) from the *named reference* entity (constraint anchor). I will add a rule in Step 2 that clarifies: the entity the user is asking to discover is the target; a named entity that serves as a reference point appears in the relationship/constraint, not in the target.\n\n**Group C \u2013 Relationship from/to direction inconsistent with role semantics (Q48):**\nThe generator chose role `father_of` but set `from` = Person (father) to `to` = Actor (child), which is actually correct for \"father_of\". Wait, re-reading: \"the role is 'father_of' but the 'from' and 'to' fields are reversed (from Person to Actor), which contradicts the logic of the constraint where the Person (e2) is the father.\" So the generator had `from` = Actor, `to` = Person with role `father_of`, meaning \"Actor father_of Person\" which is semantically wrong (the Actor is the father, not the Person). The Ground Truth uses `has_father` from Actor to Person. The issue is that the generator picked a role whose natural direction doesn't match its from/to assignment. I will add a brief consistency rule in Step 4.\n\n**Q41 (score 0.9):** Minor topology preference difference; semantically correct. No change needed."
+  },
+  {
+    "iteration": 8,
+    "timestamp": "2026-10-09T06:49:21.352415",
+    "score": 0.9672222222222222,
+    "delta": 0.0017037037037037628,
+    "status": "KEEP",
+    "prompt_path": "/opt/project/autoresearch/prompts/champion_v8.prompt.md",
+    "results_file": "/opt/project/autoresearch/archive/run_20261008_075317/outputs/validation_results_iter8_20261009_064921.csv",
+    "failures": [
+      {
+        "id": "Q05",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate captures the core intent but fails to fully satisfy the query's request for 'the relationships between them' (plural). It only defines a single relationship between two actors, whereas the Ground Truth implies a more complete set of connections. Additionally, the target selection is slightly different from the Ground Truth, though it remains semantically related. The structural modeling of the actors and the movie constraint is correct.",
+        "score": 0.8
+      },
+      {
+        "id": "Q11",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints"
+        ],
+        "rationale": "The Candidate correctly identifies the two main logical components of the query: (1) sales for mice in Sydney and (2) sales for mice in Austin that exceed 100. It uses a set of hypotheses (multiple objects in the array) to represent the 'together with' (OR) logic. While the Ground Truth is much more exhaustive in its hypotheses (exploring different entity types like Animal vs Product and different attribute names like quantity vs amount), the Candidate's interpretation is semantically sound and follows the grammar perfectly. The use of 'Location' instead of 'City' is a minor semantic variation.",
+        "score": 0.9066666666666666
+      },
+      {
+        "id": "Q32",
+        "features": [
+          "multi_hypothesis",
+          "complex_constraints",
+          "aggregations"
+        ],
+        "rationale": "The Candidate fails to capture the core intent of the query. The target is a list of 'Player' entities (e2) rather than the requested 'salaries' (an attribute). While the graph structure, entities, and constraints are logically sound and correctly implemented, the projection (target) is incorrect, making the query return the wrong data type.",
+        "score": 0.6
+      },
+      {
+        "id": "Q36",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate fails significantly on the target expression. Instead of projecting the 'nationality' attribute of the players, it attempts to create a list of the player entities themselves. Additionally, while the relationship direction is logically sound (player plays for team), the target does not capture the specific semantic requirement of the query (nationalities).",
+        "score": 0.5
+      },
+      {
+        "id": "Q42",
+        "features": [
+          "relationships"
+        ],
+        "rationale": "The Candidate correctly identifies the core logic: finding an entity connected to a person named 'Javier Bardem'. While the Ground Truth targets the related entity (e1) and constrains the person (e2), the Candidate targets the person (e2) and constrains the entity (e1). However, the query asks for 'any entity that is related to Javier Bardem', meaning the target should be the related entity, not the person themselves. The Candidate's target selection is semantically inverted relative to the natural language intent.",
+        "score": 0.7183333333333333
+      }
+    ],
+    "rationale": "Two distinct root causes account for the meaningful failures:\n\n**Group 1 \u2013 Q32 (0.60) & Q36 (0.40): Targeting entities instead of attributes when the user asks for a property.**\nBoth queries ask for a *value* (salaries, nationalities) but the generator returns the *entity* (players) or wraps entity IDs in a `LIST` construct. The existing Step 2 anti-pattern already forbids wrapping attributes in a `LIST` of entity IDs, but it does not explicitly address the common natural-language phrasing \"list of X\" (e.g., \"list of salaries\", \"list of nationalities\"). The word \"list\" in the query misleads the generator into selecting the `LIST` construct with `list_elements` pointing to entities, rather than simply targeting the `ATTRIBUTE`. I need to extend the existing anti-pattern bullet to explicitly state that the word \"list\" in the query is not a grammatical trigger for the `LIST` construct.\n\n**Group 2 \u2013 Q42 (0.70): Target/anchor inversion.**\nThe generator targets the named entity (the anchor, e.g., a specific person) and applies the name constraint to the *other* entity, inverting the intended query. The existing \"Target vs. constraint anchor\" rule already states the principle, but lacks a concrete anti-pattern example that shows the reversal. Adding a short, concrete anti-pattern will make the rule unambiguous and prevent the model from swapping which entity carries the name constraint versus which is returned.\n\n**Minor issues (Q11 0.997, Q17 0.95, Q34 0.95, Q41 0.90, Q48 0.95):** These are within acceptable tolerance (attribute naming, role-direction conventions, alternative but valid topologies). No instruction change is warranted."
   }
 ]

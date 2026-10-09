@@ -68,12 +68,12 @@ PATH := {
 }
 
 LIST := {
-  list: CREATE_LIST | NODES | RELATIONS,
-  filter?: CONDITION,
-  distinct?: BOOLEAN,
-  order_by?: [ORDER_CRITERION, ...],
-  limit?: NUMBER,
-  skip?: NUMBER
+  list: CREATE_LIST | NODES | RELATIONS, // Source elements to form the list
+  filter?: CONDITION, // Condition to filter the list elements
+  distinct?: BOOLEAN, // Flag to remove duplicate elements
+  order_by?: [ORDER_CRITERION, ...], // Criteria to sort the list
+  limit?: NUMBER, // Maximum number of elements to include
+  skip?: NUMBER // Number of elements to skip
 }
 
 CREATE_LIST := {
@@ -409,7 +409,7 @@ Output:
       { "id": "e2", "type": "Article" }
     ],
     "paths": [
-      { "id": "p1", "start": "e1", "end": "e2", "roles": ["any"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": [] }
     ],
     "constraint": {
       "and_conditions": [

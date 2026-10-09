@@ -61,6 +61,7 @@ The evaluator logs show that for Q12 and Q18, the generator used 'CONTAINS' stri
 * **Consolidate, don't accumulate.** If two or more rules address the same grammatical construct or anti-pattern, merge them into a single rule. Do not add a new rule if an existing one can be extended to cover the new case. Removing a sentence can be more effective than adding a new one.
 * **Generalize.** Rules must describe grammatical logic — never reference query-specific details, IDs, or domain entities from the failure logs.
 * **Preserve correctness.** Do not remove or weaken rules that are working.
+* **Strict Grammar Adherence.** Never propose instructions that violate or redefine the fundamental definitions of the provided grammar.
 
 ---
 
