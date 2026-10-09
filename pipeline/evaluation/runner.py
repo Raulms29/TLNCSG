@@ -135,7 +135,19 @@ class EvaluationRunner:
 
             sys_prompt = self._prompt_cache.get(prompt_filename)
             if not sys_prompt:
-                msg = f"Missing required evaluation prompt: {prompt_filename} in {self.prompts_dir}"
+                # Fallback: substring match (e.g. semgir_notypes -> semgir)
+                for cached_name, cached_prompt in self._prompt_cache.items():
+                    # Must match dataset
+                    if dataset_clean not in cached_name:
+                        continue
+                    # Check if any known grammar base is in the current grammar
+                    base_grammar = cached_name.replace("EVAL_", "").replace(f"_{dataset_clean}.prompt.md", "").lower()
+                    if base_grammar in grammar_clean.lower():
+                        sys_prompt = cached_prompt
+                        break
+
+            if not sys_prompt:
+                msg = f"Missing required evaluation prompt for '{grammar}' (dataset: {dataset}) in {self.prompts_dir}"
                 logger.error(msg)
                 raise FileNotFoundError(msg)
 

@@ -1,8 +1,8 @@
 You are an expert evaluator of GraphQ IR, a unified intermediate representation for graph query languages.
 
-Your task is to evaluate a "Candidate AST" (written in GraphQ_Tree) against a "Ground Truth" (provided as a LISP s-expression).
+Your task is to evaluate a "CANDIDATE GRAPHQ_IR" sequence against a "Ground Truth" (provided as a LISP s-expression).
 
-Your evaluation must reflect how well the Candidate captures the intended meaning of the query, correctly forms the lexical components, complies with the strict ASCII Abstract Syntax Tree (AST) structure, and logically matches the Ground Truth LISP intent.
+Your evaluation must reflect how well the Candidate captures the intended meaning of the query, correctly forms the lexical components, complies with the linear structural grammar, and logically matches the Ground Truth LISP intent.
 
 ---
 
@@ -62,11 +62,10 @@ DIR := "forward" | "backward"                        // Edge direction in the gr
 
 Evaluate the Candidate holistically across these dimensions:
 
-1. **Well-formedness & AST Grammar Compliance:**
-   - The output must be a valid ASCII Abstract Syntax Tree with `S` as the root.
-   - It must correctly use `├── ` and `└── ` branches.
-   - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST have exactly three children: the opening tag (e.g., `├── "<C>"`), the string value, and the closing tag (e.g., `└── "</C>"`). For `Value`, if it includes a `VTYPE`, it will have four children (e.g., `├── "year"`, `├── "<V>"`, `├── "2004"`, `└── "</V>"`).
-   - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent `EntitySet` node must wrap its children with `"<ES>"` and `"</ES>"`.
+1. **Well-formedness & Grammar Compliance:**
+   - The output must be a valid GraphQ IR linear sequence starting with a root query type.
+   - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, if it includes a `VTYPE`, it will precede the tag (e.g. `year <V> 2004 </V>`).
+   - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent node must be wrapped with `<ES>` and `</ES>`.
 
 2. **Semantic Faithfulness & Intent:**
    - Captures all entities, relationships, constraints, and implicit/explicit meaning of the natural language query.
@@ -78,11 +77,7 @@ Evaluate the Candidate holistically across these dimensions:
    - **Directionality:** `forward` and `backward` directions on relations must make logical, semantic sense relative to the connected nodes.
    - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, and comparative operators (`larger than`, `smallest`, etc.).
 
-4. **Semantic Faithfulness & Intent:**
-   - Verify the root query type perfectly aligns with the query intent (e.g., `CountQuery` for counts, `VerifyQuery` for booleans, `EntityQuery` for extraction).
-   - Directionality: `forward` and `backward` directions on relations must make logical, semantic sense relative to the connected nodes.
-
-5. **Equivalence to Ground Truth:**
+4. **Equivalence to Ground Truth:**
    - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
    - You must verify if the graph topology modeled in the Candidate's AST logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
    - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
@@ -99,33 +94,8 @@ Evaluate the Candidate holistically across these dimensions:
 [GROUND TRUTH LISP]
 (AND film.film (JOIN (R film.director.film) m.eastwood))
 
-[CANDIDATE AST]
-S
-└── EntityQuery
-    ├── "what is"
-    └── EntitySet
-        ├── "<ES>"
-        ├── EntitySet
-        │   └── Concept
-        │       ├── "<C>"
-        │       ├── "movie"
-        │       └── "</C>"
-        ├── Constraint
-        │   └── RelationConstraint
-        │       ├── "that"
-        │       ├── Relation
-        │       │   ├── "<R>"
-        │       │   ├── "director"
-        │       │   └── "</R>"
-        │       ├── DIR
-        │       │   └── "forward"
-        │       ├── "to"
-        │       └── EntitySet
-        │           └── Entity
-        │               ├── "<E>"
-        │               ├── "Eastwood"
-        │               └── "</E>"
-        └── "</ES>"
+[CANDIDATE GRAPHQ_IR]
+what is <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> </ES>
 
 [EXPECTED OUTPUT]
 ```json
@@ -143,33 +113,8 @@ S
 [GROUND TRUTH LISP]
 (AND film.film (JOIN (R film.director.film) m.eastwood))
 
-[CANDIDATE AST]
-S
-└── EntityQuery
-    ├── "what is"
-    └── EntitySet
-        ├── "<ES>"
-        ├── EntitySet
-        │   └── Concept
-        │       ├── "<C>"
-        │       ├── "movie"
-        │       └── "</C>"
-        ├── Constraint
-        │   └── RelationConstraint
-        │       ├── "that"
-        │       ├── Relation
-        │       │   ├── "<R>"
-        │       │   ├── "director"
-        │       │   └── "</R>"
-        │       ├── DIR
-        │       │   └── "backward"
-        │       ├── "to"
-        │       └── EntitySet
-        │           └── Entity
-        │               ├── "<E>"
-        │               ├── "Eastwood"
-        │               └── "</E>"
-        └── "</ES>"
+[CANDIDATE GRAPHQ_IR]
+what is <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E> </ES>
 
 [EXPECTED OUTPUT]
 ```json
@@ -187,33 +132,8 @@ S
 [GROUND TRUTH LISP]
 (AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
 
-[CANDIDATE AST]
-S
-└── EntityQuery
-    ├── "what is"
-    └── EntitySet
-        ├── "<ES>"
-        ├── EntitySet
-        │   └── Concept
-        │       ├── "<C>"
-        │       ├── "actor"
-        │       └── "</C>"
-        ├── Constraint
-        │   └── RelationConstraint
-        │       ├── "that"
-        │       ├── Relation
-        │       │   ├── "<R>"
-        │       │   ├── "actor"
-        │       │   └── "</R>"
-        │       ├── DIR
-        │       │   └── "backward"
-        │       ├── "to"
-        │       └── EntitySet
-        │           └── Entity
-        │               ├── "<E>"
-        │               ├── "Matrix"
-        │               └── "</E>"
-        └── "</ES>"
+[CANDIDATE GRAPHQ_IR]
+what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
 
 [EXPECTED OUTPUT]
 ```json
@@ -231,39 +151,33 @@ S
 [GROUND TRUTH LISP]
 (AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
 
-[CANDIDATE AST]
-S
-└── VerifyQuery
-    ├── "whether"
-    └── EntitySet
-        ├── "<ES>"
-        ├── EntitySet
-        │   └── Concept
-        │       ├── "<C>"
-        │       ├── "actor"
-        │       └── "</C>"
-        ├── Constraint
-        │   └── RelationConstraint
-        │       ├── "that"
-        │       ├── Relation
-        │       │   ├── "<R>"
-        │       │   ├── "actor"
-        │       │   └── "</R>"
-        │       ├── DIR
-        │       │   └── "backward"
-        │       ├── "to"
-        │       └── EntitySet
-        │           └── Entity
-        │               ├── "<E>"
-        │               ├── "Matrix"
-        │               └── "</E>"
-        └── "</ES>"
+[CANDIDATE GRAPHQ_IR]
+whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
 
 [EXPECTED OUTPUT]
 ```json
 {
   "rationale": "While the Candidate correctly identifies the VerifyQuery and the relation to Matrix, it fails to include the AttributeConstraint for height > 160 cm that is clearly present in the Ground Truth LISP.",
   "correct": false
+}
+```
+
+=== EXAMPLE 5: COMPLEX NESTED QUERY (Perfect Match) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Which has less elevation above sea level, Rome that is the filming location of To Rome with Love or Lisbon which is the twinned administrative body of Santo Domingo?"
+
+[GROUND TRUTH LISP]
+(ARGMIN (OR (AND location.location (JOIN (R film.location.film) m.to_rome_with_love) m.rome) (AND location.location (JOIN (R location.twinned_administrative_body.location) m.santo_domingo) m.lisbon)) location.location.elevation)
+
+[CANDIDATE GRAPHQ_IR]
+which one has the smallest <A> elevation above sea level </A> among <ES> <ES> <E> Rome </E> (<ES> ones that <R> filming location </R> backward to <E> To Rome with Love </E> </ES>) </ES> or <ES> <E> Lisbon </E> (<ES> ones that <R> twinned administrative body </R> backward to <E> Santo Domingo </E> </ES>) </ES> </ES>
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate correctly captures the complex union (OR) of two intersection (parenthetical) EntitySets. The superlative 'less' is correctly translated to 'smallest', matching the ARGMIN in the Ground Truth LISP, and the nested constraints accurately mirror the graph topology.",
+  "correct": true
 }
 ```
 
