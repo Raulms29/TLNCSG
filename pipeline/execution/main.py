@@ -77,7 +77,7 @@ def _load_queries(config: ExecutionConfig):
 # ---------------------------------------------------------------------------
 
 
-def main(config_path: str) -> None:
+def main(config_path: str, resume_dir: str | None = None) -> None:
     """Load config, prepare queries, and run the execution pipeline."""
     config = ExecutionConfig.from_json(config_path)
     logger.info("Configuration loaded from %s", config_path)
@@ -94,7 +94,7 @@ def main(config_path: str) -> None:
 
     # ---- Run ----
     runner = ExecutionRunner(config=config, client=client, queries=queries)
-    output_dir = runner.run()
+    output_dir = runner.run(resume_dir=resume_dir)
     logger.info("All results saved to: %s", output_dir)
 
 
@@ -108,5 +108,11 @@ if __name__ == "__main__":
         default="execution_config.json",
         help="Path to the execution configuration JSON file",
     )
+    parser.add_argument(
+        "--resume-dir",
+        type=str,
+        default=None,
+        help="Path to an existing execution directory to resume (e.g. outputs/execution/101026_0001)",
+    )
     args = parser.parse_args()
-    main(args.config)
+    main(args.config, args.resume_dir)
