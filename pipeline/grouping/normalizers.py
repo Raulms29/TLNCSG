@@ -40,12 +40,15 @@ def normalize_json_output(raw_text: str) -> str:
 def normalize_code_output(raw_text: str, language: str) -> str:
     """Extracts code blocks and normalizes whitespace for deterministic grouping.
 
-    Used for formats like SQUALL or GraphQ_Tree.
+    Used for formats like SQUALL or GraphQ IR.
     """
     if not isinstance(raw_text, str) or not raw_text.strip():
         return ""
 
-    pattern = rf"```(?:{language})?\s*([\s\S]*?)\s*```"
+    if language:
+        pattern = rf"```(?:{language})?\s*([\s\S]*?)\s*```"
+    else:
+        pattern = r"```(?:\w+)?\s*([\s\S]*?)\s*```"
     matches = list(re.finditer(pattern, raw_text, re.IGNORECASE))
     extracted_text = matches[-1].group(1) if matches else raw_text.strip()
 
@@ -58,10 +61,6 @@ def normalize_output(raw_text: str, grammar: str) -> str:
     grammar = grammar.lower()
     if "sem_gir" in grammar or "semgir" in grammar:
         return normalize_json_output(raw_text)
-    elif "squall" in grammar:
-        return normalize_code_output(raw_text, "squall")
-    elif "graphq" in grammar:
-        return normalize_code_output(raw_text, "graphq_tree")
     else:
-        # Fallback for unknown grammars
+        # Default for any other code-like grammar (SQUALL, GraphQ IR, etc)
         return normalize_code_output(raw_text, "")

@@ -47,15 +47,13 @@ def main(config_path: str, execution_dir: str) -> None:
             max_retries=config.max_retries,
             wait_seconds=config.retry_wait_seconds,
         )
-        # Load all grammar-specific system prompts
+        # Load all grammar-specific system prompts dynamically
         prompts_dir = Path("prompts/grouping")
         system_prompts = {}
-        for grammar in ["semgir", "squall", "graphq_tree"]:
-            path = prompts_dir / f"SYSTEM_PROMPT_GROUPER_{grammar.upper()}.prompt.md"
-            if path.exists():
-                system_prompts[grammar] = path.read_text(encoding="utf-8")
-            else:
-                logger.warning("Missing grouper prompt for %s", grammar)
+        for prompt_file in prompts_dir.glob("SYSTEM_PROMPT_GROUPER_*.prompt.md"):
+            # Extract grammar name from filename (e.g. SYSTEM_PROMPT_GROUPER_SEMGIR.prompt.md -> semgir)
+            grammar_part = prompt_file.name.replace("SYSTEM_PROMPT_GROUPER_", "").replace(".prompt.md", "")
+            system_prompts[grammar_part.lower()] = prompt_file.read_text(encoding="utf-8")
 
         llm_grouper = LLMGrouper(client, config.grouper_model, system_prompts)
 

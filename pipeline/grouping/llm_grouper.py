@@ -32,6 +32,14 @@ class LLMGrouper:
         )
 
         sys_prompt = self.system_prompts.get(grammar.lower())
+        
+        # Try substring match (for ablation tests like 'semgir_notypes' -> 'semgir')
+        if not sys_prompt:
+            for known_grammar, prompt in self.system_prompts.items():
+                if known_grammar in grammar.lower():
+                    sys_prompt = prompt
+                    break
+
         if not sys_prompt:
             logger.warning("No system prompt found for grammar '%s'. LLM fallback skipped.", grammar)
             return False
