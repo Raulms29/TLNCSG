@@ -7,24 +7,29 @@ Your task is to output the GraphQ IR sequence that represents the given natural 
 ## INSTRUCTIONS
 
 **Step 1. Entity and Concept Extraction**
-*   **Identify Terminal Nodes:** Scan the natural language query and identify all explicitly named entities (e.g., "Matrix"), broad concepts (e.g., "actor", "city"), and attributes (e.g., "elevation").
-*   **Anonymous Nodes:** If the query refers to unknown intermediaries ("someone who", "those that"), explicitly plan to use the `ones` keyword.
+
+* **Identify Terminal Nodes:** Scan the natural language query and identify all explicitly named entities (e.g., "Matrix"), broad concepts (e.g., "actor", "city"), and attributes (e.g., "elevation").
+* **Anonymous Nodes:** If the query refers to unknown intermediaries ("someone who", "those that"), explicitly plan to use the `ones` keyword.
 
 **Step 2. Relationship and Direction Mapping**
-*   **Trace the Edges:** Determine how the identified entities and concepts connect to one another through relations.
-*   **Topological Directionality (CRITICAL)**: You MUST explicitly declare the edge direction (`forward` or `backward`) whenever connecting two EntitySets via a `<R>`.
+
+* **Trace the Edges:** Determine how the identified entities and concepts connect to one another through relations.
+* **Topological Directionality (CRITICAL)**: You MUST explicitly declare the edge direction (`forward` or `backward`) whenever connecting two EntitySets via a `<R>`.
 
 **Step 3. Constraint and Value Formatting**
-*   **Filter Mapping:** Identify any conditional constraints (e.g., "larger than", "before 2005") and map them to their respective Comparative Operators (`COP`) and Value Operators (`VOP`).
-*   **Value Type Boundaries:** Values CAN be prefixed with a specific `VTYPE` (e.g., `date`, `year`, `number`, `string`) before the `<V>` tag to ensure strict typing.
+
+* **Filter Mapping:** Identify any conditional constraints (e.g., "larger than", "before 2005") and map them to their respective Comparative Operators (`COP`) and Value Operators (`VOP`).
+* **Value Type Boundaries:** Values CAN be prefixed with a specific `VTYPE` (e.g., `date`, `year`, `number`, `string`) before the `<V>` tag to ensure strict typing.
 
 **Step 4. Identify the Query Type and Intent**
-*   **Root Query Selection:** Based on the final goal of the query, select exactly one root query type. The supported types are: `EntityQuery` (Entities), `RelationQuery` (Edge properties), `AttributeQuery` (Node properties), `QualifierQuery` (Temporal/Edge qualifiers), `ValueQuery` (Values), `SelectQuery` (Superlatives), and `CountQuery` (Aggregations).
-*   **Boolean Query Integrity:** For Yes/No questions, you MUST use `VerifyQuery` (`whether [Verify]`). Ensure the query directly evaluates to a boolean rather than returning unclosed extraction variables.
+
+* **Root Query Selection:** Based on the final goal of the query, select exactly one root query type. The supported types are: `EntityQuery` (Entities), `RelationQuery` (Edge properties), `AttributeQuery` (Node properties), `QualifierQuery` (Temporal/Edge qualifiers), `ValueQuery` (Values), `SelectQuery` (Superlatives), and `CountQuery` (Aggregations).
+* **Boolean Query Integrity:** For Yes/No questions, you MUST use `VerifyQuery` (`whether [Verify]`). Ensure the query directly evaluates to a boolean rather than returning unclosed extraction variables.
 
 **Step 5. Syntactic Assembly (GraphQ IR Construction)**
-*   **Strong Typing Mandate:** You MUST explicitly type all terminal nodes using angle-bracket markers (`<E>` for Entities, `<C>` for Concepts, `<R>` for Relations, `<A>` for Attributes, `<Q>` for Qualifiers, `<V>` for Values). Ensure every terminal node has an assigned type.
-*   **Hierarchical Scoping Rule:** Complex multi-hop paths, unions, intersections, or constrained entity sets MUST be strictly encapsulated within `<ES> ... </ES>` tags. Ensure relations are properly chained inside these blocks. (e.g., "cities in Japan" becomes `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E> </ES>`).
+
+* **Strong Typing Mandate:** You MUST explicitly type all terminal nodes using angle-bracket markers (`<E>` for Entities, `<C>` for Concepts, `<R>` for Relations, `<A>` for Attributes, `<Q>` for Qualifiers, `<V>` for Values). Ensure every terminal node has an assigned type.
+* **Hierarchical Scoping Rule:** Complex multi-hop paths, unions, intersections, or constrained entity sets MUST be strictly encapsulated within `<ES> ... </ES>` tags. Ensure relations are properly chained inside these blocks. (e.g., "cities in Japan" becomes `<ES> <C> city </C> that <R> capital </R> backward to <E> Japan </E> </ES>`).
 
 ---
 

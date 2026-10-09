@@ -63,24 +63,24 @@ DIR := "forward" | "backward"                        // Edge direction in the gr
 Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Grammar Compliance:**
-   - The output must be a valid GraphQ IR linear sequence starting with a root query type.
-   - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, if it includes a `VTYPE`, it will precede the tag (e.g. `year <V> 2004 </V>`).
-   - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent node must be wrapped with `<ES>` and `</ES>`.
+  - The output must be a valid GraphQ IR linear sequence starting with a root query type.
+  - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, if it includes a `VTYPE`, it will precede the tag (e.g. `year <V> 2004 </V>`).
+  - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent node must be wrapped with `<ES>` and `</ES>`.
 
 2. **Semantic Faithfulness & Intent:**
-   - Captures all entities, relationships, constraints, and implicit/explicit meaning of the natural language query.
-   - **No Hallucinations/Omissions:** Penalize missing requirements or invented concepts.
-   - **Query Type Correctness:** Verify the root query type perfectly aligns with the query intent (e.g., `CountQuery` for counts, `VerifyQuery` for booleans, `EntityQuery` for extraction).
+  - Captures all entities, relationships, constraints, and implicit/explicit meaning of the natural language query.
+  - **No Hallucinations/Omissions:** Penalize missing requirements or invented concepts.
+  - **Query Type Correctness:** Verify the root query type perfectly aligns with the query intent (e.g., `CountQuery` for counts, `VerifyQuery` for booleans, `EntityQuery` for extraction).
 
 3. **Structural & Graph Quality:**
-   - **Topology:** Correct nesting of `EntitySet`s inside `Constraint` blocks to reflect the traversal.
-   - **Directionality:** `forward` and `backward` directions on relations must make logical, semantic sense relative to the connected nodes.
-   - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, and comparative operators (`larger than`, `smallest`, etc.).
+  - **Topology:** Correct nesting of `EntitySet`s inside `Constraint` blocks to reflect the traversal.
+  - **Directionality:** `forward` and `backward` directions on relations must make logical, semantic sense relative to the onnected nodes.
+  - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, and comparative operators (`larger than`, `smallest`, etc.).
 
 4. **Equivalence to Ground Truth:**
-   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
-   - You must verify if the graph topology modeled in the Candidate's AST logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-   - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
+  - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
+  - You must verify if the graph topology modeled in the Candidate's AST logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
+  - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
 
 ---
 

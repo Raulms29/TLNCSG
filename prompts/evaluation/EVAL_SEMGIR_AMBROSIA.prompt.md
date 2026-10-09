@@ -140,35 +140,35 @@ BOOLEAN := true | false
 Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Reference Consistency:**
-   - The output is valid JSON and follows the defined grammar.
-   - All mandatory fields defined in the grammar are present, not just at the root level, but across all nested elements.
-   - IDs are unique and strictly declared before being referenced.
+  - The output is valid JSON and follows the defined grammar.
+  - All mandatory fields defined in the grammar are present, not just at the root level, but across all nested elements.
+  - IDs are unique and strictly declared before being referenced.
 
 2. **Semantic Faithfulness & Intent:**
-   - Captures all entities, relationships, constraints, and implicit/explicit meaning.
-   - **No Hallucinations/Omissions:** Penalize missing requirements or invented elements.
-   - **No "ID Name Leaking":** Values must be enforced via `constraint` blocks (e.g., `attribute_name = "London"`). Naming an entity ID `e_London` without a corresponding value constraint is invalid and must be penalized.
+  - Captures all entities, relationships, constraints, and implicit/explicit meaning.
+  - **No Hallucinations/Omissions:** Penalize missing requirements or invented elements.
+  - **No "ID Name Leaking":** Values must be enforced via `constraint` blocks (e.g., `attribute_name = "London"`). Naming an entity ID `e_London` without a corresponding value constraint is invalid and must be penalized.
 
 3. **Structural & Graph Quality:**
-   - **Graph Modeling:** Correctly distinguishes between entities and relationships.
-   - **Directionality:** `from` and `to` fields must make logical, semantic sense (e.g., `parent_of` going from child to parent instead of parent to child).
-   - **Paths:** Multi-hop traversals use `paths`. Verify `start` and `end` are valid `ENTITY_ID`s.
-   - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, `EXISTS`, `ALL`.
-   - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using **string comparison operators** (`CONTAINS`, `MATCHES_REGEX`) to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
+  - **Graph Modeling:** Correctly distinguishes between entities and relationships.
+  - **Directionality:** `from` and `to` fields must make logical, semantic sense (e.g., `parent_of` going from child to parent instead of parent to child).
+  - **Paths:** Multi-hop traversals use `paths`. Verify `start` and `end` are valid `ENTITY_ID`s.
+  - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, `EXISTS`, `ALL`.
+  - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using **string comparison operators** (`CONTAINS`, `MATCHES_REGEX`) to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
 
 4. **Type Safety, Aggregations & Projections:**
-   - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, penalize under **Minimality** (deduct at most 0.1).
-   - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS` on strings).
-   - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`. 
-   - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
+  - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, penalize under **Minimality** (deduct at most 0.1).
+  - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS` on strings).
+  - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`. 
+  - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
 
 5. **Minimality:**
-   - Representation is concise. No redundant entities, relationships, paths, semantically duplicate hypotheses, or duplicated conditions.
+  - Representation is concise. No redundant entities, relationships, paths, semantically duplicate hypotheses, or duplicated conditions.
 
 6. **Equivalence to Ground Truth:**
-   - The Ground Truth is a collection of multiple valid SQL queries representing the possible interpretations of an ambiguous query.
-   - You must verify if the graph topology modeled in the Candidate's `entities` and `relationships` logically matches the joins (`JOIN`), aggregations (`COUNT`, `SUM`), and terminal nodes expressed in at least one of the Ground Truth SQL strings.
-   - The Candidate's entity types and relationship roles should conceptually align with the provided SQL schema representation.
+  - The Ground Truth is a collection of multiple valid SQL queries representing the possible interpretations of an ambiguous query.
+  - You must verify if the graph topology modeled in the Candidate's `entities` and `relationships` logically matches the joins (`JOIN`), aggregations (`COUNT`, `SUM`), and terminal nodes expressed in at least one of the Ground Truth SQL strings.
+  - The Candidate's entity types and relationship roles should conceptually align with the provided SQL schema representation.
 
 > **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array). If a Candidate does this, output `"correct": false`.
 
