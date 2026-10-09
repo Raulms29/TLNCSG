@@ -152,33 +152,26 @@ class ExecutionRunner:
 
         enabled_models = self.config.enabled_models
 
-        # Collect the union of all grammar names across enabled models
-        all_grammars: set[str] = set()
-        for model in enabled_models:
-            all_grammars.update(model.grammars.keys())
-
-        for grammar_name in sorted(all_grammars):
-            grammar_dir = run_dir / grammar_name
-            grammar_dir.mkdir(parents=True, exist_ok=True)
-
-            # Models configured for this grammar
-            grammar_models = [
-                m for m in enabled_models if grammar_name in m.grammars
-            ]
-
+        for model_idx, model_cfg in enumerate(enabled_models, 1):
             logger.info(
-                "--- Grammar: %s (%d model(s)) ---",
-                grammar_name,
-                len(grammar_models),
+                "--- Model: %s (%s) [%d/%d] ---",
+                model_cfg.display_name,
+                model_cfg.name,
+                model_idx,
+                len(enabled_models),
             )
-
-            for model_idx, model_cfg in enumerate(grammar_models, 1):
+            
+            # Run this model on all grammars it supports
+            for grammar_name in sorted(model_cfg.grammars.keys()):
+                grammar_dir = run_dir / grammar_name
+                grammar_dir.mkdir(parents=True, exist_ok=True)
+                
+                logger.info("  Grammar: %s", grammar_name)
+                
                 self._run_model_on_grammar(
                     grammar_name=grammar_name,
                     grammar_dir=grammar_dir,
                     model_cfg=model_cfg,
-                    model_idx=model_idx,
-                    total_models=len(grammar_models),
                 )
 
         # ---- Finalize ----
@@ -208,8 +201,6 @@ class ExecutionRunner:
         grammar_name: str,
         grammar_dir: Path,
         model_cfg: ModelConfig,
-        model_idx: int,
-        total_models: int,
     ) -> None:
         """Process one model against one grammar (IR)."""
         prompt_path = model_cfg.grammars[grammar_name]
@@ -217,14 +208,6 @@ class ExecutionRunner:
 
         model_dir = grammar_dir / _safe_name(model_cfg.name)
         model_dir.mkdir(parents=True, exist_ok=True)
-
-        logger.info(
-            "  [%d/%d] Model: %s (%s)",
-            model_idx,
-            total_models,
-            model_cfg.display_name,
-            model_cfg.name,
-        )
 
         # Warmup
         self.client.warmup(
