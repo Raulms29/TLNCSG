@@ -119,8 +119,11 @@ class ExecutionRunner:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self) -> Path:
+    def run(self, resume_dir: str | None = None) -> Path:
         """Run the full execution pipeline.
+
+        Args:
+            resume_dir: Optional path to an existing run directory to resume.
 
         Returns:
             The final output directory path.
@@ -129,11 +132,22 @@ class ExecutionRunner:
         output_root_parent = Path(self.config.output_dir)
         output_root_parent.mkdir(parents=True, exist_ok=True)
 
-        execution_id = _next_execution_id(output_root_parent)
-        start_stamp = start_time.strftime("%d%m%y")
-        run_dir_name = f"{start_stamp}_{execution_id}"
-        run_dir = output_root_parent / run_dir_name
-        run_dir.mkdir(parents=True, exist_ok=True)
+        if resume_dir:
+            run_dir = Path(resume_dir)
+            if not run_dir.exists():
+                raise FileNotFoundError(f"Resume directory not found: {run_dir}")
+            # Extract the execution ID from the dir name (e.g., 091026_0001)
+            # It usually ends with _000X
+            execution_id = run_dir.name.split("_")[-1]
+            start_stamp = run_dir.name.split("_")[0]
+            run_dir_name = run_dir.name
+            logger.info("Resuming existing execution directory: %s", run_dir_name)
+        else:
+            execution_id = _next_execution_id(output_root_parent)
+            start_stamp = start_time.strftime("%d%m%y")
+            run_dir_name = f"{start_stamp}_{execution_id}"
+            run_dir = output_root_parent / run_dir_name
+            run_dir.mkdir(parents=True, exist_ok=True)
 
         # Set up file logging
         log_file = run_dir / "execution.log"
@@ -151,6 +165,8 @@ class ExecutionRunner:
         )
 
         enabled_models = self.config.enabled_models
+
+        self._current_warmed_up_model = None
 
         for model_idx, model_cfg in enumerate(enabled_models, 1):
             logger.info(
@@ -208,14 +224,6 @@ class ExecutionRunner:
 
         model_dir = grammar_dir / _safe_name(model_cfg.name)
         model_dir.mkdir(parents=True, exist_ok=True)
-
-        # Warmup
-        self.client.warmup(
-            model=model_cfg.name,
-            system_prompt=system_prompt,
-            options=self.config.ollama_options,
-            temperature=model_cfg.temperature,
-        )
 
         # Determine thinking modes
         modes = [False]
@@ -279,6 +287,15 @@ class ExecutionRunner:
         thinking: bool,
     ) -> list[dict]:
         """Execute all repetitions of a single query and return records."""
+        if getattr(self, "_current_warmed_up_model", None) != model_cfg.name:
+            self.client.warmup(
+                model=model_cfg.name,
+                system_prompt=system_prompt,
+                options=self.config.ollama_options,
+                temperature=model_cfg.temperature,
+            )
+            self._current_warmed_up_model = model_cfg.name
+
         records: list[dict] = []
 
         for run in range(1, self.config.runs_per_model + 1):
