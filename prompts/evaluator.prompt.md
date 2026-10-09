@@ -88,7 +88,7 @@ RELATIONS := {
 
 COUNT := { count: LIST }
 
-ESCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
 
 QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
@@ -123,7 +123,7 @@ COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">="
 STRING_COMPARISON_OP := "CONTAINS" //Whether first operand contains the second operand
                       | "MATCHES_REGEX" //Whether the first operand matches the second operand (a regular expression)
 
-EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | ESCALAR_AGGREGATE | COUNT
+EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | SCALAR_AGGREGATE | COUNT
 
 TYPE := STRING
 ROLE := STRING
@@ -167,7 +167,7 @@ Evaluate the Candidate holistically across these dimensions:
 6. **Equivalence to Ground Truth:**
    - Semantically equivalent alternatives are acceptable. Does the Candidate express the same logical meaning as the Ground Truth, even if naming or structural choices differ slightly?
 
-> **Note on Hypotheses:** Do not evaluate based on the number of generated hypotheses. A single correct interpretation is sufficient and should not be penalized.
+> **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array).
 
 ---
 
@@ -176,7 +176,7 @@ Evaluate the Candidate holistically across these dimensions:
 - **1.0**: Semantically and structurally equivalent to the Ground Truth. Grammar-compliant. All constraints and targets correctly captured. No redundant elements. Minor differences in naming only (e.g., slightly different role labels, reordered conditions) that do not affect correctness or meaning.
 - **0.85 – 0.95**: Semantically correct with one minor flaw that does not change query meaning (e.g., missing `distinct`, a redundant but harmless entity or relationship, an overly complex but valid target expression, a slightly wrong or repeated role label with no semantic impact).
 - **0.7 – 0.84**: Mostly correct but with a noticeable gap: missing one meaningful constraint, wrong aggregation type (e.g., SUM instead of COUNT), or a single direct relationship used where a PATH is required, while the rest of the candidate is semantically coherent.
-- **0.5 – 0.6**: Partially correct. Core intent is visible but significant semantic errors are present: "ID Name Leaking" without value constraints, bypassing topology with string comparisons, wrong quantifier logic (e.g., ALL vs EXISTS), or type mismatch in operators.
+- **0.5 – 0.6**: Partially correct. Core intent is visible but significant semantic errors are present: "ID Name Leaking" without value constraints, bypassing topology with string comparisons, wrong quantifier logic (e.g., ALL vs EXISTS), type mismatch in operators, or misusing the HYPOTHESES_SET array to represent a logical UNION.
 - **0.3 – 0.4**: Mostly incorrect. The `target` is wrong or missing, major constraints are absent, entities/relationships are hallucinated, directionality (`from`/`to`) is wrong, or there are heavy grammar violations.
 - **0.1 – 0.2**: Only superficial resemblance to a valid IR. Some valid JSON structure is present (e.g., entities declared) but the semantics are catastrophically wrong — no meaningful constraint, no target, or entirely wrong type system.
 - **0.0**: Completely uninterpretable. Empty output, invalid JSON, or semantically empty content with no recoverable meaning.

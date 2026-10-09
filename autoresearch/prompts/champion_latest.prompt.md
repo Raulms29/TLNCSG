@@ -68,12 +68,12 @@ PATH := {
 }
 
 LIST := {
-  list: CREATE_LIST | NODES | RELATIONS,
-  filter?: CONDITION,
-  distinct?: BOOLEAN,
-  order_by?: [ORDER_CRITERION, ...],
-  limit?: NUMBER,
-  skip?: NUMBER
+  list: CREATE_LIST | NODES | RELATIONS, // Source elements to form the list
+  filter?: CONDITION, // Condition to filter the list elements
+  distinct?: BOOLEAN, // Flag to remove duplicate elements
+  order_by?: [ORDER_CRITERION, ...], // Criteria to sort the list
+  limit?: NUMBER, // Maximum number of elements to include
+  skip?: NUMBER // Number of elements to skip
 }
 
 CREATE_LIST := {
@@ -142,37 +142,52 @@ BOOLEAN := true | false
 
 **Step 1. Form Hypotheses**
 Identify genuine syntactic or structural ambiguity. If present, output each interpretation as a separate hypothesis in `HYPOTHESES_SET`; otherwise, output one hypothesis.
+* **Distinct result sets:** If the input joins two clauses that each independently select **different entity types or scopes** (e.g., "actors in movie X together with producers of company Y"), output one hypothesis per clause. Do **not** merge them into a single query with `AND`, which would require one binding to satisfy both. If both clauses select the same entity type with different filters, a single query with `OR` is appropriate.
 
 **Step 2. Identify Targets**
 
 * `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `RELATIONSHIP`), a `CONDITION` or a `LIST`.
+* **Value/property targets:** If the user asks for a *property*, *measurement*, *classification*, or *value* (e.g., "nationalities", "salaries", "the year", "names", "weights"), the target must be the `ATTRIBUTE` (an `EXPRESSION`), not the entity that carries it. Target the `ENTITY_ID` only when the user requests the entity as a whole (e.g., "list the players", "which actors", "give me the movies").
+  * **Anti-pattern:** Do NOT wrap the requested attribute inside a `LIST` of entity IDs (e.g., `{list: {list_elements: "e2"}}` as target) when the user asks for the value itself. The correct target is the `ATTRIBUTE` object directly, e.g., `[{"attribute_name": "salary", "of": "e2"}]`.
+  * **The word "list" in the query is not a grammatical trigger.** Phrases such as "list of salaries", "list of nationalities", or "give me the names" are natural-language requests for *all matching values* of an attribute. They do **not** require the `LIST` construct with `list_elements`. The target remains the `ATTRIBUTE` object (or a `LIST` whose `filter`/`order_by` operate on that attribute), never a `LIST` of entity IDs.
+* **Target vs. constraint anchor:** The target is the entity (or its attribute) that the user is asking to *discover or retrieve*. A named entity that serves as a reference point or starting anchor (e.g., "entities related to **X**", "players who work at **Y**") appears in the `relationships` array or in the `constraint`, but is **not** the target. Do not invert: the unknown entity being sought is the target; the known/named entity is the anchor.
+  * **Anti-pattern (inversion):** In "films of actor X", the actor X is the *anchor* (its name is asserted via a `COMPARISON` in `constraint`), and the films are the *target*. Reversing this—targeting the actor and constraining the film—returns the wrong entity. Always verify: the entity whose identity is *given* by the user carries the name constraint; the entity whose identity is *unknown* is the target.
 
 **Step 3. Identify Entities**
 
 * Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
-* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
+* Assign a concrete `type` (e.g., Director, Movie, Organization, Location). The `type` must be a **broad domain category**. If the natural language specifies a particular instance, sub-category, or qualifier (e.g., a breed, a product name, a grade), do **not** fold that into `type`; instead, create the entity with its general category and pin the specific value with an `ATTRIBUTE` comparison inside `constraint` (Step 5).
+* **Attribute vs. entity vs. relationship – decision rule:**
+  * **Attribute:** A value, measurement, classification, or temporal marker intrinsic to a subject (e.g., salary, nationality, year, amount, title). Model it as an attribute **of the entity** or **of a relationship**. Do **not** promote it to a separate entity.
+  * **Entity:** A participant with its own identity that can independently appear in other relationships (e.g., a product, a city, an organization, a person, a data record, a document). Model it as its own `ENTITY` connected via a `RELATIONSHIP`. A named record or data artifact (e.g., "sales data", "a report", "a log entry") that is the object of a query or participates in multiple relationships is an **entity**, not merely an attribute of another entity.
+  * **Relationship:** An event or semantic connection *between* two entities (e.g., marriage, employment, directed_by, funded). Model it as a `RELATIONSHIP` with a `role`. Any data the event carries (e.g., the year of a marriage, the amount of a payment) is an attribute **of that relationship**, not of a separate entity.
 
 **Step 4. Extract Relationships & Paths**
 
-* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels.(e.g., `built`, `wrote`, `acted_in`,`knows`).
+* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels (e.g., `built`, `wrote`, `acted_in`, `knows`).
+  * **Direction consistency:** The `from` and `to` fields must be consistent with the semantic reading of the `role` label. Read the role as a transitive phrase: "`from` [role] `to`". For example, role `father_of` means `from` is the father and `to` is the child; role `has_father` means `from` is the child and `to` is the father. Choose the role label whose natural direction matches your `from`/`to` assignment.
 * `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections). A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`, and evaluate its length (hops) or weight (attributes) by applying `COUNT` or `SCALAR_AGGREGATE`.
 
 **Step 5. Build Constraints**
 
-* `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
+* `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks.
   * Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
   * If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
+  * **Relationship existence is already guaranteed by declaration:** A `RELATIONSHIP` listed in the `relationships` array is asserted to exist. Do **not** additionally embed the same `RELATIONSHIP_ID` as a positive condition inside an `AND` or `OR` block alongside attribute comparisons. A `RELATIONSHIP_ID` may appear as a standalone condition or inside a `NOT` block to express negation.
+  * **Modifier scoping in `OR` / `AND`:** Before assembling the constraint tree, determine the grammatical scope of each qualifier in the source sentence. A qualifier that syntactically modifies only one disjunct (or conjunct) must appear **inside** that branch. Example: *"A in X together with those from Y that satisfy P"* → the condition `P` belongs only to the `Y` branch, not at the `OR` level.
+  * **Negating a relationship:** The grammar-compliant way to state "no relationship of role R exists between E1 and E2" is `{ not_condition: "<REL_ID>" }` where `<REL_ID>` is the `RELATIONSHIP_ID` for that edge. Do **not** wrap a `RELATIONSHIP_ID` inside a `QUANTIFIER_PREDICATE` or a `COMPARISON`, because a `RELATIONSHIP_ID` is not an `EXPRESSION` and cannot appear as a `left`/`right` operand.
 
 **Step 6. Shape Results**
 
 * Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
+* **Ordinal / Nth-element selection** (e.g., "the fifth", "the third most recent"): Do **not** introduce an artificial `ordinal` or `rank` attribute. Instead, use `order_by` on a semantically meaningful attribute (typically a date, name, or numeric field) together with `skip` (N − 1) and `limit` (1) to select the desired element.
 
 **Step 7. Apply Quantifiers and Aggregations (Lists)**
 
 * Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
 * **Aggregations** (produce a value):
   * `COUNT`: counts the number of elements in a `LIST`.
-  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
+  * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element. The `map_expression` field belongs **only** to `SCALAR_AGGREGATE`; a `LIST` object does not carry a `map_expression` field. If you need a list of mapped values (not an aggregate), build the `LIST` and return it directly in `target` or use it as the input to a `QUANTIFIER_PREDICATE`.
 * **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
   * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
 
@@ -409,7 +424,7 @@ Output:
       { "id": "e2", "type": "Article" }
     ],
     "paths": [
-      { "id": "p1", "start": "e1", "end": "e2", "roles": ["any"] }
+      { "id": "p1", "start": "e1", "end": "e2", "roles": [] }
     ],
     "constraint": {
       "and_conditions": [
