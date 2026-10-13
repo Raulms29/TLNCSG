@@ -251,6 +251,16 @@ class ExecutionRunner:
                     all_records.extend(existing.to_dict("records"))
                     continue
 
+                # Trigger lazy warmup if this is the first actual work for this model
+                if getattr(self, "_current_warmed_up_model", None) != model_cfg.name:
+                    self.client.warmup(
+                        model=model_cfg.name,
+                        system_prompt=system_prompt,
+                        options=self.config.ollama_options,
+                        temperature=model_cfg.temperature,
+                    )
+                    self._current_warmed_up_model = model_cfg.name
+
                 if q_idx % 10 == 1 or q_idx == len(self.queries):
                     logger.info(
                         "      [%d/%d] %s",
@@ -287,15 +297,6 @@ class ExecutionRunner:
         thinking: bool,
     ) -> list[dict]:
         """Execute all repetitions of a single query and return records."""
-        if getattr(self, "_current_warmed_up_model", None) != model_cfg.name:
-            self.client.warmup(
-                model=model_cfg.name,
-                system_prompt=system_prompt,
-                options=self.config.ollama_options,
-                temperature=model_cfg.temperature,
-            )
-            self._current_warmed_up_model = model_cfg.name
-
         records: list[dict] = []
 
         for run in range(1, self.config.runs_per_model + 1):

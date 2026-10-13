@@ -150,3 +150,4 @@ class OllamaClient:
             temperature=temperature,
             thinking=False,
         )
+        logger.info("Warmup completed for model: %s", model)

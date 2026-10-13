@@ -1,10 +1,11 @@
 #!/bin/bash
 #
 # ./scripts/linux/run_pipeline.sh execution
+# ./scripts/linux/run_pipeline.sh execution --resume-dir outputs/execution/101026_101026_0001
 # ./scripts/linux/run_pipeline.sh grouping --execution-dir outputs/execution/300926_300926_0001
 # ./scripts/linux/run_pipeline.sh evaluation --grouping-dir outputs/grouping/011026_011026_0001
 # ./scripts/linux/run_pipeline.sh review
-# ./scrips/linux/run_pipeline.sh metrics --review-dir outputs/review/011026_011026_0001
+# ./scripts/linux/run_pipeline.sh metrics --review-dir outputs/review/011026_011026_0001
 
 cd "$(dirname "$0")/../.." || exit
 
