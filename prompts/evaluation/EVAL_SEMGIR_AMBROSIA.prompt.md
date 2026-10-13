@@ -11,7 +11,7 @@ HYPOTHESES_SET := [QUERY, ...]
   // A closed set of possible different interpretations of the natural language input (independent hypotheses)
 
 QUERY := {
-  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...],  // ENTITY_ID, RELATIONSHIP_ID and PATH_ID are existing IDs in the JSON document
+  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...],  // ENTITY_ID, RELATIONSHIP_ID and PATH_ID are IDs declared in this query
   // Elements that define the output of the query
 
   entities: [ENTITY, ...],
@@ -47,20 +47,20 @@ ENTITY := {
 
 RELATIONSHIP := {
   id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
-  role: ROLE, // Type of the relationship. It depends on the domain (not in a set of predefined roles)
-  from: ENTITY_ID,   // existing ID of an entity in the JSON document
-  to: ENTITY_ID    // existing ID of an entity in the JSON document
+  role: ROLE, // Type of the relationship.
+  from: ENTITY_ID,   // ID of an entity declared in this query
+  to: ENTITY_ID    // ID of an entity declared in this query
 }
 
 ATTRIBUTE := {
   attribute_name: NAME,
-  of: ENTITY_ID | RELATIONSHIP_ID // existing entity or relation ID in the JSON document
+  of: ENTITY_ID | RELATIONSHIP_ID // ID of an entity or relationship declared in this query
 }
 
 PATH := {
   id: PATH_ID, // new fresh unique ID of the path
-  start?: ENTITY_ID,  // existing ID of an entity in the JSON document
-  end?: ENTITY_ID,    // existing ID of an entity in the JSON document
+  start?: ENTITY_ID,  // ID of an entity declared in this query
+  end?: ENTITY_ID,    // ID of an entity declared in this query
   roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
@@ -88,12 +88,19 @@ RELATIONS := {
 }
 
 COUNT := { count: LIST }
+// Number of elements in a list
 
-ESCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+// Aggregation over elements in a list
+
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
+// Supported aggregation function
 
 QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
+// Tests whether list elements satisfy a condition
+
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
+// ALL: all satisfy, EXISTS: at least one satisfies, NONE: none satisfy
 
 ORDER_CRITERION := {
   expression: EXPRESSION,  // expression that computes the values to be ordered
@@ -124,7 +131,7 @@ COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">="
 STRING_COMPARISON_OP := "CONTAINS" //Whether first operand contains the second operand
                       | "MATCHES_REGEX" //Whether the first operand matches the second operand (a regular expression)
 
-EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | ESCALAR_AGGREGATE | COUNT
+EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | SCALAR_AGGREGATE | COUNT
 
 TYPE := STRING
 ROLE := STRING

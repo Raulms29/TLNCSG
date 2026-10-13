@@ -151,12 +151,19 @@ RELATIONS := {
 }
 
 COUNT := { count: LIST }
+// Number of elements in a list
 
 SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+// Aggregation over elements in a list
+
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
+// Supported aggregation function
 
 QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
+// Tests whether list elements satisfy a condition
+
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
+// ALL: all satisfy, EXISTS: at least one satisfies, NONE: none satisfy
 
 ORDER_CRITERION := {
   expression: EXPRESSION,  // expression that computes the values to be ordered

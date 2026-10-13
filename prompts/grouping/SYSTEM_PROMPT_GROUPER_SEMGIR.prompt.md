@@ -13,39 +13,57 @@ HYPOTHESES_SET := [QUERY, ...]
   // A closed set of possible different interpretations of the natural language input (independent hypotheses)
 
 QUERY := {
-  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...],
+  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...],  // ENTITY_ID, RELATIONSHIP_ID and PATH_ID are IDs declared in this query
+  // Elements that define the output of the query
+
   entities: [ENTITY, ...],
+  // Entities (graph nodes) involved in the query
+
   relationships?: [RELATIONSHIP, ...],
+  // Relationships (graph vertices) connecting the entities
+
   paths?: [PATH, ...],
+  // Paths between existing entities
+
   constraint?: CONDITION,
+  // Logical filter over entities and or relationships
+
   distinct?: BOOLEAN,
+  // If true, removes duplicate results, otherwise duplicates are allowed
+
   order_by?: [ORDER_CRITERION, ...],
+  // Defines how results should be sorted
+
   limit?: NUMBER,
+  // Limits the number of results (TOP-N behavior)
+
   skip?: NUMBER
+  // Skips the first N results
 }
 
 ENTITY := {
-  id: ENTITY_ID,
+  id: ENTITY_ID, // new fresh unique ID of the entity
   type: TYPE
+  // Semantic type. This is domain dependent.
 }
 
 RELATIONSHIP := {
-  id: RELATIONSHIP_ID,
-  role: ROLE,
-  from: ENTITY_ID,
-  to: ENTITY_ID
+  id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
+  role: ROLE, // Type of the relationship.
+  from: ENTITY_ID,   // ID of an entity declared in this query
+  to: ENTITY_ID    // ID of an entity declared in this query
 }
 
 ATTRIBUTE := {
   attribute_name: NAME,
-  of: ENTITY_ID | RELATIONSHIP_ID
+  of: ENTITY_ID | RELATIONSHIP_ID // ID of an entity or relationship declared in this query
 }
 
 PATH := {
-  id: PATH_ID,
-  start?: ENTITY_ID,
-  end?: ENTITY_ID,
-  roles: [ROLE, ...]
+  id: PATH_ID, // new fresh unique ID of the path
+  start?: ENTITY_ID,  // ID of an entity declared in this query
+  end?: ENTITY_ID,    // ID of an entity declared in this query
+  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
 }
 
 LIST := {
@@ -57,36 +75,70 @@ LIST := {
   skip?: NUMBER // Number of elements to skip
 }
 
-CREATE_LIST := { list_elements: ENTITY_ID | RELATIONSHIP_ID }
-NODES := { nodes_of: PATH_ID, node_id: ENTITY_ID }
-RELATIONS := { rels_of: PATH_ID, rel_id: RELATIONSHIP_ID }
+CREATE_LIST := {
+  list_elements: ENTITY_ID | RELATIONSHIP_ID //Existing entity or relation ID to collect and create the list
+}
+
+NODES := {
+  nodes_of: PATH_ID,
+  node_id: ENTITY_ID // new fresh unique ID to refer to the nodes extracted from the path
+}
+
+RELATIONS := {
+  rels_of: PATH_ID,
+  rel_id: RELATIONSHIP_ID // new fresh unique ID to refer to the relations extracted from the path
+}
 
 COUNT := { count: LIST }
+// Number of elements in a list
+
 SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+// Aggregation over elements in a list
+
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
+// Supported aggregation function
 
 QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
+// Tests whether list elements satisfy a condition
+
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
+// ALL: all satisfy, EXISTS: at least one satisfies, NONE: none satisfy
 
 ORDER_CRITERION := {
-  expression: EXPRESSION,
+  expression: EXPRESSION,  // expression that computes the values to be ordered
   direction?: "ASC" | "DESC"
 }
 
 CONDITION := AND | OR | NOT | COMPARISON | QUANTIFIER_PREDICATE | RELATIONSHIP_ID
+// Logical expressions used for filtering
+
 AND := { and_conditions: [CONDITION, ...] }
+// All conditions must hold
+
 OR := { or_conditions: [CONDITION, ...] }
+// At least one condition must hold
+
 NOT := { not_condition: CONDITION }
-COMPARISON := { left: EXPRESSION, operator: COMPARISON_OPERATOR | STRING_COMPARISON_OP, right: EXPRESSION }
+// Logical negation
+
+COMPARISON := {
+  left: EXPRESSION,
+  operator: COMPARISON_OPERATOR | STRING_COMPARISON_OP,
+  right: EXPRESSION
+}
+// Binary comparison
+
 COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">="
-STRING_COMPARISON_OP := "CONTAINS" | "MATCHES_REGEX"
+
+STRING_COMPARISON_OP := "CONTAINS" //Whether first operand contains the second operand
+                      | "MATCHES_REGEX" //Whether the first operand matches the second operand (a regular expression)
 
 EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | SCALAR_AGGREGATE | COUNT
 
 TYPE := STRING
 ROLE := STRING
 NAME := STRING
-DATE_TIME := STRING
+DATE_TIME := STRING // Should follow ISO 8601 format in most cases (e.g., 'YYYY-MM-DDThh:mm:ssZ' or 'YYYY-MM-DD')
 NUMBER := FLOAT | INTEGER
 BOOLEAN := true | false
 
