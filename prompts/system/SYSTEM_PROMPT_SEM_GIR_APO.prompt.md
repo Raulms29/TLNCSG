@@ -158,15 +158,15 @@ Each hypothesis must be an internally consistent, complete query. Do NOT merge d
 
 * `target`: Identify the elements the user is actually asking for (the **unknown** or **to-be-returned** entities/values). Valid target elements are: an `ENTITY_ID`, a `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (such as an `ATTRIBUTE`, a `SCALAR_AGGREGATE`, or a `COUNT`), a `CONDITION`, or a `LIST`.
 * **Direction of inquiry (anchor vs. target):** The entity that is **named, specific, or used as a filter** in the query is the *anchor* — it appears in `entities` and is pinned down in `constraint`, and is **never** the target. The entity that is **generic, unspecified, or being sought** ("find a …", "what …", "list all …") is the *target*. Always target the unknown side of the relationship, not the known side.
-* **Property-target rule (HARD — resolve this before writing the target):**
-  1. Identify the **interrogative noun** — the head noun of the phrase the user is asking for (e.g., "What are the **hobbies** of …?" → *hobbies*; "List the **nationalities** of …?" → *nationalities*; "Which **actors** …?" → *actors*).
+* **Property-target rule:**
+  1. Identify the **interrogative noun** — the head noun of the phrase the user is asking for (e.g., "What are the **hobbies** of …?" → *hobbies*; "List the **names** of …?" → *names*; "Which **actors** …?" → *actors*).
   2. **Branch A — the interrogative noun names a property, measure, or classification** (salary, nationality, name, date, price, weight, age, earnings, color, genre, etc.):
-     * The `target` MUST be an `ATTRIBUTE` expression (e.g., `{ attribute_name: "weight", of: "e_actor" }`), or a `SCALAR_AGGREGATE` / `COUNT` whose `map_expression` / `list_elements` reference **that attribute**, NOT the entity.
-     * **Forbidden:** Setting the target to the entity that *has* the property, whether directly (`target: ["e_actor"]`) or wrapped in a `LIST` (`target: [{ list: { list_elements: "e_actor" } }]`). Returning a collection of Actor entities when the user asked for their *hobbies* or *nationalities* is a **structural error**.
+     * The `target` MUST be an `ATTRIBUTE` expression (e.g., `{ attribute_name: "name", of: "e_actor" }`), or a `SCALAR_AGGREGATE` / `COUNT` whose `map_expression` / `list_elements` reference **that attribute**, NOT the entity.
+     * **Forbidden:** Setting the target to the entity that *has* the property, whether directly (`target: ["e_actor"]`) or wrapped in a `LIST` (`target: [{ list: { list_elements: "e_actor" } }]`).
      * The entity that owns the property still appears in `entities` and participates in `constraint` and `relationships`, but it is the **anchor**, not the target.
   3. **Branch B — the interrogative noun names a kind of entity** (actors, countries, directors, films, researchers etc.) and the user asks to "find", "list", "show", or "which" those entities themselves:
      * The `target` is the `ENTITY_ID` (or a `LIST` of entity IDs if the user explicitly requests a list).
-* **Self-check before finalizing:** Re-read the user's question. If you can replace the interrogative noun with "a value of" (e.g., "a value of the salary", "a value of the nationality") and the sentence still makes sense, you are in **Branch A** — the target must be the attribute, not the entity.
+* **Self-check before finalizing:** Re-read the user's question. If the target you wrote is an entity ID or a list of entity IDs, but the the target is actually a property (salary, name, date, year, etc.), **you have made a mistake**.
 
 **Step 3. Identify Entities**
 
@@ -177,7 +177,8 @@ Each hypothesis must be an internally consistent, complete query. Do NOT merge d
 **Step 4. Extract Relationships & Paths**
 
 * `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels (e.g., `built`, `wrote`, `acted_in`, `knows`).
-* **Directionality (verify every relationship):** After assigning `from` and `to`, read the sentence "`[from-entity]` [role] `[to-entity]`". The resulting phrase must be grammatically and semantically coherent and must match the intended meaning of the query. If the sentence is nonsensical or inverts the intended relationship, swap `from` and `to`. For example, with role `father_of`, the correct reading is "[person] is the father_of [child]", so `from` = the father, `to` = the child.
+* **Directionality:** After assigning `from` and `to`, read the sentence "`[from-entity]` [role] `[to-entity]`". The resulting phrase must be grammatically and semantically coherent and must match the intended meaning of the query. If the sentence is nonsensical or inverts the intended relationship, swap `from` and `to`. For example, with role `father_of`, the correct reading is "[person] is the father_of [child]", so `from` = the father, `to` = the child.
+* **Properties of the relationship:** If the query references a property of the relationship itself (e.g., "the year of the marriage"), model that property as an `ATTRIBUTE` with `of` set to the **`RELATIONSHIP_ID`**.
 * `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections). A `PATH` spans multiple hops filtered by roles.
 * **Filtering intermediate path nodes:** When a constraint applies to an intermediate node extracted from a path (e.g., "a path … that does NOT pass through a town with more than 1000 inhabitants"), use the `NODES` construct to bind the extracted nodes to a fresh `node_id`, then apply the condition via the `LIST.filter` on that `NODES` list (or via a `QUANTIFIER_PREDICATE` whose `list` is that `NODES` list). Do NOT introduce an additional standalone `ENTITY` and relate it to the path nodes through a `COMPARISON`; the `NODES` binding is the idiomatic and structurally minimal way to reference and filter path intermediates.
 
