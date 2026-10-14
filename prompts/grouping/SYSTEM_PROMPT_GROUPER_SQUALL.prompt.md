@@ -106,5 +106,3 @@ You must return ONLY a valid JSON object with exactly the following structure, n
   "equivalent": true/false
 }
 ```
-
-
