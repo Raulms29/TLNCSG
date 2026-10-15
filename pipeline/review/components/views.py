@@ -2,117 +2,81 @@
 
 from __future__ import annotations
 
+import json
+import re
+
 import streamlit as st
 
 from pipeline.evaluation.ground_truth import GroundTruth
 
 
-# ------------------------------------------------------------------
-# Header & metadata
-# ------------------------------------------------------------------
-
-def render_query(
-    row: dict,
-    query_num: int,
-    total_queries: int,
-    group_num: int,
-    total_groups: int,
-) -> None:
-    """Display QID and query text."""
-    st.markdown(f"#### **QID:** {row['QID']} &emsp;•&emsp; **QUERY:** {query_num} OF {total_queries} &emsp;•&emsp; **GROUP:** {group_num} OF {total_groups}")
-    st.subheader(row['Query'])
-
-def render_metadata(row: dict) -> None:
-    """Display the metadata in a single line."""
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Model", row.get('Model', '—'))
-    col2.metric("Thinking", row.get('Thinking', '—'))
-    col3.metric("Group Size", row.get('Group Size', '—'))
+def _is_semgir(grammar: str) -> bool:
+    return "sem_gir" in grammar.lower() or "semgir" in grammar.lower()
 
 
 # ------------------------------------------------------------------
-# Ground truth
+# Query
 # ------------------------------------------------------------------
 
-def render_ground_truth(gt: GroundTruth | None) -> None:
-    """Show the ground truth in a collapsible expander."""
-    if gt is None:
-        st.warning("Ground truth not available for this query.")
-        return
-
-    with st.expander("Ground Truth", expanded=False):
-        if gt.dataset == "ambrosia":
-            st.markdown("**Interpretations & SQL:**")
-            st.code(gt.gold_queries or "", language="sql")
-            if gt.db_dump:
-                with st.expander("Database Schema", expanded=False):
-                    st.code(gt.db_dump, language="sql")
-        else:
-            st.markdown("**LISP s-expression (friendly names):**")
-            st.code(gt.s_expression_friendly or "", language="lisp")
-
-
-# ------------------------------------------------------------------
-# LLM verdict & Rationale
-# ------------------------------------------------------------------
-
-def render_llm_verdict(row: dict) -> None:
-    """Display the LLM judge's verdict as a colored banner."""
-    is_correct = str(row.get("Correct", "")).lower() == "true"
-    hypotheses = row.get("Hypotheses Covered", 1)
-
-    if is_correct:
-        st.success(f"[PASS] LLM says: **Correct** — Hypotheses covered: **{hypotheses}**", icon=None)
-    else:
-        st.error(f"[FAIL] LLM says: **Incorrect** — Hypotheses covered: **{hypotheses}**", icon=None)
-
-
-def render_llm_rationale(row: dict) -> None:
-    """Display the LLM's rationale at the very end."""
-    rationale = row.get("Rationale", "")
-    with st.expander("Evaluator Rationale", expanded=True):
-        st.markdown(rationale if rationale else "*No rationale provided.*")
+def render_query(qid: str, text: str, n_answers: int) -> None:
+    st.caption(f"QID {qid} · {n_answers} distinct answer{'s' if n_answers != 1 else ''}")
+    st.markdown(f"### {text}")
 
 
 # ------------------------------------------------------------------
 # Candidate output
 # ------------------------------------------------------------------
 
-def render_candidate_output(row: dict, grammar: str) -> None:
-    """Render the representative output and optional reasoning trace."""
-    output = str(row.get("Representative Output", "")).strip()
-    reasoning = row.get("Reasoning", "")
+def _readable_output(output: str, grammar: str) -> str:
+    """Strip code fences and, for SemGIR, pretty-print the JSON (key order kept)."""
+    output = output.strip()
+    matches = list(re.finditer(r"```(?:\w+)?\s*([\s\S]*?)\s*```", output))
+    if matches:
+        output = matches[-1].group(1).strip()
+    if _is_semgir(grammar):
+        try:
+            return json.dumps(json.loads(output), indent=2, ensure_ascii=False)
+        except json.JSONDecodeError:
+            pass
+    return output
 
-    # Strip markdown code blocks if the LLM accidentally left them in the output
-    if output.startswith("```"):
-        lines = output.split("\n")
-        if len(lines) > 1:
-            lines = lines[1:]  # Remove the opening ```lang
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]  # Remove the closing ```
-            output = "\n".join(lines).strip()
-        else:
-            output = output.strip("`")
 
-    lang = "json" if "sem_gir" in grammar.lower() or "semgir" in grammar.lower() else "text"
-
-    st.markdown("**Candidate Output:**")
-    st.code(output, language=lang)
-
-    if reasoning and str(reasoning).strip():
-        with st.expander("Thinking / Reasoning Trace", expanded=False):
-            st.text(reasoning)
+def render_output(row: dict, grammar: str) -> None:
+    """The answer, readable: fences stripped, SemGIR JSON pretty-printed."""
+    output = _readable_output(str(row.get("Representative Output", "")), grammar)
+    st.code(output, language="json" if _is_semgir(grammar) else "text", wrap_lines=True)
 
 
 # ------------------------------------------------------------------
-# Progress
+# Ground truth
 # ------------------------------------------------------------------
 
-def render_progress(title: str, reviewed: int, total: int) -> None:
-    """Show a progress bar and fraction."""
-    if total == 0:
-        st.info(f"{title}: No groups to review.")
+def _render_ambrosia_interpretations(gold_queries: str) -> None:
+    """Show each 'Interpretation i: / Meaning: / SQL:' block separately."""
+    blocks = [b.strip() for b in gold_queries.split("\n\n") if b.strip()]
+    for block in blocks:
+        lines = block.split("\n")
+        meaning = next((l[len("Meaning:"):].strip() for l in lines if l.startswith("Meaning:")), None)
+        sql_start = next((i for i, l in enumerate(lines) if l.startswith("SQL:")), None)
+        if meaning is None or sql_start is None:
+            st.code(block, language="sql", wrap_lines=True)
+            continue
+        sql = "\n".join([lines[sql_start][len("SQL:"):]] + lines[sql_start + 1:]).strip()
+        st.markdown(f"**{lines[0].rstrip(':')}** — {meaning}")
+        st.code(sql, language="sql", wrap_lines=True)
+
+
+def render_ground_truth(gt: GroundTruth | None) -> None:
+    """Show the ground truth once, above the answers."""
+    if gt is None:
+        st.warning("Ground truth not available for this query.")
         return
-    pct = reviewed / total
-    pct = min(1.0, max(0.0, pct))
-    st.progress(pct, text=f"{title} Progress: {reviewed} / {total}")
+
+    if gt.dataset == "ambrosia":
+        _render_ambrosia_interpretations(gt.gold_queries or "")
+        if gt.db_dump:
+            with st.expander("Database Schema", expanded=False):
+                st.code(gt.db_dump, language="sql")
+    else:
+        st.caption("LISP s-expression (friendly names)")
+        st.code(gt.s_expression_friendly or "", language="lisp", wrap_lines=True)

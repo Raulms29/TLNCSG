@@ -5,14 +5,19 @@ from pathlib import Path
 import streamlit as st
 
 
-def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list[Path]):
-    """Merge review state with evaluated CSVs and generate export artifacts."""
-    st.info("Generating output files...")
+def generate_outputs(out_dir: str, reviews: dict, csv_files: list[Path]):
+    """Merge review state with evaluated CSVs and generate export artifacts.
+
+    Everything is written per execution, whatever evaluation directory was opened:
+    <out_dir>/<run>/<GRAMMAR>/<model>/Q*_reviewed.csv, plus <out_dir>/<run>/*_errors.csv.
+    """
+    st.toast("Generating output files...")
     out_root = Path(out_dir)
     out_root.mkdir(parents=True, exist_ok=True)
     
-    base_llm_errors = []
-    judge_llm_errors = []
+    # run -> error rows
+    base_llm_errors: dict[str, list[dict]] = {}
+    judge_llm_errors: dict[str, list[dict]] = {}
     
     for csv_file in csv_files:
         grammar = csv_file.parent.parent.name
@@ -27,8 +32,7 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                 
         new_rows = []
         
-        # Output csv goes to outputs/review/<run>/<GRAMMAR>/<model>/Q*_reviewed.csv
-        out_csv = out_root / csv_file.relative_to(Path(eval_dir))
+        out_csv = out_root / run / grammar / model / csv_file.name
         out_csv.parent.mkdir(parents=True, exist_ok=True)
         
         for row in rows:
@@ -60,7 +64,7 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
             
             # Populate error logs
             if not rev["human_correct"]:
-                base_llm_errors.append({
+                base_llm_errors.setdefault(run, []).append({
                     "QID": row.get("QID"),
                     "Query": row.get("Query"),
                     "Grammar": grammar,
@@ -71,7 +75,7 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                 })
                 
             if discrepancy:
-                judge_llm_errors.append({
+                judge_llm_errors.setdefault(run, []).append({
                     "QID": row.get("QID"),
                     "Query": row.get("Query"),
                     "Grammar": grammar,
@@ -91,17 +95,13 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                 writer.writeheader()
                 writer.writerows(new_rows)
                 
-    # Save global error logs
-    if base_llm_errors:
-        with open(out_root / "base_llm_errors.csv", "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(base_llm_errors[0].keys()))
-            writer.writeheader()
-            writer.writerows(base_llm_errors)
-            
-    if judge_llm_errors:
-        with open(out_root / "judge_llm_errors.csv", "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(judge_llm_errors[0].keys()))
-            writer.writeheader()
-            writer.writerows(judge_llm_errors)
-            
-    st.success(f"Successfully generated outputs to {out_root}")
+    # Save each execution's error logs next to its reviewed CSVs
+    for name, errors_by_run in (("base_llm_errors.csv", base_llm_errors), ("judge_llm_errors.csv", judge_llm_errors)):
+        for run, errors in errors_by_run.items():
+            with open(out_root / run / name, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=list(errors[0].keys()))
+                writer.writeheader()
+                writer.writerows(errors)
+
+    runs = sorted({csv_file.parent.parent.parent.name for csv_file in csv_files})
+    st.toast(f"Successfully generated outputs to {', '.join(str(out_root / r) for r in runs)}", icon=":material/check_circle:")

@@ -59,21 +59,33 @@ class MetricsExporter:
             for c in cols_to_mean
         }
         summary_df = summary_df.rename(columns=rename_map)
-        
+
+        # Readable, fixed precision: rates with 4 decimals, time and tokens with 2
+        # (padded, e.g. 1.0000). Only this file is formatted; query_level_metrics.csv
+        # keeps full precision for analysis.
+        for c in rename_map.values():
+            fmt = "{:.2f}" if c in ("Avg Inference Time (s)", "Avg Completion Tokens") else "{:.4f}"
+            summary_df[c] = summary_df[c].map(fmt.format)
+
         path = out_dir / "model_summary_metrics.csv"
         summary_df.to_csv(path, index=False, encoding="utf-8")
         logger.info("Exported model_summary_metrics.csv")
 
     def _export_error_distribution(self, error_distributions: list[dict], out_dir: Path) -> None:
-        """Export the distribution and percentages of error categories."""
-        if not error_distributions:
-            return
-            
-        df_err = pd.DataFrame(error_distributions)
-        df_err = df_err.groupby(["Grammar", "Model", "Error Category"])["Count"].sum().reset_index()
-        
-        total_errors = df_err.groupby(["Grammar", "Model"])["Count"].transform("sum")
-        df_err["Percentage"] = (df_err["Count"] / total_errors * 100).round(2)
+        """Export the distribution and percentages of error categories.
+
+        Always written (header only when there are no categorized errors), so every
+        run folder has the same files for the analysis notebook.
+        """
+        columns = ["Grammar", "Model", "Error Category", "Count", "Percentage"]
+        if error_distributions:
+            df_err = pd.DataFrame(error_distributions)
+            df_err = df_err.groupby(["Grammar", "Model", "Error Category"])["Count"].sum().reset_index()
+
+            total_errors = df_err.groupby(["Grammar", "Model"])["Count"].transform("sum")
+            df_err["Percentage"] = (df_err["Count"] / total_errors * 100).round(2)
+        else:
+            df_err = pd.DataFrame(columns=columns)
         
         path = out_dir / "error_distribution.csv"
         df_err.to_csv(path, index=False, encoding="utf-8")
@@ -81,12 +93,15 @@ class MetricsExporter:
 
     def _export_significance_tests(self, df_queries: pd.DataFrame, out_dir: Path) -> None:
         """Export statistical comparisons between the baseline and other grammars."""
-        sig_tests = self._run_significance_tests(df_queries)
-        if sig_tests:
-            df_sig = pd.DataFrame(sig_tests)
-            path = out_dir / "significance_tests.csv"
-            df_sig.to_csv(path, index=False, encoding="utf-8")
-            logger.info("Exported significance_tests.csv")
+        # Always written (header only when no grammar pair could be compared)
+        columns = [
+            "Model", "Metric", f"Baseline ({self.config.reference_grammar})", "Comparison Grammar",
+            "Test Used", "p-value", "Significant (p<0.05)",
+        ]
+        df_sig = pd.DataFrame(self._run_significance_tests(df_queries), columns=columns)
+        path = out_dir / "significance_tests.csv"
+        df_sig.to_csv(path, index=False, encoding="utf-8")
+        logger.info("Exported significance_tests.csv")
 
     def _run_significance_tests(self, df: pd.DataFrame) -> list[dict]:
         """Compute McNemar and Wilcoxon statistical tests."""
