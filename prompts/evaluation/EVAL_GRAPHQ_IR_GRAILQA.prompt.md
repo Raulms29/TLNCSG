@@ -81,6 +81,7 @@ Evaluate the Candidate holistically across these dimensions:
   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
   - You must verify if the graph topology modeled in the Candidate's AST logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
   - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
+  - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth LISP was generated with access to the knowledge base. Therefore, if the Candidate is semantically and structurally equivalent to the Ground Truth intent, it must be marked as correct, even if it does not match the exact entity types or relationship roles in the LISP.
 
 ---
 

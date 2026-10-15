@@ -33,13 +33,13 @@ def load_csv_data(csv_path: Path) -> list[dict[str, Any]]:
 
 
 @st.cache_data(show_spinner=False)
-def get_global_total_rows(csv_files: list[Path]) -> int:
-    total = 0
+def get_output_keys(csv_files: list[Path]) -> list[str]:
+    """Output Keys of every group in the given evaluated CSVs."""
+    keys = []
     for f in csv_files:
         with open(f, "r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            total += sum(1 for _ in reader)
-    return total
+            keys.extend(r["Output Key"] for r in csv.DictReader(file))
+    return keys
 
 def advance_group(increment: int, total_groups: int):
     """Move the navigation index."""
@@ -93,42 +93,34 @@ def render_sidebar(cfg: ReviewConfig):
             st.error("No `*_evaluated.csv` files found.")
             st.stop()
             
-        # Extract grammars and models from paths
-        grammars = sorted(list({p.parent.parent.name for p in csv_files}))
+        # Layout: <run>/<GRAMMAR>/Q*_evaluated.csv (groups pool every model)
+        grammars = sorted(list({p.parent.name for p in csv_files}))
         selected_grammar = st.selectbox("Grammar", options=grammars)
         
-        models = sorted(list({p.parent.name for p in csv_files if p.parent.parent.name == selected_grammar}))
-        selected_model = st.selectbox("Model", options=models)
-        
-        # Get the specific CSVs
-        selected_csv_paths = sorted([p for p in csv_files if p.parent.parent.name == selected_grammar and p.parent.name == selected_model])
-        if not selected_csv_paths:
-            st.warning("No CSV for this combination.")
-            st.stop()
+        selected_csv_paths = sorted([p for p in csv_files if p.parent.name == selected_grammar])
             
-        # Init state singleton
+        # Init state singleton (shared by all runs, so verdicts carry over)
         if "review_state" not in st.session_state:
-            state_file = Path(eval_dir) / "review_state.json"
-            st.session_state.review_state = ReviewState(state_file)
+            st.session_state.review_state = ReviewState(Path(cfg.review_state_path))
             
         review_state: ReviewState = st.session_state.review_state
         
         all_rows = []
         all_keys = []
+        all_runs = []
         for p in selected_csv_paths:
-            rel_path = p.relative_to(Path(eval_dir)).as_posix()
             rows_in_file = load_csv_data(p)
-            for i, r in enumerate(rows_in_file):
+            for r in rows_in_file:
                 all_rows.append(r)
-                all_keys.append(f"{rel_path}::{i}")
+                all_keys.append(r["Output Key"])
+                all_runs.append(p.parent.parent.name)
                 
         if not all_rows:
-            st.warning("No data found for this combination.")
+            st.warning("No data found for this grammar.")
             st.stop()
             
-        selection_key = f"{selected_grammar}_{selected_model}"
-        if st.session_state.get("active_selection") != selection_key:
-            st.session_state.active_selection = selection_key
+        if st.session_state.get("active_selection") != selected_grammar:
+            st.session_state.active_selection = selected_grammar
             
             # Auto-resume: find first unreviewed index
             st.session_state.current_idx = next((i for i, k in enumerate(all_keys) if not review_state.is_reviewed(k)), 0)
@@ -136,15 +128,8 @@ def render_sidebar(cfg: ReviewConfig):
         
         st.markdown("### Progress")
         
-        # Grammar Progress
-        grammar_csvs = [p for p in csv_files if p.parent.parent.name == selected_grammar]
-        grammar_total = get_global_total_rows(grammar_csvs)
-        grammar_reviewed = sum(1 for k in review_state.all_reviews if k.startswith(f"{selected_grammar}/"))
-        render_progress("Grammar", grammar_reviewed, grammar_total)
-        
         # Global Progress
-        global_total = get_global_total_rows(csv_files)
-        global_reviewed = len(review_state.all_reviews)
+        global_reviewed, global_total = review_state.get_progress(get_output_keys(csv_files))
         render_progress("Overall", global_reviewed, global_total)
         
         express_mode = st.checkbox("Express Mode", value=False, help="Hide error categorization")
@@ -158,18 +143,18 @@ def render_sidebar(cfg: ReviewConfig):
     
     idx = st.session_state.current_idx
     
-    # Model progress
-    model_reviewed, model_total = review_state.get_progress(all_keys)
+    # Grammar progress
+    grammar_reviewed, grammar_total = review_state.get_progress(all_keys)
     
     return {
         "row": all_rows[idx],
         "all_rows": all_rows,
         "state_key": all_keys[idx],
+        "run": all_runs[idx],
         "express_mode": express_mode,
         "selected_grammar": selected_grammar,
-        "selected_model": selected_model,
-        "model_reviewed": model_reviewed,
-        "model_total": model_total,
+        "grammar_reviewed": grammar_reviewed,
+        "grammar_total": grammar_total,
         "keys": all_keys,
         "current_idx": idx
     }

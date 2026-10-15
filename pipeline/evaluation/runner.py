@@ -11,6 +11,7 @@ from typing import Any
 
 from pipeline.clients.ollama_client import OllamaClient
 from .config import EvaluationConfig
+from pipeline.grouping.normalizers import decode_breakdown, split_breakdown_key
 from .ground_truth import GroundTruth, GroundTruthStore
 
 logger = logging.getLogger(__name__)
@@ -41,45 +42,107 @@ class EvaluationRunner:
         output_root = Path(self.config.output_dir) / dir_name
         output_root.mkdir(parents=True, exist_ok=True)
 
-        logger.info("Starting evaluation for grouping: %s", dir_name)
+        # Set up file logging
+        file_handler = logging.FileHandler(
+            output_root / "evaluation.log", encoding="utf-8"
+        )
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s", "%Y-%m-%d %H:%M:%S")
+        )
+        logging.getLogger().addHandler(file_handler)
+
+        n_files = sum(1 for _ in self.grouping_dir.glob("*/*_grouped.csv"))
+        logger.info(
+            "=== Evaluation started: %s (%d files, evaluator: %s) ===",
+            dir_name,
+            n_files,
+            self.config.evaluator_model.name,
+        )
 
         # Pre-load prompts to memory
         self._preload_prompts()
 
         total_files = 0
-        total_correct = 0
-        total_groups = 0
+        # [files, groups, correct groups, runs, correct runs], per grammar and per
+        # (grammar, model). A pooled group counts once for its grammar and once for
+        # every model in its Run Breakdown, with that model's runs only.
+        grammar_stats: dict[str, list[int]] = {}
+        model_stats: dict[tuple[str, str], list[int]] = {}
 
-        # Traverse: GRAMMAR / model / Q1_grouped.csv
-        for grammar_dir in sorted(d for d in self.grouping_dir.iterdir() if d.is_dir()):
+        # Traverse: GRAMMAR / Q1_grouped.csv
+        grammar_dirs = sorted(d for d in self.grouping_dir.iterdir() if d.is_dir())
+        for grammar_idx, grammar_dir in enumerate(grammar_dirs, 1):
             grammar = grammar_dir.name
             out_grammar = output_root / grammar
+            out_grammar.mkdir(parents=True, exist_ok=True)
+            logger.info(
+                "--- Grammar: %s [%d/%d] ---", grammar, grammar_idx, len(grammar_dirs)
+            )
+            g_stats = grammar_stats.setdefault(grammar, [0, 0, 0, 0, 0])
 
-            for model_dir in sorted(d for d in grammar_dir.iterdir() if d.is_dir()):
-                model = model_dir.name
-                out_model = out_grammar / model
-                out_model.mkdir(parents=True, exist_ok=True)
+            for csv_file in sorted(grammar_dir.glob("*_grouped.csv")):
+                total_files += 1
+                evaluated_rows = self._process_grouped_file(csv_file, grammar)
 
-                for csv_file in sorted(model_dir.glob("*_grouped.csv")):
-                    total_files += 1
-                    evaluated_rows = self._process_grouped_file(csv_file, grammar)
+                n_correct = sum(
+                    1 for row in evaluated_rows if row.get("Correct") == "True"
+                )
+                g_stats[0] += 1
+                g_stats[1] += len(evaluated_rows)
+                g_stats[2] += n_correct
+                for row in evaluated_rows:
+                    is_correct = row.get("Correct") == "True"
+                    size = int(row.get("Group Size") or 0)
+                    g_stats[3] += size
+                    g_stats[4] += size if is_correct else 0
+                    for key, runs in decode_breakdown(row.get("Run Breakdown", "")).items():
+                        model_dir, thinking = split_breakdown_key(key)
+                        label = f"{model_dir} (Thinking)" if thinking else model_dir
+                        m_stats = model_stats.setdefault((grammar, label), [0, 0, 0, 0, 0])
+                        m_stats[1] += 1
+                        m_stats[2] += int(is_correct)
+                        m_stats[3] += len(runs)
+                        m_stats[4] += len(runs) if is_correct else 0
+                # One mark per group with its size, e.g. "✓12  ✗5  ✓1"
+                marks = "  ".join(
+                    f"{'✓ ' if row.get('Correct') == 'True' else '✗ '}{row.get('Group Size', '?')}"
+                    for row in evaluated_rows
+                )
+                logger.info(
+                    "    [%d/%d] %s — %d/%d | %s",
+                    total_files,
+                    n_files,
+                    csv_file.name.replace("_grouped.csv", ""),
+                    n_correct,
+                    len(evaluated_rows),
+                    marks,
+                )
 
-                    for row in evaluated_rows:
-                        total_groups += 1
-                        if row.get("Correct") == "True":
-                            total_correct += 1
+                out_csv = out_grammar / csv_file.name.replace(
+                    "_grouped.csv", "_evaluated.csv"
+                )
+                self._save_evaluated_csv(out_csv, evaluated_rows)
 
-                    out_csv = out_model / csv_file.name.replace(
-                        "_grouped.csv", "_evaluated.csv"
-                    )
-                    self._save_evaluated_csv(out_csv, evaluated_rows)
+        def _summary(rows: list[list[int]]) -> str:
+            _, groups, correct, runs, correct_runs = (
+                sum(c) for c in zip([0] * 5, *rows)
+            )
+            pct = 100 * correct_runs / runs if runs else 0.0
+            return (
+                f"{correct}/{groups} groups correct, "
+                f"{correct_runs}/{runs} runs correct ({pct:.1f}%)"
+            )
 
         logger.info(
-            "Evaluation complete. Processed %d files, %d groups, %d correct.",
+            "=== Evaluation finished: %d files — %s ===",
             total_files,
-            total_groups,
-            total_correct,
+            _summary(list(grammar_stats.values())),
         )
+        for grammar, g_stats in grammar_stats.items():
+            logger.info("  %s — %s", grammar, _summary([g_stats]))
+            for (g, model), s in sorted(model_stats.items()):
+                if g == grammar:
+                    logger.info("    %s — %s", model, _summary([s]))
         return output_root
 
     def _preload_prompts(self) -> None:
@@ -129,7 +192,7 @@ class EvaluationRunner:
                 continue
 
             # Select the correct prompt dynamically
-            grammar_clean = grammar.replace("_", "").upper()
+            grammar_clean = grammar.upper()
             dataset_clean = dataset.upper()
             prompt_filename = f"EVAL_{grammar_clean}_{dataset_clean}.prompt.md"
 
@@ -238,10 +301,9 @@ class EvaluationRunner:
         if not rows:
             return
         fieldnames = [
-            "Model",
-            "Thinking",
             "QID",
             "Query",
+            "Output Key",
             "Hypotheses Covered",
             "Correct",
             "LLM Merged",
@@ -249,7 +311,7 @@ class EvaluationRunner:
             "Rationale",
             "Representative Output",
             "Reasoning",
-            "Runs",
+            "Run Breakdown",
         ]
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")

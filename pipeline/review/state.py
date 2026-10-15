@@ -1,8 +1,10 @@
 """Persistence layer for review progress.
 
-Stores review decisions in a JSON file, one entry per group (identified by
-``<relative_csv_path>::<row_index>``).  Saves to disk on every confirmation
-so progress is never lost.
+Stores review decisions in a JSON file shared by every run, one entry per
+answer, identified by the group's ``Output Key`` (grammar + QID + normalized
+output). A verdict given in one run is therefore reused by any later run that
+produces the same answer. Saves to disk on every confirmation so progress is
+never lost.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ logger = logging.getLogger(__name__)
 class ReviewState:
     """Load, query, update and persist the review_state.json file."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self, state_path: Path):
         self._path = state_path
@@ -49,9 +51,19 @@ class ReviewState:
         discrepancy_reason: str = "",
         error_category: str = "",
         error_notes: str = "",
+        run: str = "",
+        grammar: str = "",
+        qid: str = "",
     ) -> None:
-        """Record a review decision and persist to disk immediately."""
+        """Record a review decision and persist to disk immediately.
+
+        ``run``, ``grammar`` and ``qid`` record where the verdict was given, so a
+        later run reusing it can show its provenance.
+        """
         self._data["reviews"][key] = {
+            "run": run,
+            "grammar": grammar,
+            "qid": qid,
             "human_correct": human_correct,
             "human_hypotheses_covered": human_hypotheses_covered,
             "discrepancy": discrepancy,
@@ -77,17 +89,21 @@ class ReviewState:
     # ------------------------------------------------------------------
 
     def _load(self) -> None:
-        try:
-            with open(self._path, "r", encoding="utf-8") as f:
-                self._data = json.load(f)
-            logger.info(
-                "Loaded review state with %d entries from %s",
-                len(self._data.get("reviews", {})),
-                self._path,
+        # Fail loudly instead of starting fresh: this file holds the verdicts of
+        # every run, and the next save would overwrite them.
+        with open(self._path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("version") != self.VERSION:
+            raise ValueError(
+                f"{self._path} uses review state version {data.get('version')}, expected "
+                f"{self.VERSION}. Convert it with: python scripts/migrate_review_state.py"
             )
-        except (json.JSONDecodeError, KeyError) as exc:
-            logger.warning("Corrupt review state at %s, starting fresh: %s", self._path, exc)
-            self._data = {"version": self.VERSION, "reviews": {}}
+        self._data = data
+        logger.info(
+            "Loaded review state with %d entries from %s",
+            len(self._data["reviews"]),
+            self._path,
+        )
 
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)

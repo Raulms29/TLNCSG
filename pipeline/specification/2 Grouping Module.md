@@ -38,17 +38,22 @@ In those cases where, after the initial normalization, there are groups composed
     *   `num_predict: 3072`, `num_ctx: 12288`
     *   `GROUPER_THINKING = False`
 *   The model must return a justified reasoning and a `yes/no` in a JSON object.
+## Cross-Model Grouping
+Groups are formed per **(grammar, query)**, pooling the runs of every model and both thinking modes. An answer produced by several models is therefore evaluated and reviewed only once. Correctness depends only on the query, the output and the ground truth, so pooling does not change any verdict.
+
+Each group keeps track of which runs it contains in the `Run Breakdown` column, a JSON object keyed by `<model directory>|<thinking>` with the run ids of that model and mode, e.g. `{"gemma4_26b|False": [1, 2, 5], "qwen3_8b|True": [3]}`. The Metrics Module uses it to split every group back into per-model counts.
+
+Each group also gets an `Output Key`, a hash of grammar + QID + normalized output. The Review Module stores human verdicts under this key, so a verdict is reused by any later run that produces the same answer.
+
 ## Persistence Structure
-From the output of Module 1, documents will be generated that include a representative output of the set and the total number of queries that are part of that group (e.g. 20 of 30). The execution id (_id_) will be maintained.
+From the output of Module 1, one document per query is generated, containing one row per group: `QID, Query, Output Key, Group Size, Run Breakdown, Representative Output, Reasoning, LLM Merged`. The representative is the first run in (model, thinking mode, run) order, so it is stable across reruns. The execution id (_id_) will be maintained.
 
 ```text
 outputs
-└───script2
+└───grouping
     └───script-start-date_script-end-date_id
         ├───GRAMMAR1
-        │   ├───gemma4-26b
-        │   │       Q1-R_grouped.csv
-        │   │       Q1_grouped.csv
-        │   │       Q200-R_grouped.csv
-        │   │       ...
+        │       Q1_grouped.csv
+        │       Q200_grouped.csv
+        │       ...
 ```

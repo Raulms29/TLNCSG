@@ -11,6 +11,8 @@ from pipeline.review.components.sidebar import advance_group
 def render_review_form(
     row: dict,
     state_key: str,
+    run: str,
+    grammar: str,
     express_mode: bool,
     review_state: ReviewState,
     total_rows: int,
@@ -26,9 +28,11 @@ def render_review_form(
     if existing_review:
         dt = datetime.fromisoformat(existing_review['timestamp'])
         formatted_date = dt.strftime("%d-%m-%Y")
-        st.info(f"[REVIEWED] Already reviewed on {formatted_date}: "
+        reviewed_run = existing_review.get("run", "")
+        where = f" in run {reviewed_run}" if reviewed_run and reviewed_run != run else ""
+        st.info(f"[REVIEWED] Already reviewed{where} on {formatted_date}: "
                 f"**{'Correct' if existing_review['human_correct'] else 'Incorrect'}** "
-                f"(Discrepancy: {existing_review['discrepancy']})", icon=None)
+                f"(Discrepancy with that run's evaluator: {existing_review['discrepancy']})", icon=None)
 
     llm_is_correct = str(row.get("Correct", "")).lower() == "true"
     llm_hypotheses = int(row.get("Hypotheses Covered", 1))
@@ -67,6 +71,9 @@ def render_review_form(
                 if st.button("Confirm & Next", type="primary", use_container_width=True):
                     review_state.mark_reviewed(
                         state_key,
+                        run=run,
+                        grammar=grammar,
+                        qid=row.get("QID", ""),
                         human_correct=True,
                         human_hypotheses_covered=human_hypotheses,
                         discrepancy=False
@@ -85,6 +92,9 @@ def render_review_form(
                 if st.button("Confirm & Next", type="primary", use_container_width=True):
                     review_state.mark_reviewed(
                         state_key,
+                        run=run,
+                        grammar=grammar,
+                        qid=row.get("QID", ""),
                         human_correct=False,
                         human_hypotheses_covered=human_hypotheses,
                         discrepancy=False,
@@ -117,6 +127,9 @@ def render_review_form(
                 else:
                     review_state.mark_reviewed(
                         state_key,
+                        run=run,
+                        grammar=grammar,
+                        qid=row.get("QID", ""),
                         human_correct=not llm_is_correct,
                         human_hypotheses_covered=human_hypotheses,
                         discrepancy=True,

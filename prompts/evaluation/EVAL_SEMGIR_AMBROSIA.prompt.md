@@ -176,6 +176,7 @@ Evaluate the Candidate holistically across these dimensions:
   - The Ground Truth is a collection of multiple valid SQL queries representing the possible interpretations of an ambiguous query.
   - You must verify if the graph topology modeled in the Candidate's `entities` and `relationships` logically matches the joins (`JOIN`), aggregations (`COUNT`, `SUM`), and terminal nodes expressed in at least one of the Ground Truth SQL strings.
   - The Candidate's entity types and relationship roles should conceptually align with the provided SQL schema representation.
+  - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth SQL was generated with access to the database schema. Therefore, if the Candidate is semantically and structurally equivalent to at least one Ground Truth interpretation, it must be marked as correct, even if it does not match the exact table names, column names or join structure of the SQL schema.
 
 > **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array). If a Candidate does this, output `"correct": false`.
 

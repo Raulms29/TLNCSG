@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from pipeline.evaluation.ground_truth import GroundTruthStore
+from pipeline.grouping.normalizers import decode_breakdown, split_breakdown_key
 from .config import MetricsConfig
 from .stats import calc_pass_at_k, calc_pass_power_k
 
@@ -37,16 +38,24 @@ class Unroller:
         for grammar_dir in (d for d in run_dir.iterdir() if d.is_dir()):
             grammar = grammar_dir.name
             
-            for model_dir in (d for d in grammar_dir.iterdir() if d.is_dir()):
-                model_name = model_dir.name
-                
-                time_tokens_map = self._load_execution_summaries(exec_run_dir, grammar, model_name)
-                        
-                for csv_file in model_dir.glob("*_reviewed.csv"):
-                    metrics, errors = self._process_reviewed_file(csv_file, grammar, model_name, time_tokens_map)
-                    if metrics:
-                        query_metrics.append(metrics)
-                    error_distributions.extend(errors)
+            # Groups pool every model: split each reviewed group back into the
+            # runs of each (model, thinking mode), per query.
+            buckets: dict[tuple[str, bool, str], list[tuple[dict, int]]] = {}
+            for csv_file in grammar_dir.glob("*_reviewed.csv"):
+                for row in self._read_csv_rows(csv_file):
+                    for key, runs in decode_breakdown(row.get("Run Breakdown", "")).items():
+                        model_dir, thinking = split_breakdown_key(key)
+                        bucket = buckets.setdefault((model_dir, thinking, row.get("QID", "")), [])
+                        bucket.append((row, len(runs)))
+            
+            summaries: dict[str, dict] = {}
+            for (model_dir, thinking, qid), rows in sorted(buckets.items()):
+                if model_dir not in summaries:
+                    summaries[model_dir] = self._load_execution_summaries(exec_run_dir, grammar, model_dir)
+                metrics, errors = self._process_bucket(qid, rows, grammar, model_dir, thinking, summaries[model_dir])
+                if metrics:
+                    query_metrics.append(metrics)
+                error_distributions.extend(errors)
                     
         return query_metrics, error_distributions
 
@@ -73,14 +82,21 @@ class Unroller:
                 
         return time_tokens_map
 
-    def _process_reviewed_file(self, csv_path: Path, grammar: str, model: str, time_tokens_map: dict) -> tuple[dict, list]:
-        """Reads a specific query's reviewed CSV and returns its metrics and errors."""
-        rows = self._read_csv_rows(csv_path)
-        if not rows:
-            return {}, []
-            
-        qid = rows[0].get("QID", "")
-        thinking = str(rows[0].get("Thinking", "False")).strip().lower() == "true"
+    def _process_bucket(
+        self,
+        qid: str,
+        rows: list[tuple[dict, int]],
+        grammar: str,
+        model: str,
+        thinking: bool,
+        time_tokens_map: dict,
+    ) -> tuple[dict, list]:
+        """Computes the metrics of one (model, thinking mode, query).
+
+        ``rows`` are the reviewed groups containing this model's runs, each paired
+        with how many of this model's runs it holds.
+        """
+        tt = time_tokens_map.get((qid, thinking), {})
         
         # Adjust model name for downstream aggregations
         if thinking:
@@ -93,7 +109,6 @@ class Unroller:
         success_rate = c / n
         h_coverage = self._calculate_hypothesis_coverage(qid, rows, n)
         
-        tt = time_tokens_map.get((qid, thinking), {})
         inf_time = tt.get("Inference Time (s)", 0.0)
         tokens = tt.get("Completion Tokens", 0.0)
         
@@ -123,43 +138,37 @@ class Unroller:
                 rows.append(row)
         return rows
 
-    def _aggregate_counts(self, rows: list[dict]) -> tuple[int, int, dict[str, int]]:
+    def _aggregate_counts(self, rows: list[tuple[dict, int]]) -> tuple[int, int, dict[str, int]]:
         """Extract total attempts (n), correct attempts (c), and errors."""
         n = 0
         c = 0
         error_counts = {}
         
-        for row in rows:
-            try:
-                group_size = int(row.get("Group Size", 0))
-            except ValueError:
-                group_size = 0
-                
-            n += group_size
+        for row, count in rows:
+            n += count
             
             is_correct = str(row.get("Human Correct", "")).strip().lower() == "true"
             if is_correct:
-                c += group_size
+                c += count
             else:
                 err = row.get("Error Category", "Unknown")
                 if err:
-                    error_counts[err] = error_counts.get(err, 0) + group_size
+                    error_counts[err] = error_counts.get(err, 0) + count
                     
         return n, c, error_counts
 
-    def _calculate_hypothesis_coverage(self, qid: str, rows: list[dict], n: int) -> float:
+    def _calculate_hypothesis_coverage(self, qid: str, rows: list[tuple[dict, int]], n: int) -> float:
         """Calculates the average hypothesis coverage per run across all n runs."""
         gt = self.gt_store.get(qid)
         total_gt_hypotheses = gt.num_interpretations if gt else 1
         
         total_covered_hypotheses = 0.0
-        for row in rows:
+        for row, count in rows:
             is_correct = str(row.get("Human Correct", "")).strip().lower() == "true"
             if is_correct:
                 try:
-                    group_size = int(row.get("Group Size", 0))
                     h = float(row.get("Human Hypotheses Covered", 0))
-                    total_covered_hypotheses += h * group_size
+                    total_covered_hypotheses += h * count
                 except ValueError:
                     pass
                     

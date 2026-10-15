@@ -40,6 +40,8 @@ class ReviewConfig:
 
     evaluation_dir: str = "outputs/evaluation"
     output_dir: str = "outputs/review"
+    # One review state shared by every run, so verdicts carry over between runs
+    review_state_path: str = "outputs/review/review_state.json"
     dataset_paths: DatasetPaths = field(default_factory=DatasetPaths)
     ambrosia_qid_prefix: str = "AMB_"
 
@@ -57,7 +59,7 @@ class ReviewConfig:
         if "dataset_paths" in data:
             kwargs["dataset_paths"] = DatasetPaths.from_dict(data["dataset_paths"])
 
-        optional_keys = ["evaluation_dir", "output_dir", "ambrosia_qid_prefix"]
+        optional_keys = ["evaluation_dir", "output_dir", "review_state_path", "ambrosia_qid_prefix"]
         kwargs.update({k: data[k] for k in optional_keys if k in data})
 
         return cls(**kwargs)
