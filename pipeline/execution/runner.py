@@ -86,7 +86,7 @@ def _next_execution_id(output_dir: Path) -> str:
     """Scan *output_dir* for existing 4-digit IDs and return the next one."""
     if not output_dir.exists():
         return "0001"
-        
+
     existing = [
         int(m.group(1))
         for child in output_dir.iterdir()
@@ -153,7 +153,10 @@ class ExecutionRunner:
         log_file = run_dir / "execution.log"
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s — %(message)s", "%Y-%m-%d %H:%M:%S")
+            logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+                "%Y-%m-%d %H:%M:%S",
+            )
         )
         logging.getLogger().addHandler(file_handler)
 
@@ -176,14 +179,14 @@ class ExecutionRunner:
                 model_idx,
                 len(enabled_models),
             )
-            
+
             # Run this model on all grammars it supports
             for grammar_name in sorted(model_cfg.grammars.keys()):
                 grammar_dir = run_dir / grammar_name
                 grammar_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 logger.info("  Grammar: %s", grammar_name)
-                
+
                 self._run_model_on_grammar(
                     grammar_name=grammar_name,
                     grammar_dir=grammar_dir,
@@ -193,7 +196,6 @@ class ExecutionRunner:
         # ---- Finalize ----
         end_time = datetime.now()
         self._save_manifest(run_dir, execution_id, start_time, end_time)
-
 
         # Rename directory to include end timestamp
         end_stamp = end_time.strftime("%d%m%y")
@@ -261,7 +263,7 @@ class ExecutionRunner:
                     )
                     self._current_warmed_up_model = model_cfg.name
 
-                if q_idx % 10 == 1 or q_idx == len(self.queries):
+                if q_idx == 1 or q_idx % 10 == 0 or q_idx == len(self.queries):
                     logger.info(
                         "      [%d/%d] %s",
                         q_idx,
@@ -301,15 +303,13 @@ class ExecutionRunner:
 
         for run in range(1, self.config.runs_per_model + 1):
             try:
-                content, reasoning, inference_s, meta = (
-                    self.client.chat_with_metadata(
-                        model=model_cfg.name,
-                        query=query.text,
-                        system_prompt=system_prompt,
-                        options=self.config.ollama_options,
-                        temperature=model_cfg.temperature,
-                        thinking=thinking,
-                    )
+                content, reasoning, inference_s, meta = self.client.chat_with_metadata(
+                    model=model_cfg.name,
+                    query=query.text,
+                    system_prompt=system_prompt,
+                    options=self.config.ollama_options,
+                    temperature=model_cfg.temperature,
+                    thinking=thinking,
                 )
                 error = None
             except Exception as e:
@@ -320,10 +320,15 @@ class ExecutionRunner:
                     run,
                     e,
                 )
-                content, reasoning, inference_s, meta = "", None, 0.0, {
-                    "prompt_eval_count": 0,
-                    "eval_count": 0,
-                }
+                content, reasoning, inference_s, meta = (
+                    "",
+                    None,
+                    0.0,
+                    {
+                        "prompt_eval_count": 0,
+                        "eval_count": 0,
+                    },
+                )
                 error = str(e)
 
             records.append(
@@ -371,12 +376,14 @@ class ExecutionRunner:
             )
             .reset_index()
         )
-        per_query = per_query.round({
-            "Mean Inference Time (s)": 4,
-            "Std Inference Time (s)": 4,
-            "Mean Prompt Tokens": 1,
-            "Mean Completion Tokens": 1,
-        })
+        per_query = per_query.round(
+            {
+                "Mean Inference Time (s)": 4,
+                "Std Inference Time (s)": 4,
+                "Mean Prompt Tokens": 1,
+                "Mean Completion Tokens": 1,
+            }
+        )
         per_query.to_csv(
             model_dir / "summary_per_query.csv",
             index=False,
@@ -398,15 +405,15 @@ class ExecutionRunner:
             )
             .reset_index()
         )
-        overall = overall.round({
-            "Mean Inference Time (s)": 4,
-            "Std Inference Time (s)": 4,
-            "Mean Prompt Tokens": 1,
-            "Mean Completion Tokens": 1,
-        })
-        overall.to_csv(
-            model_dir / "summary.csv", index=False, encoding="utf-8"
+        overall = overall.round(
+            {
+                "Mean Inference Time (s)": 4,
+                "Std Inference Time (s)": 4,
+                "Mean Prompt Tokens": 1,
+                "Mean Completion Tokens": 1,
+            }
         )
+        overall.to_csv(model_dir / "summary.csv", index=False, encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Manifest
@@ -424,9 +431,7 @@ class ExecutionRunner:
             "execution_id": execution_id,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
-            "duration_seconds": round(
-                (end_time - start_time).total_seconds(), 2
-            ),
+            "duration_seconds": round((end_time - start_time).total_seconds(), 2),
             "n_queries": len(self.queries),
             "config": self.config.to_dict(),
         }
