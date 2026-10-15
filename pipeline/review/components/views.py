@@ -5,7 +5,6 @@ from __future__ import annotations
 import streamlit as st
 
 from pipeline.evaluation.ground_truth import GroundTruth
-from pipeline.grouping.normalizers import decode_breakdown, split_breakdown_key
 
 
 # ------------------------------------------------------------------
@@ -24,22 +23,11 @@ def render_query(
     st.subheader(row['Query'])
 
 def render_metadata(row: dict) -> None:
-    """Display the group size and which model / thinking mode produced its runs."""
-    breakdown = decode_breakdown(row.get("Run Breakdown", ""))
-    col1, col2 = st.columns(2)
-    col1.metric("Group Size", row.get('Group Size', '—'))
-    col2.metric("Models", len({split_breakdown_key(k)[0] for k in breakdown}))
-    st.table([
-        {
-            "Model": model_dir,
-            "Thinking": thinking,
-            "Runs": len(runs),
-            "Run IDs": ", ".join(str(r) for r in runs),
-        }
-        for model_dir, thinking, runs in (
-            (*split_breakdown_key(k), v) for k, v in breakdown.items()
-        )
-    ])
+    """Display the metadata in a single line."""
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Model", row.get('Model', '—'))
+    col2.metric("Thinking", row.get('Thinking', '—'))
+    col3.metric("Group Size", row.get('Group Size', '—'))
 
 
 # ------------------------------------------------------------------

@@ -59,7 +59,7 @@ is_ambrosia = dataset == "ambrosia"
 # 0. Navigation & Progress
 col_prog1, col_prog2 = st.columns(2)
 with col_prog1:
-    render_progress(f"Grammar ({ctx['selected_grammar']})", ctx["grammar_reviewed"], ctx["grammar_total"])
+    render_progress(f"Model ({ctx['selected_grammar']}/{ctx['selected_model']})", ctx["model_reviewed"], ctx["model_total"])
 
 with col_prog2:
     # Current QID progress

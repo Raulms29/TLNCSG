@@ -4,8 +4,6 @@ import csv
 from pathlib import Path
 import streamlit as st
 
-from pipeline.grouping.normalizers import decode_breakdown, split_breakdown_key
-
 
 def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list[Path]):
     """Merge review state with evaluated CSVs and generate export artifacts."""
@@ -17,8 +15,9 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
     judge_llm_errors = []
     
     for csv_file in csv_files:
-        grammar = csv_file.parent.name
-        run = csv_file.parent.parent.name
+        grammar = csv_file.parent.parent.name
+        model = csv_file.parent.name
+        run = csv_file.parent.parent.parent.name
         
         rows = []
         with open(csv_file, "r", encoding="utf-8") as f:
@@ -28,7 +27,7 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                 
         new_rows = []
         
-        # Output csv goes to outputs/review/<run>/<GRAMMAR>/Q*_reviewed.csv
+        # Output csv goes to outputs/review/<run>/<GRAMMAR>/<model>/Q*_reviewed.csv
         out_csv = out_root / csv_file.relative_to(Path(eval_dir))
         out_csv.parent.mkdir(parents=True, exist_ok=True)
         
@@ -46,10 +45,6 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                 discrepancy_reason = rev["discrepancy_reason"]
             else:
                 discrepancy_reason = f"(verdict reused from run {rev.get('run', '?')}) {rev['discrepancy_reason']}".strip()
-            models = ", ".join(
-                f"{m} (Thinking)" if thinking else m
-                for m, thinking in (split_breakdown_key(k) for k in decode_breakdown(row.get("Run Breakdown", "")))
-            )
                 
             row.update({
                 "Human Correct": rev["human_correct"],
@@ -69,7 +64,7 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                     "QID": row.get("QID"),
                     "Query": row.get("Query"),
                     "Grammar": grammar,
-                    "Models": models,
+                    "Model": model,
                     "Error Category": rev["error_category"],
                     "Error Notes": rev["error_notes"],
                     "Representative Output": row.get("Representative Output")
@@ -80,7 +75,7 @@ def generate_outputs(eval_dir: str, out_dir: str, reviews: dict, csv_files: list
                     "QID": row.get("QID"),
                     "Query": row.get("Query"),
                     "Grammar": grammar,
-                    "Models": models,
+                    "Model": model,
                     "LLM Said": row.get("Correct"),
                     "Human Said": rev["human_correct"],
                     "Discrepancy Reason": discrepancy_reason,

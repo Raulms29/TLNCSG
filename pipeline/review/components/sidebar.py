@@ -93,11 +93,18 @@ def render_sidebar(cfg: ReviewConfig):
             st.error("No `*_evaluated.csv` files found.")
             st.stop()
             
-        # Layout: <run>/<GRAMMAR>/Q*_evaluated.csv (groups pool every model)
-        grammars = sorted(list({p.parent.name for p in csv_files}))
+        # Extract grammars and models from paths: <run>/<GRAMMAR>/<model>/Q*_evaluated.csv
+        grammars = sorted(list({p.parent.parent.name for p in csv_files}))
         selected_grammar = st.selectbox("Grammar", options=grammars)
         
-        selected_csv_paths = sorted([p for p in csv_files if p.parent.name == selected_grammar])
+        models = sorted(list({p.parent.name for p in csv_files if p.parent.parent.name == selected_grammar}))
+        selected_model = st.selectbox("Model", options=models)
+        
+        # Get the specific CSVs
+        selected_csv_paths = sorted([p for p in csv_files if p.parent.parent.name == selected_grammar and p.parent.name == selected_model])
+        if not selected_csv_paths:
+            st.warning("No CSV for this combination.")
+            st.stop()
             
         # Init state singleton (shared by all runs, so verdicts carry over)
         if "review_state" not in st.session_state:
@@ -113,20 +120,26 @@ def render_sidebar(cfg: ReviewConfig):
             for r in rows_in_file:
                 all_rows.append(r)
                 all_keys.append(r["Output Key"])
-                all_runs.append(p.parent.parent.name)
+                all_runs.append(p.parent.parent.parent.name)
                 
         if not all_rows:
-            st.warning("No data found for this grammar.")
+            st.warning("No data found for this combination.")
             st.stop()
             
-        if st.session_state.get("active_selection") != selected_grammar:
-            st.session_state.active_selection = selected_grammar
+        selection_key = f"{selected_grammar}_{selected_model}"
+        if st.session_state.get("active_selection") != selection_key:
+            st.session_state.active_selection = selection_key
             
             # Auto-resume: find first unreviewed index
             st.session_state.current_idx = next((i for i, k in enumerate(all_keys) if not review_state.is_reviewed(k)), 0)
             st.session_state.review_action = None
         
         st.markdown("### Progress")
+        
+        # Grammar Progress
+        grammar_csvs = [p for p in csv_files if p.parent.parent.name == selected_grammar]
+        grammar_reviewed, grammar_total = review_state.get_progress(get_output_keys(grammar_csvs))
+        render_progress("Grammar", grammar_reviewed, grammar_total)
         
         # Global Progress
         global_reviewed, global_total = review_state.get_progress(get_output_keys(csv_files))
@@ -143,8 +156,8 @@ def render_sidebar(cfg: ReviewConfig):
     
     idx = st.session_state.current_idx
     
-    # Grammar progress
-    grammar_reviewed, grammar_total = review_state.get_progress(all_keys)
+    # Model progress
+    model_reviewed, model_total = review_state.get_progress(all_keys)
     
     return {
         "row": all_rows[idx],
@@ -153,8 +166,9 @@ def render_sidebar(cfg: ReviewConfig):
         "run": all_runs[idx],
         "express_mode": express_mode,
         "selected_grammar": selected_grammar,
-        "grammar_reviewed": grammar_reviewed,
-        "grammar_total": grammar_total,
+        "selected_model": selected_model,
+        "model_reviewed": model_reviewed,
+        "model_total": model_total,
         "keys": all_keys,
         "current_idx": idx
     }

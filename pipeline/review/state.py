@@ -96,7 +96,7 @@ class ReviewState:
         if data.get("version") != self.VERSION:
             raise ValueError(
                 f"{self._path} uses review state version {data.get('version')}, expected "
-                f"{self.VERSION}. Convert it with: python scripts/migrate_review_state.py"
+                f"{self.VERSION} (reviews keyed by Output Key). Move it aside to start a new one."
             )
         self._data = data
         logger.info(

@@ -4,57 +4,18 @@ from __future__ import annotations
 
 import csv
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
 from .config import GroupingConfig
 from .llm_grouper import LLMGrouper
-from .normalizers import breakdown_key, encode_breakdown, normalize_output, output_key
+from .normalizers import normalize_output, output_key
 
 logger = logging.getLogger(__name__)
 
-GROUPED_COLUMNS = [
-    "QID",
-    "Query",
-    "Output Key",
-    "Group Size",
-    "Run Breakdown",
-    "Representative Output",
-    "Reasoning",
-    "LLM Merged",
-]
-
-
-def _parse_run(run: str) -> int | str:
-    try:
-        return int(run)
-    except ValueError:
-        return run
-
-
-def _run_sort_key(row: dict) -> tuple:
-    """Deterministic order of runs, so the group representative is stable across reruns."""
-    run = _parse_run(row.get("Run", ""))
-    return (
-        row["_model_dir"],
-        str(row.get("Thinking", "")).lower() == "true",
-        isinstance(run, str),
-        run,
-    )
-
-
-def _safe_name(name: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
-
 
 class GroupingRunner:
-    """Orchestrates reading Execution output, grouping, and saving grouped CSVs.
-
-    Groups pool the runs of every model and thinking mode for the same
-    (grammar, query), so each distinct answer is reviewed once. The Run Breakdown
-    column keeps track of which model/mode produced which runs.
-    """
+    """Orchestrates reading Execution output, grouping, and saving grouped CSVs."""
 
     def __init__(
         self,
@@ -83,52 +44,47 @@ class GroupingRunner:
         total_rows_before = 0
         total_rows_after = 0
 
-        # Traverse: GRAMMAR / model / Q1.csv, pooling all models per query
+        # Traverse: GRAMMAR / model / Q1.csv
         for grammar_dir in (d for d in self.execution_dir.iterdir() if d.is_dir()):
             grammar = grammar_dir.name
             out_grammar = output_root / grammar
-            out_grammar.mkdir(parents=True, exist_ok=True)
 
-            runs_by_qid = self._load_runs_by_qid(grammar_dir)
+            for model_dir in (d for d in grammar_dir.iterdir() if d.is_dir()):
+                model = model_dir.name
+                out_model = out_grammar / model
+                out_model.mkdir(parents=True, exist_ok=True)
 
-            for qid, runs in runs_by_qid.items():
-                total_files += 1
-                grouped_rows = self._process_query_runs(runs, grammar)
+                for csv_file in model_dir.glob("*.csv"):
+                    if "summary" in csv_file.name.lower():
+                        continue  # Skip only summary files
 
-                total_rows_before += sum(row["Group Size"] for row in grouped_rows)
-                total_rows_after += len(grouped_rows)
+                    total_files += 1
+                    grouped_rows = self._process_query_file(csv_file, grammar)
 
-                out_csv = out_grammar / f"{_safe_name(qid)}_grouped.csv"
-                self._save_grouped_csv(out_csv, grouped_rows)
+                    total_rows_before += sum(row["Group Size"] for row in grouped_rows)
+                    total_rows_after += len(grouped_rows)
+
+                    out_csv = out_model / csv_file.name.replace(".csv", "_grouped.csv")
+                    self._save_grouped_csv(out_csv, grouped_rows)
 
         logger.info(
-            "Grouping complete. Processed %d queries. Reduced %d rows down to %d groups.",
+            "Grouping complete. Processed %d files. Reduced %d rows down to %d groups.",
             total_files,
             total_rows_before,
             total_rows_after,
         )
         return output_root
 
-    @staticmethod
-    def _load_runs_by_qid(grammar_dir: Path) -> dict[str, list[dict]]:
-        """Reads every model's QX.csv / QX-R.csv in a grammar and buckets the runs by QID."""
-        runs_by_qid: dict[str, list[dict]] = {}
-        for model_dir in sorted(d for d in grammar_dir.iterdir() if d.is_dir()):
-            for csv_file in sorted(model_dir.glob("*.csv")):
-                if "summary" in csv_file.name.lower():
-                    continue  # Skip only summary files
-                with open(csv_file, "r", encoding="utf-8") as f:
-                    for row in csv.DictReader(f):
-                        row["_model_dir"] = model_dir.name
-                        runs_by_qid.setdefault(row.get("QID", ""), []).append(row)
-        return runs_by_qid
+    def _process_query_file(self, csv_file: Path, grammar: str) -> list[dict[str, Any]]:
+        """Reads a QX.csv file, groups the 30 runs, and returns grouped rows."""
+        runs = []
+        with open(csv_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                runs.append(row)
 
-    def _process_query_runs(self, runs: list[dict], grammar: str) -> list[dict[str, Any]]:
-        """Groups all runs (every model and mode) of one query and returns grouped rows."""
         if not runs:
             return []
-
-        runs = sorted(runs, key=_run_sort_key)
 
         # Phase 1: Deterministic Normalization
         groups: dict[str, list[dict]] = {}
@@ -149,27 +105,35 @@ class GroupingRunner:
         for norm_out, cluster in groups.items():
             first_run = cluster[0]
 
-            breakdown: dict[str, list] = {}
-            for r in sorted(cluster, key=_run_sort_key):
-                key = breakdown_key(r["_model_dir"], r.get("Thinking", ""))
-                breakdown.setdefault(key, []).append(_parse_run(r.get("Run", "")))
+            # Extract run IDs and sort them numerically
+            def _parse_run(r: dict) -> int | str:
+                try:
+                    return int(r["Run"])
+                except ValueError:
+                    return r["Run"]
+                    
+            run_ids = sorted([_parse_run(r) for r in cluster], key=lambda x: (isinstance(x, str), x))
 
             final_rows.append(
                 {
+                    "Model": first_run.get("Model", ""),
+                    "Thinking": first_run.get("Thinking", ""),
                     "QID": first_run.get("QID", ""),
                     "Query": first_run.get("Query", ""),
+                    # Identifies the answer across models and runs: human verdicts are stored under it
                     "Output Key": output_key(grammar, first_run.get("QID", ""), norm_out),
                     "Group Size": len(cluster),
-                    "Run Breakdown": encode_breakdown(breakdown),
                     "Representative Output": first_run.get("Response", ""),
                     "Reasoning": first_run.get("Reasoning", ""),
                     "LLM Merged": any(r.get("_llm_merged", False) for r in cluster),
+                    "Runs": ", ".join(str(x) for x in run_ids),
                 }
             )
 
         # Sort final rows by group size (descending)
         final_rows.sort(key=lambda x: x["Group Size"], reverse=True)
         return final_rows
+
     def _apply_llm_fallback(
         self, groups: dict[str, list[dict]], grammar: str
     ) -> dict[str, list[dict]]:
@@ -220,7 +184,19 @@ class GroupingRunner:
     def _save_grouped_csv(self, out_path: Path, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
+        fieldnames = [
+            "Model",
+            "Thinking",
+            "QID",
+            "Query",
+            "Output Key",
+            "Group Size",
+            "Representative Output",
+            "Reasoning",
+            "LLM Merged",
+            "Runs",
+        ]
         with open(out_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=GROUPED_COLUMNS)
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)

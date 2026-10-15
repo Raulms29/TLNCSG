@@ -1,4 +1,4 @@
-"""Deterministic normalizers for LLM outputs, and the group identity helpers built on them."""
+"""Deterministic normalizers for LLM outputs, and the answer identity built on them."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def normalize_output(raw_text: str, grammar: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# Group identity
+# Answer identity
 # --------------------------------------------------------------------------
 
 
@@ -80,24 +80,3 @@ def output_key(grammar: str, qid: str, normalized: str) -> str:
     """
     raw = f"{grammar}|{qid}|{normalized}".encode("utf-8")
     return hashlib.sha1(raw).hexdigest()[:16]
-
-
-def breakdown_key(model_dir: str, thinking: str | bool) -> str:
-    """Key of one (model, thinking mode) entry in a Run Breakdown."""
-    return f"{model_dir}|{str(thinking).strip().lower() == 'true'}"
-
-
-def split_breakdown_key(key: str) -> tuple[str, bool]:
-    """Inverse of breakdown_key: returns (model_dir, thinking)."""
-    model_dir, _, thinking = key.rpartition("|")
-    return model_dir, thinking == "True"
-
-
-def encode_breakdown(breakdown: dict[str, list]) -> str:
-    """Serialize {breakdown_key: [run ids]} for a CSV cell."""
-    return json.dumps(breakdown, ensure_ascii=False)
-
-
-def decode_breakdown(cell: str) -> dict[str, list]:
-    """Parse a Run Breakdown CSV cell back into {breakdown_key: [run ids]}."""
-    return json.loads(cell) if cell else {}
