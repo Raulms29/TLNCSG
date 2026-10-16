@@ -10,6 +10,7 @@ from pathlib import Path
 # Bootstrap: Add project root to path so absolute imports work
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+from config import get_ollama_host
 from autoresearch.core.constants import AUTORESEARCH_DIR, PROJECT_ROOT
 
 from autoresearch.core import Experiment
@@ -121,7 +122,7 @@ def main():
     logger = ExperimentLogger(log_path)
 
     # 2. Initialize Ollama wrapper clients
-    ollama_url = config["ollama_server"]
+    ollama_url = get_ollama_host()
 
     generator = GeneratorClient(
         ollama_url=ollama_url,

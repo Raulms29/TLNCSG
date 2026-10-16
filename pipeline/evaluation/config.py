@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from config import get_ollama_host
+
 
 @dataclass
 class EvaluatorModelConfig:
@@ -54,7 +56,7 @@ class EvaluationConfig:
 
     evaluator_model: EvaluatorModelConfig
     dataset_paths: DatasetPaths = field(default_factory=DatasetPaths)
-    ollama_host: str = "http://localhost:11434"
+    ollama_host: str = field(default_factory=get_ollama_host)
     output_dir: str = "outputs/evaluation"
     prompts_dir: str = "prompts/evaluation"
     max_retries: int = 5
@@ -81,7 +83,6 @@ class EvaluationConfig:
             kwargs["dataset_paths"] = DatasetPaths.from_dict(data["dataset_paths"])
 
         optional_keys = [
-            "ollama_host",
             "output_dir",
             "prompts_dir",
             "max_retries",

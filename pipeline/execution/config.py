@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from config import get_ollama_host
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,7 +61,7 @@ class ExecutionConfig:
 
     models: list[ModelConfig]
     dataset: DatasetConfig
-    ollama_host: str = "http://localhost:11434"
+    ollama_host: str = field(default_factory=get_ollama_host)
     ollama_options: dict[str, Any] = field(
         default_factory=lambda: {"num_predict": 3072, "num_ctx": 32768}
     )
@@ -89,7 +91,7 @@ class ExecutionConfig:
         }
         
         optional_keys = [
-            "ollama_host", "ollama_options", "runs_per_model", 
+            "ollama_options", "runs_per_model",
             "output_dir", "max_retries", "retry_wait_seconds"
         ]
         for key in optional_keys:

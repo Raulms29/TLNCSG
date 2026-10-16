@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from config import get_ollama_host
+
 
 @dataclass
 class GrouperModelConfig:
@@ -36,7 +38,7 @@ class GroupingConfig:
     """Top-level configuration for the Grouping Module."""
 
     grouper_model: GrouperModelConfig
-    ollama_host: str = "http://localhost:11434"
+    ollama_host: str = field(default_factory=get_ollama_host)
     enable_llm_fallback: bool = True
     output_dir: str = "outputs/grouping"
     max_retries: int = 5
@@ -59,7 +61,6 @@ class GroupingConfig:
         }
 
         optional_keys = [
-            "ollama_host",
             "enable_llm_fallback",
             "output_dir",
             "max_retries",
