@@ -11,6 +11,7 @@ from typing import Any
 
 from pipeline.clients.ollama_client import OllamaClient
 from .config import EvaluationConfig
+from .error_categories import ERROR_CATEGORIES
 from .ground_truth import GroundTruth, GroundTruthStore
 
 logger = logging.getLogger(__name__)
@@ -185,6 +186,7 @@ class EvaluationRunner:
                 row["Rationale"] = "Ground truth not found"
                 row["Hypotheses Covered"] = 0
                 row["Correct"] = "False"
+                row["LLM Error Category"] = ""
                 evaluated.append(row)
                 continue
 
@@ -231,7 +233,12 @@ class EvaluationRunner:
 
             row["Rationale"] = result.get("rationale", "")
             row["Hypotheses Covered"] = result.get("hypotheses_covered", 1)
+            correct = result.get("correct", False) is True
             row["Correct"] = str(result.get("correct", False))
+            row["LLM Error Category"] = (
+                "" if result.get("unparseable")
+                else self._normalize_error_category(result.get("error_category"), correct)
+            )
             evaluated.append(row)
 
         return evaluated
@@ -257,7 +264,7 @@ class EvaluationRunner:
             parts.append(f"[GROUND TRUTH LISP]\n{gt.s_expression_friendly}\n")
 
         parts.append(f"[CANDIDATE OUTPUT]\n{candidate}\n")
-        parts.append("Assign correct and rationale in strict JSON format:")
+        parts.append("Assign rationale, correct and error_category in strict JSON format:")
 
         return "\n".join(parts)
 
@@ -287,7 +294,21 @@ class EvaluationRunner:
                 "rationale": f"Unparseable evaluator response: {content[:200]}",
                 "hypotheses_covered": 1,
                 "correct": False,
+                # The judge failed, not the candidate: no error category
+                "unparseable": True,
             }
+
+    @staticmethod
+    def _normalize_error_category(value: Any, correct: bool) -> str:
+        """Map the judge's category to its canonical name ("" if correct, "Other" if unknown)."""
+        if correct:
+            return ""
+        name = str(value or "").strip().lower()
+        for category in ERROR_CATEGORIES:
+            if category.lower() == name:
+                return category
+        logger.warning("Evaluator returned unknown error category %r, using 'Other'.", value)
+        return "Other"
 
     # ------------------------------------------------------------------
     # CSV output
@@ -305,6 +326,7 @@ class EvaluationRunner:
             "Output Key",
             "Hypotheses Covered",
             "Correct",
+            "LLM Error Category",
             "LLM Merged",
             "Group Size",
             "Rationale",

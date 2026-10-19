@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pipeline.evaluation.error_categories import ERROR_CATEGORIES  # noqa: F401 (re-exported)
+
 
 @dataclass
 class DatasetPaths:
@@ -18,20 +20,6 @@ class DatasetPaths:
     @classmethod
     def from_dict(cls, data: dict) -> DatasetPaths:
         return cls(**{k: data[k] for k in ["ambrosia", "grailqa"] if k in data})
-
-
-# Error categories for qualitative analysis
-ERROR_CATEGORIES = [
-    "Semantic omission",
-    "Wrong relation",
-    "Wrong variable binding",
-    "Aggregation error",
-    "Structural error",
-    "Ambiguity/hypothesis error",
-    "Hallucination",
-    "Syntax/format error",
-    "Other",
-]
 
 
 @dataclass

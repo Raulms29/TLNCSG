@@ -164,21 +164,39 @@ Evaluate the Candidate holistically across these dimensions:
   - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using **string comparison operators** (`CONTAINS`, `MATCHES_REGEX`) to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
 
 4. **Type Safety, Aggregations & Projections:**
-  - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, penalize under **Minimality** (deduct at most 0.1).
+  - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, this is evaluated under **Minimality**.
   - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS` on strings).
   - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`. 
   - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
 
 5. **Minimality:**
   - Representation is concise. No redundant entities, relationships, paths, semantically duplicate hypotheses, or duplicated conditions.
+  - Minimality is a secondary objective and does not determine `correct`.
 
 6. **Equivalence to Ground Truth:**
   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
   - You must verify if the graph topology modeled in the Candidate's `entities` and `relationships` logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-  - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
+  - **Schema-independent modelling:** A named value can be modelled as an attribute (`genre = "Jazz"`) or as an entity connected by a relationship; both are valid.
   - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth LISP was generated with access to the knowledge base. Therefore, if the Candidate is semantically and structurally equivalent to the Ground Truth intent, it must be marked as correct, even if it does not match the exact entity types or relationship roles in the LISP.
 
 > **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array). If a Candidate does this, output `"correct": false`.
+
+---
+
+## ERROR CATEGORIES
+
+When the Candidate is incorrect, classify its **primary** error into exactly one of the following categories. If several apply, choose the one that most changes the meaning of the query.
+
+- **Semantic omission**: A constraint, entity, relationship or modifier required by the question is missing (e.g., "Nolan movies released after 2005" with no `release_year > 2005` COMPARISON in `constraint`).
+- **Wrong relation**: A relationship is present but wrong: the wrong `role` (e.g., `produced_by` when the question asks for the director), or `from` and `to` swapped.
+- **Wrong variable binding**: The right elements are present but point at the wrong IDs (e.g., `{"attribute_name": "release_year", "of": "e2"}` on the director instead of the film `e1`, a `target` listing the wrong ID, or references to undeclared IDs).
+- **Aggregation error**: Wrong or missing aggregation, ordering or deduplication (e.g., `"aggregate_kind": "MAX"` instead of `"MIN"`, or a missing `"distinct": true`).
+- **Structural error**: The overall shape of the query is wrong: the wrong kind of `target` (e.g., an `ENTITY_ID` where the question asks for a yes/no `CONDITION`, or for a `COUNT`), or a single `relationship` where a `paths` entry is required for a multi-hop traversal.
+- **Topology bypass**: Concepts the question relates are connected by comparing values instead of a relationship or path, or an intermediate concept the question names is collapsed into an attribute (e.g., `{"attribute_name": "company_location", "of": "e1"}` on the employee for "employees of companies located in Madrid").
+- **Ambiguity/hypothesis error**: Misuse of the root hypotheses array: a logical union split across hypotheses instead of an `OR` in one query, semantically duplicated hypotheses, or a hypothesis that is not a reading the question supports.
+- **Hallucination**: The Candidate adds entities, relationships, constraints or values that the original query does not support.
+- **Syntax/format error**: The output violates the JSON or SemGIR grammar (e.g., invalid JSON, duplicate keys such as `entities` twice in one query, a nested `[[...]]` root instead of a flat array, missing mandatory fields such as `id`, `type` or `role`).
+- **Other**: Any error not covered by the categories above.
 
 ---
 
@@ -221,7 +239,8 @@ Evaluate the Candidate holistically across these dimensions:
 {
   "rationale": "The Candidate is semantically and structurally identical to the Ground Truth LISP intent. Grammar-compliant bare array output, correct COUNT with LIST and filter mapped to the LISP nested aggregations.",
   "hypotheses_covered": 1,
-  "correct": true
+  "correct": true,
+  "error_category": null
 }
 ```
 
@@ -258,7 +277,8 @@ Evaluate the Candidate holistically across these dimensions:
 {
   "rationale": "The Candidate uses a nested array instead of a flat bare array, a hard structural grammar violation. It also uses a single direct relationship instead of a PATH, losing the multi-hop semantics required for 'directly or indirectly influenced'.",
   "hypotheses_covered": 0,
-  "correct": false
+  "correct": false,
+  "error_category": "Structural error"
 }
 ```
 
@@ -292,7 +312,8 @@ Evaluate the Candidate holistically across these dimensions:
 {
   "rationale": "The traversal is modeled as a single direct relationship, while the Ground Truth LISP strictly requires three hops (third-degree). This structural gap leaves the core multi-hop intent unresolved.",
   "hypotheses_covered": 0,
-  "correct": false
+  "correct": false,
+  "error_category": "Structural error"
 }
 ```
 
@@ -358,11 +379,12 @@ Evaluate the Candidate holistically across these dimensions:
 {
   "rationale": "The Candidate correctly models the multi-hop traversal of third-degree relatives. It successfully captures two semantically valid hypotheses: one using explicit intermediate entities and relationships, and the other using SemGIR's `paths` array with a hop count constraint. Both perfectly match the topology of the Ground Truth LISP.",
   "hypotheses_covered": 1,
-  "correct": true
+  "correct": true,
+  "error_category": null
 }
 ```
 
-=== EXAMPLE 5: TOPOLOGY BYPASS VIA STRING COMPARISON (Incorrect) ===
+=== EXAMPLE 5: ATTRIBUTE IN PLACE OF A JOIN (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 "Give me the employees of companies located in Madrid."
@@ -382,7 +404,7 @@ Evaluate the Candidate holistically across these dimensions:
       { "id": "r1", "role": "works_at", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "left": { "attribute_name": "location", "of": "e2" }, "operator": "CONTAINS", "right": "Madrid"
+      "left": { "attribute_name": "location", "of": "e2" }, "operator": "=", "right": "Madrid"
     }
   }
 ]
@@ -390,9 +412,10 @@ Evaluate the Candidate holistically across these dimensions:
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The city constraint is expressed as `location CONTAINS 'Madrid'`. Since the model has no knowledge of the target knowledge base, this might be passable in some situations; however, it is marked incorrect here because it completely bypasses the proper entity relationship mapped in the Ground Truth LISP (`JOIN business.company.location m.madrid`).",
-  "hypotheses_covered": 0,
-  "correct": false
+  "rationale": "The Candidate models the employee-to-company hop with the `works_at` relationship and filters the company by `location = 'Madrid'`. The Ground Truth LISP reaches Madrid through a JOIN (`JOIN business.company.location m.madrid`). Whether the city is stored as an attribute of the company or as a separate entity is a schema choice the Candidate cannot know, so both representations are equivalent.",
+  "hypotheses_covered": 1,
+  "correct": true,
+  "error_category": null
 }
 ```
 
@@ -432,7 +455,39 @@ Evaluate the Candidate holistically across these dimensions:
 {
   "rationale": "The Candidate correctly applies the COUNT aggregation. The only gap is the missing `distinct: true`, which is required to prevent duplicates (for instance, if an actor played two roles in the same film, the film might be counted twice). This strict requirement must be satisfied to match the dataset intent.",
   "hypotheses_covered": 0,
-  "correct": false
+  "correct": false,
+  "error_category": "Aggregation error"
+}
+```
+
+=== EXAMPLE 7: TOPOLOGY BYPASS (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the employees of companies located in Madrid."
+
+[GROUND TRUTH LISP]
+(AND business.employee (JOIN business.employee.company (AND business.company (JOIN business.company.location m.madrid))))
+
+[CANDIDATE JSON]
+[
+  {
+    "target": ["e1"],
+    "entities": [
+      { "id": "e1", "type": "Employee" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "company_location", "of": "e1" }, "operator": "=", "right": "Madrid"
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate drops the Company entity and stores its location as an attribute of the employee, so the employee-to-company relationship required by the question is missing.",
+  "hypotheses_covered": 0,
+  "correct": false,
+  "error_category": "Topology bypass"
 }
 ```
 
@@ -444,6 +499,7 @@ You must return ONLY a valid JSON object with exactly the following structure, n
 {
   "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth LISP. Explain any structural flaws or why they are equivalent.",
   "hypotheses_covered": [Integer specifiying how many hypotheses are covered by the Candidate],
-  "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.]
+  "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.],
+  "error_category": [If correct is false, the name of exactly one of the ERROR CATEGORIES, written exactly as listed. If correct is true, null.]
 }
 ```

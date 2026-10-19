@@ -31,6 +31,12 @@ def _judge_badge(answer: Answer) -> str:
     return ":orange-badge[Judge: mixed]"
 
 
+def _judge_category_badge(answer: Answer) -> str:
+    """The judge's suggested error categories (one per distinct suggestion across runs), or ''."""
+    categories = sorted({g.get("LLM Error Category") for g in answer.groups} - {None, ""})
+    return f":gray-badge[{' / '.join(categories)}]" if categories else ""
+
+
 def _is_open(answer: Answer, review_state: ReviewState) -> bool:
     """Undecided answers and the ones being edited take a decision; the rest are collapsed."""
     return not review_state.is_reviewed(answer.key) or answer.key in st.session_state.get("editing", set())
@@ -65,7 +71,9 @@ def _render_open(answer: Answer, number: int, grammar: str, is_ambrosia: bool, g
     rep = answer.rep
     with st.container(border=True):
         col_head, col_verdict = st.columns([3, 1], vertical_alignment="center")
-        col_head.markdown(f"**#{number}** &nbsp; {_judge_badge(answer)} &nbsp; {_groups_label(answer)}")
+        col_head.markdown(
+            f"**#{number}** &nbsp; {_judge_badge(answer)} {_judge_category_badge(answer)} &nbsp; {_groups_label(answer)}"
+        )
         verdict = col_verdict.segmented_control(
             "Your verdict", [CORRECT, INCORRECT], key=f"v_{key}", label_visibility="collapsed", width="stretch",
         )

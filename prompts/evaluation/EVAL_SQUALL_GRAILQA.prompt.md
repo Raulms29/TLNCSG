@@ -112,8 +112,24 @@ Evaluate the Candidate holistically across these dimensions:
 6. **Cross-Format Equivalence (SQUALL vs LISP):**
   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
   - You must verify if the graph topology modeled in the Candidate's SQUALL string logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-  - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
+  - **Schema-independent modelling:** A resource can be linked through a property (`has genre res:Jazz`) or a verb (`perform-s res:Jazz`); both are valid.
   - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth LISP was generated with access to the knowledge base. Therefore, if the Candidate is semantically and structurally equivalent to the Ground Truth intent, it must be marked as correct, even if it does not match the exact entity types or relationship roles in the LISP.
+
+---
+
+## ERROR CATEGORIES
+
+When the Candidate is incorrect, classify its **primary** error into exactly one of the following categories. If several apply, choose the one that most changes the meaning of the query.
+
+- **Semantic omission**: A constraint, entity, relation or modifier required by the question is missing (e.g., "Nolan movies released after 2005" written as `Which movie-s are directed by res:Christopher_Nolan ?` without `and have release_year greater than 2005`).
+- **Wrong relation**: A relation is present but wrong: the wrong verb or property (e.g., `produce-s` when the question asks who directed), or subject and object swapped (e.g., `Which film-s direct res:Christopher_Nolan ?`).
+- **Wrong variable binding**: The right elements are present but attached to the wrong class phrase or variable (e.g., a `whose release_year ...` clause attached to the director instead of the film, or one `?X` reused for two different nodes).
+- **Aggregation error**: Wrong or missing aggregation, superlative or ordering (e.g., `the lowest` instead of `the highest`, `the number of` where `the total` (SUM) is needed, a missing `the latest ...-s` ordering).
+- **Structural error**: The overall shape of the query is wrong: the wrong query form (e.g., an open `Which ...` question where `Whether ...` (ASK) or `How many ...` is required), or a plain verb where a path closure (`influence-s+`) is required for a multi-hop traversal.
+- **Topology bypass**: Concepts the question relates are connected through literal values instead of a relation, or an intermediate concept the question names is collapsed into a property (e.g., `Which employee-s have company_location equal to "Madrid" ?` for "employees of companies located in Madrid").
+- **Hallucination**: The Candidate adds entities, relations, constraints or values that the original query does not support.
+- **Syntax/format error**: The sentence violates the SQUALL controlled-English grammar (e.g., an entity without the `res:` prefix (`Jeffrey_Kaplan`), a plural class or 3rd-person verb without its `-s` suffix, a variable glued to a class name (`company-?X`), or a non-SQUALL construct such as a SQL-like `where` clause).
+- **Other**: Any error not covered by the categories above.
 
 ---
 
@@ -134,7 +150,8 @@ Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
 ```json
 {
   "rationale": "The Candidate correctly maps the nested relationships and captures the entity using the 'res:' prefix. The logical meaning is completely equivalent to the Ground Truth LISP graph traversal.",
-  "correct": true
+  "correct": true,
+  "error_category": null
 }
 ```
 
@@ -153,7 +170,8 @@ How many video_game-s are the games_designed of Jeffrey_Kaplan ?
 ```json
 {
   "rationale": "The Candidate perfectly identifies the aggregation and grammar, but fails to apply the 'res:' prefix to the specific entity 'Jeffrey_Kaplan'. SQUALL strictly requires specific entities to be prefixed.",
-  "correct": false
+  "correct": false,
+  "error_category": "Syntax/format error"
 }
 ```
 
@@ -172,7 +190,8 @@ Which movie that was directed by res:Christopher_Nolan and whose release_year is
 ```json
 {
   "rationale": "The Candidate failed to identify this as a Boolean query, generating an open extraction query ('Which movie...') instead of an ASK query ('Whether...'). While entities are correctly prefixed, the fundamental intent differs from the Ground Truth.",
-  "correct": false
+  "correct": false,
+  "error_category": "Structural error"
 }
 ```
 
@@ -191,7 +210,8 @@ Which node connects* res:Node_A where links >= 0 ?
 ```json
 {
   "rationale": "The Candidate hallucinated a SQL-like 'where' clause instead of following SQUALL controlled English syntax for conditions.",
-  "correct": false
+  "correct": false,
+  "error_category": "Syntax/format error"
 }
 ```
 
@@ -210,7 +230,8 @@ What is the average salary of the engineer who work in a department whose locati
 ```json
 {
   "rationale": "The Candidate accurately models the aggregation intent and prefixes the location, but forgets to append the plural '-s' suffix to the class name 'engineer', which is grammatically required in SQUALL.",
-  "correct": false
+  "correct": false,
+  "error_category": "Syntax/format error"
 }
 ```
 
@@ -221,6 +242,7 @@ You must return ONLY a valid JSON object with exactly the following structure, n
 ```json
 {
   "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth LISP. Explain any structural flaws or why they are equivalent.",
-  "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.]
+  "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.],
+  "error_category": [If correct is false, the name of exactly one of the ERROR CATEGORIES, written exactly as listed. If correct is true, null.]
 }
 ```

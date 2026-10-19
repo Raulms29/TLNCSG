@@ -10,7 +10,7 @@ from pathlib import Path
 # Bootstrap: Add project root to path so absolute imports work
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from config import get_ollama_host
+from project_config import get_ollama_host
 from autoresearch.core.constants import AUTORESEARCH_DIR, PROJECT_ROOT
 
 from autoresearch.core import Experiment

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from config import get_ollama_host
+from project_config import get_ollama_host
 
 
 @dataclass

@@ -80,8 +80,24 @@ Evaluate the Candidate holistically across these dimensions:
 4. **Equivalence to Ground Truth:**
   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
   - You must verify if the graph topology modeled in the Candidate's AST logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-  - The Candidate's entity types and relationship roles should conceptually align with the LISP representation.
+  - **Schema-independent modelling:** A named value can be modelled as an attribute (`whose <A> genre </A> is string <V> Jazz </V>`) or as a related entity (`that <R> genre </R> forward to <E> Jazz </E>`); both are valid.
   - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth LISP was generated with access to the knowledge base. Therefore, if the Candidate is semantically and structurally equivalent to the Ground Truth intent, it must be marked as correct, even if it does not match the exact entity types or relationship roles in the LISP.
+
+---
+
+## ERROR CATEGORIES
+
+When the Candidate is incorrect, classify its **primary** error into exactly one of the following categories. If several apply, choose the one that most changes the meaning of the query.
+
+- **Semantic omission**: A constraint, entity, relation or modifier required by the question is missing (e.g., "actors of Matrix taller than 160 cm" without the `whose <A> height </A> larger than numeric <V> 160 </V>` constraint).
+- **Wrong relation**: A relation is present but wrong: the wrong `<R>` (e.g., `<R> producer </R>` when the question asks for the director), or the wrong direction (`backward` where `forward` is required).
+- **Wrong variable binding**: The right elements are present but attached to the wrong `EntitySet` (e.g., `whose <A> release year </A> ...` placed inside the director's `<ES>` instead of the movie's, or an `AttributeQuery` asking for the attribute `of` the wrong set).
+- **Aggregation error**: Wrong or missing aggregation, superlative or counting (e.g., `smallest` instead of `largest`, `maximum of` instead of `average of`, a missing `top [number]`).
+- **Structural error**: The overall shape of the query is wrong: the wrong root query type (e.g., `what is` (EntityQuery) where `whether` (VerifyQuery) or `how many` (CountQuery) is required), or a single `RelationConstraint` where the question needs a chain of nested `<ES>` hops.
+- **Topology bypass**: Concepts the question relates are connected through attribute values instead of a relation, or an intermediate concept the question names is collapsed into an attribute (e.g., `<ES> <C> employee </C> whose <A> company location </A> is string <V> Madrid </V> </ES>` for "employees of companies located in Madrid").
+- **Hallucination**: The Candidate adds entities, relations, constraints or values that the original query does not support.
+- **Syntax/format error**: The sequence violates the GraphQ IR grammar (e.g., a terminal without its tag (`movie` instead of `<C> movie </C>`), a constrained set not wrapped in `<ES> ... </ES>`, a `<V>` without its VTYPE, `<Q>` used where an `<A>` is required, or a construct not defined in the grammar).
+- **Other**: Any error not covered by the categories above.
 
 ---
 
@@ -102,7 +118,8 @@ what is <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> 
 ```json
 {
   "rationale": "The Candidate correctly structures the relational constraint and matches the entity. The semantic graph traversal perfectly mirrors the Ground Truth LISP's JOIN and constraints.",
-  "correct": true
+  "correct": true,
+  "error_category": null
 }
 ```
 
@@ -121,7 +138,8 @@ what is <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E>
 ```json
 {
   "rationale": "The Candidate uses a 'backward' direction on the relation from the movie to Eastwood, but the semantic relationship logically requires a 'forward' traversal to match the Ground Truth LISP. The structural directionality is flawed.",
-  "correct": false
+  "correct": false,
+  "error_category": "Wrong relation"
 }
 ```
 
@@ -140,7 +158,8 @@ what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES
 ```json
 {
   "rationale": "The Ground Truth LISP is a boolean evaluation, but the Candidate hallucinates an EntityQuery (extraction) instead of using a VerifyQuery. It also completely misses the height > 160 constraint.",
-  "correct": false
+  "correct": false,
+  "error_category": "Structural error"
 }
 ```
 
@@ -159,7 +178,8 @@ whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES
 ```json
 {
   "rationale": "While the Candidate correctly identifies the VerifyQuery and the relation to Matrix, it fails to include the AttributeConstraint for height > 160 cm that is clearly present in the Ground Truth LISP.",
-  "correct": false
+  "correct": false,
+  "error_category": "Semantic omission"
 }
 ```
 
@@ -178,7 +198,8 @@ which one has the smallest <A> elevation above sea level </A> among <ES> <ES> <E
 ```json
 {
   "rationale": "The Candidate correctly captures the complex union (OR) of two intersection (parenthetical) EntitySets. The superlative 'less' is correctly translated to 'smallest', matching the ARGMIN in the Ground Truth LISP, and the nested constraints accurately mirror the graph topology.",
-  "correct": true
+  "correct": true,
+  "error_category": null
 }
 ```
 
@@ -189,6 +210,7 @@ You must return ONLY a valid JSON object with exactly the following structure, n
 ```json
 {
   "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth LISP. Explain any structural flaws or why they are equivalent.",
-  "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.]
+  "correct": [true if the candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.],
+  "error_category": [If correct is false, the name of exactly one of the ERROR CATEGORIES, written exactly as listed. If correct is true, null.]
 }
 ```
