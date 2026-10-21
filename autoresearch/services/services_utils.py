@@ -21,7 +21,14 @@ def _extract_json_text(text: str) -> str:
         # Fallback to the last markdown block if parsing failed
         return blocks[-1].strip()
 
-    # 2. If no valid markdown block found, find balanced braces starting from the end
+    # 2. Without a markdown block, the whole text may already be JSON (e.g. a bare array of hypotheses)
+    try:
+        json.loads(text_str)
+        return text_str
+    except Exception:
+        pass
+
+    # 3. Otherwise find balanced braces starting from the end
     end_idx = text_str.rfind("}")
     if end_idx != -1:
         brace_count = 0
@@ -39,7 +46,7 @@ def _extract_json_text(text: str) -> str:
                     except Exception:
                         pass
 
-    # 3. Fallback to original regex behavior or text strip
+    # 4. Fallback to original regex behavior or text strip
     match = re.search(
         r"```(?:json)?\s*(.*?)\s*```", text_str, flags=re.IGNORECASE | re.DOTALL
     )

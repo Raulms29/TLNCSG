@@ -42,23 +42,11 @@ class ExperimentLogger:
         with open(self.log_path, "w", encoding="utf-8") as f:
             json.dump(serialized, f, indent=2)
 
-    def get_best_experiment(self) -> Optional[Experiment]:
-        """
-        Scans the history and returns the Experiment with the highest validation score.
-        If multiple have the same score, returns the latest one.
-        """
-        history = self.load_history()
-        if not history:
-            return None
-
-        best = history[0]
-        for exp in history[1:]:
-            # We favor the latest model if scores are tied, or the strictly better score
-            if exp.score >= best.score:
-                best = exp
-        return best
+    def get_champion(self) -> Optional[Experiment]:
+        """Returns the latest kept experiment (the current champion), or None if there is none."""
+        kept = [exp for exp in self.load_history() if exp.status in ("CHAMPION_INIT", "KEEP")]
+        return kept[-1] if kept else None
 
     def get_next_iteration_number(self) -> int:
-        """Returns the iteration number for the upcoming run (length of history + 1)."""
-        history = self.load_history()
-        return len(history) + 1
+        """Returns the number of the next iteration. The baseline entries are iteration 0, so this is 1 after them."""
+        return max((exp.iteration for exp in self.load_history()), default=0) + 1

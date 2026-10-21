@@ -1,105 +1,96 @@
-from typing import Any, List, Dict, Optional
+from collections import defaultdict
+from typing import Any, List, Dict, Iterator, Optional
 import json
+
+
+def _walk(data: Any) -> Iterator[Dict[str, Any]]:
+    """Yields every dict nested anywhere inside a JSON-like structure."""
+    if isinstance(data, dict):
+        yield data
+        for value in data.values():
+            yield from _walk(value)
+    elif isinstance(data, list):
+        for item in data:
+            yield from _walk(item)
+
+
+def _max_hops_from_target(query: Dict[str, Any]) -> int:
+    """Largest number of relationships between an entity and the nearest target of one query object."""
+    relationships = [rel for rel in query.get("relationships") or [] if isinstance(rel, dict)]
+    neighbours = defaultdict(set)
+    for rel in relationships:
+        neighbours[rel.get("from")].add(rel.get("to"))
+        neighbours[rel.get("to")].add(rel.get("from"))
+
+    # A targeted relationship starts the search from both of its entities
+    start = {target for target in query.get("target") or [] if isinstance(target, str)}
+    start |= {end for rel in relationships if rel.get("id") in start for end in (rel.get("from"), rel.get("to"))}
+
+    distance = {node: 0 for node in start}
+    frontier = list(start)
+    while frontier:
+        next_frontier = []
+        for node in frontier:
+            for other in neighbours[node] - distance.keys():
+                distance[other] = distance[node] + 1
+                next_frontier.append(other)
+        frontier = next_frontier
+    return max(distance.values(), default=0)
+
+
+def derive_features(solution: Any) -> List[str]:
+    """
+    Derives structural SemGIR feature tags programmatically from a solution object
+    to help the optimizer understand the tested logic without seeing the raw query data.
+    """
+    if isinstance(solution, str):
+        try:
+            solution = json.loads(solution)
+        except json.JSONDecodeError:
+            return ["simple_structures"]
+    if not solution:
+        return ["simple_structures"]
+
+    nodes = list(_walk(solution))
+    relationship_ids = {
+        rel["id"]
+        for node in nodes
+        for rel in node.get("relationships") or []
+        if isinstance(rel, dict) and "id" in rel
+    }
+
+    checks = {
+        "multi_hypothesis": isinstance(solution, list) and len(solution) > 1,
+        "relationships": bool(relationship_ids),
+        "multi_hop": any(_max_hops_from_target(node) >= 2 for node in nodes if "target" in node),
+        "relationship_attributes": any(node.get("of") in relationship_ids for node in nodes),
+        "paths": any(node.get("paths") for node in nodes),
+        "aggregations": any("aggregate_kind" in node or "count" in node for node in nodes),
+        "quantifiers": any("quantifier_kind" in node for node in nodes),
+        "modifiers": any(k in node for node in nodes for k in ("order_by", "limit", "skip")),
+        "complex_constraints": any(k in node for node in nodes for k in ("and_conditions", "or_conditions")),
+        "negation": any(
+            "not_condition" in node or node.get("operator") == "!=" or node.get("quantifier_kind") == "NONE"
+            for node in nodes
+        ),
+        "string_matching": any(node.get("operator") in ("CONTAINS", "MATCHES_REGEX") for node in nodes),
+    }
+    features = [name for name, present in checks.items() if present]
+    return features or ["simple_structures"]
 
 
 class Query:
     """
     Represents a validation query with its natural language text,
-    expected SemGIR solution, and logical feature tags.
+    expected SemGIR solution, structural feature tags and rubric features.
     """
 
-    def __init__(self, query_id: str, text: str, solution: Any):
+    def __init__(self, query_id: str, text: str, solution: Any, rubric_features: Optional[List[str]] = None):
         self.id = query_id
         self.text = text
         self.solution = solution
-        self.features = self._derive_features(solution)
-
-    def _derive_features(self, solution: Any) -> List[str]:
-        """
-        Derives structural SemGIR feature tags programmatically from the solution object
-        to help the optimizer understand the tested logic without seeing the raw query data.
-        """
-        features = []
-        if not solution:
-            return features
-
-        # Parse solution if it is a JSON string
-        sol_obj = solution
-        if isinstance(solution, str):
-            try:
-                sol_obj = json.loads(solution)
-            except json.JSONDecodeError:
-                sol_obj = {}
-                print(
-                    f"Warning: Solution for query {self.id} is not valid JSON. Using empty dict for feature extraction."
-                )
-
-        # Safely traverse the dict or list structure to check for keys
-        def check_keys(data: Any, found_features: List[str]):
-            if isinstance(data, dict):
-                # Check for paths
-                if "paths" in data and data["paths"]:
-                    if "paths" not in found_features:
-                        found_features.append("paths")
-
-                # Check for aggregations
-                if "aggregate_kind" in data or "list" in data:
-                    if "aggregations" not in found_features:
-                        found_features.append("aggregations")
-
-                # Check for quantifiers
-                if "quantifier_kind" in data:
-                    if "quantifiers" not in found_features:
-                        found_features.append("quantifiers")
-
-                # Check for modifiers
-                if any(k in data for k in ["order_by", "limit", "skip"]):
-                    if "modifiers" not in found_features:
-                        found_features.append("modifiers")
-
-                # Check for complex constraints
-                if any(k in data for k in ["and_conditions", "or_conditions"]):
-                    if "complex_constraints" not in found_features:
-                        found_features.append("complex_constraints")
-
-                # Check for negation
-                if "not_condition" in data:
-                    if "negation" not in found_features:
-                        found_features.append("negation")
-
-                # Check for string matching operators
-                if data.get("operator") in ["CONTAINS", "MATCHES_REGEX"]:
-                    if "string_matching" not in found_features:
-                        found_features.append("string_matching")
-
-                # Recursive check
-                for v in data.values():
-                    check_keys(v, found_features)
-            elif isinstance(data, list):
-                for item in data:
-                    check_keys(item, found_features)
-
-        found_features: List[str] = []
-
-        # Check for multi-hypothesis (ambiguous queries with multiple interpretations)
-        if isinstance(sol_obj, list) and len(sol_obj) > 1:
-            found_features.append("multi_hypothesis")
-
-        check_keys(sol_obj, found_features)
-
-        # Default tags if nothing specific was found
-        if not found_features:
-            # Solution must be a bare array [QUERY, ...]
-            if isinstance(sol_obj, list) and len(sol_obj) > 0:
-                query_block = sol_obj[0]
-                if "relationships" in query_block and query_block["relationships"]:
-                    found_features.append("relationships")
-                elif "entities" in query_block and query_block["entities"]:
-                    found_features.append("entities")
-            if not found_features:
-                found_features.append("simple_structures")
-
-        return found_features
+        self.features = derive_features(solution)
+        self.rubric_features = rubric_features or []
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -107,6 +98,7 @@ class Query:
             "text": self.text,
             "solution": self.solution,
             "features": self.features,
+            "rubric_features": self.rubric_features,
         }
 
     def __repr__(self) -> str:

@@ -1,7 +1,18 @@
+import difflib
 import time
 import re
+from collections import defaultdict
 from typing import List, Dict, Any, Tuple
 from ollama import Client
+
+OPTIMIZE_REQUEST = (
+    "Based on the failing queries, propose the smallest change to the instructions that addresses them. "
+    "Removing or merging text is a valid change."
+)
+SIMPLIFY_REQUEST = (
+    "This is a simplification step. Make the instructions shorter by merging, shortening or removing rules, "
+    "without adding new rules and without changing what they ask the parser to do."
+)
 
 
 class OptimizerAgent:
@@ -28,23 +39,24 @@ class OptimizerAgent:
         self.num_predict = num_predict
         self.memory_size = memory_size
         self.thinking = thinking
-        self.failure_history: List[Dict[str, Any]] = (
-            []
-        )  # sliding window of rejected attempts
+        self.failure_history: List[Dict[str, Any]] = []  # sliding window of rejected attempts
 
         # Load optimizer prompt directly from disk
         with open(prompt_path, "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
 
-    def add_to_failure_history(self, score: float, instructions: str):
-        """Adds an unsuccessful prompt configuration to memory to prevent repeating it."""
-        self.failure_history.append(
-            {
-                "score": score,
-                "instructions": instructions,
-            }
+    def add_to_failure_history(self, champion_instructions: str, rejected_instructions: str, net: int):
+        """Adds a rejected change, as a diff against the champion, to memory to prevent repeating it."""
+        diff = "\n".join(
+            difflib.unified_diff(
+                champion_instructions.splitlines(),
+                rejected_instructions.splitlines(),
+                "champion",
+                "rejected",
+                lineterm="",
+            )
         )
-        # Keep within sliding window size
+        self.failure_history.append({"net": net, "diff": diff or "(no change)"})
         if len(self.failure_history) > self.memory_size:
             self.failure_history.pop(0)
 
@@ -52,41 +64,45 @@ class OptimizerAgent:
         """Clears memory when a new champion is successfully established."""
         self.failure_history.clear()
 
-    def _build_user_prompt(
-        self, current_instructions: str, failures: List[Dict[str, Any]]
-    ) -> str:
-        # 1. Format failures log
-        fail_blocks = []
+    @staticmethod
+    def _format_failures(failures: List[Dict[str, Any]]) -> str:
+        """Groups failures by error category, largest group first."""
+        groups = defaultdict(list)
         for fail in failures:
-            tags_str = ", ".join(fail.get("features", []))
-            fail_blocks.append(
-                f"- Query ID: {fail.get('id')}\n"
-                f"  Tested Grammatical Features: [{tags_str}]\n"
-                f"  Evaluator Score: {fail.get('score', 0.0)}\n"
-                f"  Evaluator Rationale: {fail.get('rationale')}"
-            )
-        failures_log = "\n\n".join(fail_blocks)
+            groups[fail.get("error_category") or "Other"].append(fail)
 
-        # 2. Format rejected history
-        history_blocks = []
-        for idx, item in enumerate(self.failure_history, 1):
-            history_blocks.append(
-                f"Rejected Attempt #{idx}:\n"
-                f"- Resulting Score: {item['score']:.4f}\n"
-                f"- Instructions attempted:\n\"\"\"\n{item['instructions']}\n\"\"\""
-            )
-        history_log = "\n\n".join(history_blocks) if history_blocks else "None."
+        blocks = []
+        for category, items in sorted(groups.items(), key=lambda kv: -len(kv[1])):
+            lines = [f"#### {category} ({len(items)} queries)"]
+            for fail in items:
+                lines.append(
+                    f"- Query {fail['id']} | correct rate: {fail['rate']:.2f}"
+                    f" | features: [{', '.join(fail['features'])}]"
+                    f" | rubric features: [{'; '.join(fail['rubric_features'])}]\n"
+                    f"  Evaluator rationale: {fail['rationale']}"
+                )
+            blocks.append("\n".join(lines))
+        return "\n\n".join(blocks) if blocks else "None."
 
-        user_content = (
-            f"### CURRENT ## INSTRUCTIONS SECTION:\n"
-            f'"""\n{current_instructions}\n"""\n\n'
-            f"### RECENT REJECTED PROMPT CHANGES (DO NOT REPEAT):\n"
-            f"{history_log}\n\n"
-            f"### CURRENT RUN FAILING LOGS:\n"
-            f"{failures_log}\n\n"
-            f"Based on the failing rationales, identify the logical ambiguity in the instructions and propose a surgical correction."
-        )
-        return user_content
+    def _build_user_prompt(
+        self, current_instructions: str, prompt_context: str, failures: List[Dict[str, Any]], mode: str
+    ) -> str:
+        history = "\n\n".join(
+            f"Rejected change #{idx} (net queries fixed: {item['net']}):\n{item['diff']}"
+            for idx, item in enumerate(self.failure_history, 1)
+        ) or "None."
+
+        sections = [
+            f'### READ-ONLY PROMPT CONTEXT (rest of the parser prompt, not editable):\n"""\n{prompt_context}\n"""',
+            f'### CURRENT ## INSTRUCTIONS SECTION:\n"""\n{current_instructions}\n"""',
+            f"### RECENT REJECTED CHANGES (DO NOT REPEAT):\n{history}",
+        ]
+        if mode == "simplify":
+            sections.append(SIMPLIFY_REQUEST)
+        else:
+            sections.append(f"### FAILING QUERIES BY ERROR CATEGORY:\n{self._format_failures(failures)}")
+            sections.append(OPTIMIZE_REQUEST)
+        return "\n\n".join(sections)
 
     def _clean_optimizer_output(self, raw_text: str) -> Tuple[str, str]:
         """Cleans LLM response, extracting rationale and instructions."""
@@ -99,29 +115,16 @@ class OptimizerAgent:
         if rat_match:
             rationale = rat_match.group(1).strip()
 
-        # Extract content inside <instructions> tags
-        if "<instructions>" in cleaned.lower():
-            match = re.search(
-                r"<instructions>\s*([\s\S]*?)</instructions>", cleaned, re.IGNORECASE
+        # Extract content inside <instructions> tags; anything else is a malformed answer and is retried
+        match = re.search(
+            r"<instructions>\s*([\s\S]*?)</instructions>", cleaned, re.IGNORECASE
+        )
+        if not match:
+            raise ValueError(
+                "Optimizer output has no complete <instructions>...</instructions> block. "
+                "Generation was likely cut off or ignored the output format."
             )
-            if match:
-                cleaned = match.group(1).strip()
-            else:
-                raise ValueError(
-                    "Optimizer output contains <instructions> but is missing </instructions>. Generation likely cut off."
-                )
-        else:
-            # Fallback in case model didn't use tags but used markdown code blocks
-            if cleaned.startswith("```"):
-                match = re.search(
-                    r"```(?:markdown)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE
-                )
-                if match:
-                    cleaned = match.group(1).strip()
-                elif "```" in cleaned[3:]:
-                    raise ValueError(
-                        "Markdown block not properly closed in optimizer output."
-                    )
+        cleaned = match.group(1).strip()
 
         # Remove a duplicate ## INSTRUCTIONS heading if the model printed it
         cleaned = re.sub(
@@ -133,7 +136,9 @@ class OptimizerAgent:
     def optimize_instructions(
         self,
         current_instructions: str,
+        prompt_context: str,
         failures: List[Dict[str, Any]],
+        mode: str = "optimize",
         max_retries: int = 3,
     ) -> Tuple[str, str]:
         """
@@ -141,8 +146,7 @@ class OptimizerAgent:
         Returns:
             Tuple[str, str]: (new_instructions, rationale)
         """
-        system_prompt = self.system_prompt
-        user_prompt = self._build_user_prompt(current_instructions, failures)
+        user_prompt = self._build_user_prompt(current_instructions, prompt_context, failures, mode)
 
         options = {
             "temperature": self.temperature,
@@ -156,7 +160,7 @@ class OptimizerAgent:
                 response = self.client.chat(
                     model=self.model_name,
                     messages=[
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": self.system_prompt},
                         {"role": "user", "content": user_prompt},
                     ],
                     options=options,

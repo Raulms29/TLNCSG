@@ -14,20 +14,37 @@ class Experiment:
         delta: float,
         status: str,
         prompt_path: str,
-        failures: Optional[List[Dict[str, Any]]] = None,
+        mode: str = "optimize",
+        query_results: Optional[Dict[str, Dict[str, Any]]] = None,
+        hidden_ids: Optional[List[str]] = None,
+        net: int = 0,
+        net_hidden: int = 0,
+        instructions_words: int = 0,
+        instructions: Optional[str] = None,
         rationale: Optional[str] = None,
         timestamp: Optional[str] = None,
         results_file: Optional[str] = None,
+        reference_results: Optional[Dict[str, Dict[str, Any]]] = None,
+        reevaluation_file: Optional[str] = None,
     ):
         self.iteration = iteration
         self.score = score
         self.delta = delta
         self.status = status
         self.prompt_path = prompt_path
-        self.failures = failures or []
+        self.mode = mode
+        self.query_results = query_results or {}
+        self.hidden_ids = hidden_ids or []
+        self.net = net
+        self.net_hidden = net_hidden
+        self.instructions_words = instructions_words
+        self.instructions = instructions  # candidate instructions proposed in this iteration
         self.rationale = rationale
         self.timestamp = timestamp or datetime.now().isoformat()
         self.results_file = results_file
+        # Champions only: both evaluations of the prompt merged, the reference later candidates are compared to
+        self.reference_results = reference_results or {}
+        self.reevaluation_file = reevaluation_file
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -36,10 +53,18 @@ class Experiment:
             "score": self.score,
             "delta": self.delta,
             "status": self.status,
+            "mode": self.mode,
+            "net": self.net,
+            "net_hidden": self.net_hidden,
+            "instructions_words": self.instructions_words,
             "prompt_path": self.prompt_path,
             "results_file": self.results_file,
-            "failures": self.failures,
+            "reevaluation_file": self.reevaluation_file,
+            "hidden_ids": self.hidden_ids,
+            "query_results": self.query_results,
+            "reference_results": self.reference_results,
             "rationale": self.rationale,
+            "instructions": self.instructions,
         }
 
     @classmethod
@@ -50,10 +75,18 @@ class Experiment:
             delta=data.get("delta", 0.0),
             status=data.get("status", "UNKNOWN"),
             prompt_path=data.get("prompt_path", ""),
-            failures=data.get("failures", []),
+            mode=data.get("mode", "optimize"),
+            query_results=data.get("query_results", {}),
+            hidden_ids=data.get("hidden_ids", []),
+            net=data.get("net", 0),
+            net_hidden=data.get("net_hidden", 0),
+            instructions_words=data.get("instructions_words", 0),
+            instructions=data.get("instructions"),
             rationale=data.get("rationale"),
             timestamp=data.get("timestamp"),
             results_file=data.get("results_file"),
+            reference_results=data.get("reference_results", {}),
+            reevaluation_file=data.get("reevaluation_file"),
         )
 
     def __repr__(self) -> str:

@@ -2,6 +2,8 @@
 #
 # ./scripts/linux/run_autoresearch.sh run
 # ./scripts/linux/run_autoresearch.sh reset
+#
+# Each run writes its log to autoresearch/archive/run_<timestamp>/autoresearch.log.
 
 cd "$(dirname "$0")/../.." || exit
 
@@ -19,17 +21,17 @@ case $COMMAND in
     docker run --rm \
       --name autoresearch \
       -v "$PWD:/opt/project" \
-      -w /opt/project/autoresearch \
+      -w /opt/project \
       virtualuser/tlncsg:latest \
-      bash -c 'python3 -u main.py "$@" 2>&1 | ts "%Y-%m-%d %H:%M:%S" | tee -a autoresearch.log' _ "$@"
+      bash -c 'python3 -u -m autoresearch.main "$@"' _ "$@"
     ;;
   reset)
     docker run --rm \
       --name autoresearch \
       -v "$PWD:/opt/project" \
-      -w /opt/project/autoresearch \
+      -w /opt/project \
       virtualuser/tlncsg:latest \
-      bash -c 'python3 -u main.py --reset "$@" 2>&1 | ts "%Y-%m-%d %H:%M:%S" | tee -a autoresearch.log' _ "$@"
+      bash -c 'python3 -u -m autoresearch.main --reset "$@"' _ "$@"
     ;;
   *)
     echo "Unknown command: $COMMAND"
