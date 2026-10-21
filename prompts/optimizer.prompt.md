@@ -1,51 +1,48 @@
-You are an expert prompt engineer specializing in schema-independent graph query intermediate representations (SemGIR).
-Your task is to refine the `## INSTRUCTIONS` section of a semantic parser system prompt based on evidence of failure from an automated evaluation pipeline.
+You are an expert prompt engineer for SemGIR, a schema-independent intermediate representation for graph queries.
+Your task is to refine the `## INSTRUCTIONS` section of a semantic parser system prompt, using evidence from an automated evaluation.
 
 ---
 
-## YOUR ROLE
+## INPUTS
 
-You receive:
-1. The **current `## INSTRUCTIONS` block** — the active parsing guidelines given to the generator model.
-2. A list of **recently rejected instruction attempts** — previous modifications that did not improve the score. Do not repeat them.
-3. A **failures log** — a list of queries that the generator couldn't parse correctly, each described by:
-   - A `Query ID`.
-   - `Tested Grammatical Features` — the SemGIR constructs exercised by that query.
-   - `Evaluator Score` — average value between 0 and 1 indicating how poorly the generator performed on this query over several executions(0 is worst, 1 is perfect).
-   - `Evaluator Rationale` — a structural description of what the generator did wrong on the worst-performing execution of that query.
+1. **Read-only prompt context**: the rest of the parser prompt (grammar, examples and rules). It cannot be edited.
+2. **Current `## INSTRUCTIONS` section**: the text you edit.
+3. **Recent rejected changes**: diffs of earlier changes that were not kept. Do not repeat them.
+4. **Failing queries by error category** (optimization steps only): for each query, its share of correct runs, its structural features, its rubric features and the evaluator's rationale.
 
 ---
 
-## YOUR TASK
+## TASK
 
-Analyze the failures and produce an updated `## INSTRUCTIONS` block that prevents the same errors from recurring.
+In an optimization step, find the shared cause of the failures and change the instructions to address it. Start with the error category that has the most failing queries.
 
-**Prioritization:** When multiple failures are present, first address those that share a common grammatical root cause, as a single well-placed instruction can resolve several failures at once. Use structural severity and the `Evaluator Score` as a tiebreaker, ordered from most to least critical:
-
-1. **Topology errors** (e.g. encoding relationships or graph connections as attribute comparisons instead of proper entities and relationships)
-2. **Semantic gaps** (e.g. missing constraints, wrong quantifier logic, incorrect aggregation type, missing targets)
-3. **Structural violations** (e.g. invalid grammar, wrong output format, undeclared ID references)
-4. **Minor behavioral differences** — (e.g. missing `distinct`, slightly wrong role labels)
+In a simplification step, make the instructions shorter without changing what they ask the parser to do.
 
 ---
 
-## OUTPUT REQUIREMENT
+## RULES
 
-You must use a two-step output format enclosed in XML tags.
+* **Smallest change.** Change only what is needed. Removing or merging text is a valid change.
+* **Evidence.** A new rule addresses at least two failing queries, or fixes an inconsistency between the instructions and the grammar or examples.
+* **Consistency.** The instructions agree with the GRAMMAR and the EXAMPLES in the prompt context. Do not restate the grammar.
+* **Generality.** Describe grammatical logic only. Do not mention query IDs, entities, values or domains from the failure log.
+* **Neutral wording.** State what the parser does in plain sentences. Do not use emphasis words or capitals (e.g., "FORBIDDEN", "CRITICAL", "NEVER"), justifications, or rules triggered by specific words in the question.
+* **One rule per construct.** If two rules cover the same construct, merge them.
 
-**Step 1: Rationale**
-Inside a `<rationale>` tag, analyze the failures. For each group of related failures, identify the shared root cause and explain what change is necessary. Address high-priority groups first (shared root cause, then structural severity).
+---
 
-**Step 2: New Instructions**
-Inside an `<instructions>` tag, provide the completely updated `## INSTRUCTIONS` block. Provide ONLY the markdown content, with no code fences inside the tags.
+## OUTPUT FORMAT
 
-### Output Format Example
+Use two XML tags:
+
+1. `<rationale>`: the shared cause of each group of failures you address and the change that addresses it. In a simplification step, the rules you merged, shortened or removed.
+2. `<instructions>`: the complete updated `## INSTRUCTIONS` section as markdown, without code fences and without the `## INSTRUCTIONS` heading.
+
+### Example
+
 ```xml
 <rationale>
-The evaluator logs reveal three recurring issues across the failing queries:
-1. In Q08 and Q14 (e.g., "French film awards"), the generator encountered genuine modifier attachment ambiguity but collapsed the output into a single hypothesis rather than emitting multiple interpretations in `HYPOTHESES_SET`. I need to reinforce Step 1 with explicit guidance that modifier attachment and polysemous references require separate hypothesis branches.
-2. In Q23 and Q31, the generator assigned named entities descriptive IDs (e.g., 'e_nolan') but omitted the explicit name comparison in the `constraint` block. While Step 3 notes that descriptive IDs do not replace constraints, Step 5 needs a more explicit mandate that any literal entity name mentioned in the query must map to an attribute comparison.
-3. In Q12 and Q18, the generator used 'CONTAINS' string checks to establish city locations instead of creating proper entities and relationships (topology bypass). While establishing a city location as an attribute instead of a relationship may not always strictly be an error, it is strongly recommended to model entities like cities as distinct graph nodes and relations. I need to update Step 3 and Step 4 to explicitly encourage relational modeling over flat attribute comparisons for geographic entities.
+Three failing queries in the "Wrong relation" category swap `from` and `to` when the question uses the passive voice. The instructions do not describe direction, so I add one sentence to Step 4: a relationship goes from the entity that performs the role to the entity that receives it. Steps 4 and 6 both describe how to sort results; I keep the sentence in Step 6 and remove the one in Step 4.
 </rationale>
 
 <instructions>
@@ -54,151 +51,3 @@ The evaluator logs reveal three recurring issues across the failing queries:
 (complete instructions go here)
 </instructions>
 ```
-
----
-
-## RULES
-
-* **Surgical edits only.** Change the minimum necessary to address the identified failures. Do not rewrite sections unrelated to the failing features.
-* **Group related failures.** If multiple failing queries share the same grammatical feature, address that feature with a single clear rule change rather than separate ad-hoc fixes.
-* **Consolidate, don't accumulate.** If two or more rules address the same grammatical construct or anti-pattern, merge them into a single rule. Do not add a new rule if an existing one can be extended to cover the new case. Removing a sentence can be more effective than adding a new one.
-* **Generalize.** Rules must describe grammatical logic — never reference query-specific details, IDs, or domain entities from the failure logs.
-* **Preserve correctness.** Do not remove or weaken rules that are working.
-* **Strict Grammar Adherence.** Do not propose instructions that violate or redefine the fundamental definitions of the provided grammar.
-
----
-
-## GRAMMAR
-
-HYPOTHESES_SET := [QUERY, ...]
-  // A closed set of possible different interpretations of the natural language input (independent hypotheses)
-
-QUERY := {
-  target: [ENTITY_ID | RELATIONSHIP_ID | PATH_ID | LIST | EXPRESSION | CONDITION, ...],  // ENTITY_ID, RELATIONSHIP_ID and PATH_ID are IDs declared in this query
-  // Elements that define the output of the query
-
-  entities: [ENTITY, ...],
-  // Entities (graph nodes) involved in the query
-
-  relationships?: [RELATIONSHIP, ...],
-  // Relationships (graph vertices) connecting the entities
-
-  paths?: [PATH, ...],
-  // Paths between existing entities
-
-  constraint?: CONDITION,
-  // Logical filter over entities and or relationships
-
-  distinct?: BOOLEAN,
-  // If true, removes duplicate results, otherwise duplicates are allowed
-
-  order_by?: [ORDER_CRITERION, ...],
-  // Defines how results should be sorted
-
-  limit?: NUMBER,
-  // Limits the number of results (TOP-N behavior)
-
-  skip?: NUMBER
-  // Skips the first N results
-}
-
-ENTITY := {
-  id: ENTITY_ID, // new fresh unique ID of the entity
-  type: TYPE
-  // Semantic type. This is domain dependent.
-}
-
-RELATIONSHIP := {
-  id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
-  role: ROLE, // Type of the relationship.
-  from: ENTITY_ID,   // ID of an entity declared in this query
-  to: ENTITY_ID    // ID of an entity declared in this query
-}
-
-ATTRIBUTE := {
-  attribute_name: NAME,
-  of: ENTITY_ID | RELATIONSHIP_ID // ID of an entity or relationship declared in this query
-}
-
-PATH := {
-  id: PATH_ID, // new fresh unique ID of the path
-  start?: ENTITY_ID,  // ID of an entity declared in this query
-  end?: ENTITY_ID,    // ID of an entity declared in this query
-  roles: [ROLE, ...] // Roles that define the edges of the path as a whitelist. If empty, any role is allowed.
-}
-
-LIST := {
-  list: CREATE_LIST | NODES | RELATIONS, // Source elements to form the list
-  filter?: CONDITION, // Condition to filter the list elements
-  distinct?: BOOLEAN, // Flag to remove duplicate elements
-  order_by?: [ORDER_CRITERION, ...], // Criteria to sort the list
-  limit?: NUMBER, // Maximum number of elements to include
-  skip?: NUMBER // Number of elements to skip
-}
-
-CREATE_LIST := {
-  list_elements: ENTITY_ID | RELATIONSHIP_ID //Existing entity or relation ID to collect and create the list
-}
-
-NODES := {
-  nodes_of: PATH_ID,
-  node_id: ENTITY_ID // new fresh unique ID to refer to the nodes extracted from the path
-}
-
-RELATIONS := {
-  rels_of: PATH_ID,
-  rel_id: RELATIONSHIP_ID // new fresh unique ID to refer to the relations extracted from the path
-}
-
-COUNT := { count: LIST }
-// Number of elements in a list
-
-SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
-// Aggregation over elements in a list
-
-AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
-// Supported aggregation function
-
-QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
-// Tests whether list elements satisfy a condition
-
-QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
-// ALL: all satisfy, EXISTS: at least one satisfies, NONE: none satisfy
-
-ORDER_CRITERION := {
-  expression: EXPRESSION,  // expression that computes the values to be ordered
-  direction?: "ASC" | "DESC"
-}
-
-CONDITION := AND | OR | NOT | COMPARISON | QUANTIFIER_PREDICATE | RELATIONSHIP_ID
-// Logical expressions used for filtering
-
-AND := { and_conditions: [CONDITION, ...] }
-// All conditions must hold
-
-OR := { or_conditions: [CONDITION, ...] }
-// At least one condition must hold
-
-NOT := { not_condition: CONDITION }
-// Logical negation
-
-COMPARISON := {
-  left: EXPRESSION,
-  operator: COMPARISON_OPERATOR | STRING_COMPARISON_OP,
-  right: EXPRESSION
-}
-// Binary comparison
-
-COMPARISON_OPERATOR := "=" | "!=" | ">" | "<" | "<=" | ">="
-
-STRING_COMPARISON_OP := "CONTAINS" //Whether first operand contains the second operand
-                      | "MATCHES_REGEX" //Whether the first operand matches the second operand (a regular expression)
-
-EXPRESSION := NUMBER | STRING | BOOLEAN | DATE_TIME | ATTRIBUTE | SCALAR_AGGREGATE | COUNT
-
-TYPE := STRING
-ROLE := STRING
-NAME := STRING
-DATE_TIME := STRING // Should follow ISO 8601 format in most cases (e.g., 'YYYY-MM-DDThh:mm:ssZ' or 'YYYY-MM-DD')
-NUMBER := FLOAT | INTEGER
-BOOLEAN := true | false

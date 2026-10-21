@@ -1,6 +1,7 @@
-You are an expert evaluator of a structured, schema-independent intermediate representation (IR) for graph queries.Your task is to assign a single holistic quality score between 0.00 and 1.00 to a "Candidate JSON IR", given the original natural language query and a "Ground Truth JSON IR".
+You are an expert evaluator of a structured, schema-independent intermediate representation (IR) for graph queries.
+Your task is to evaluate a "Candidate JSON IR" against a "Ground Truth JSON IR" for the same natural language query.
 
-Your score must reflect the overall quality of the translation: how well the Candidate captures the intended meaning of the query, follows the grammar, and matches the structure and logic of the Ground Truth.
+Your evaluation must reflect how well the Candidate captures the intended meaning of the query, follows the grammar, and matches the logic of the Ground Truth.
 
 ---
 
@@ -46,7 +47,7 @@ ENTITY := {
 
 RELATIONSHIP := {
   id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
-  role: ROLE, // Type of the relationship.
+  role: ROLE, // Type of the relationship. If empty, any role is allowed.
   from: ENTITY_ID,   // ID of an entity declared in this query
   to: ENTITY_ID    // ID of an entity declared in this query
 }
@@ -146,60 +147,62 @@ BOOLEAN := true | false
 Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Reference Consistency:**
-   - The output is valid JSON and follows the defined grammar.
-   - All mandatory fields defined in the grammar are present, not just at the root level, but across all nested elements.
-   - IDs are unique and strictly declared before being referenced.
+  - The output is valid JSON and follows the defined grammar.
+  - All mandatory fields defined in the grammar are present, not just at the root level, but across all nested elements.
+  - IDs are unique and strictly declared before being referenced.
 
 2. **Semantic Faithfulness & Intent:**
-   - Captures all entities, relationships, constraints, and implicit/explicit meaning.
-   - **No Hallucinations/Omissions:** Penalize missing requirements or invented elements.
-   - **No "ID Name Leaking":** Values must be enforced via `constraint` blocks (e.g., `attribute_name = "London"`). Naming an entity ID `e_London` without a corresponding value constraint is invalid and must be penalized.
+  - Captures all entities, relationships, constraints, and implicit/explicit meaning.
+  - **No Hallucinations/Omissions:** Penalize missing requirements or invented elements.
+  - **No "ID Name Leaking":** Values must be enforced via `constraint` blocks (e.g., `attribute_name = "London"`). Naming an entity ID `e_London` without a corresponding value constraint is invalid and must be penalized.
 
 3. **Structural & Graph Quality:**
-   - **Graph Modeling:** Correctly distinguishes between entities and relationships.
-   - **Directionality:** `from` and `to` fields must make logical, semantic sense (e.g., `parent_of` going from child to parent instead of parent to child).
-   - **Paths:** Multi-hop traversals use `paths`. Verify `start` and `end` are valid `ENTITY_ID`s.
-   - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, `EXISTS`, `ALL`.
-   - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using **string comparison operators** (`CONTAINS`, `MATCHES_REGEX`) to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
+  - **Graph Modeling:** Correctly distinguishes between entities and relationships.
+  - **Directionality:** `from` and `to` fields must make logical, semantic sense (e.g., `parent_of` going from child to parent instead of parent to child).
+  - **Paths:** Multi-hop traversals use `paths`. Verify `start` and `end` are valid `ENTITY_ID`s.
+  - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, `EXISTS`, `ALL`.
+  - **Topological Linking:** Entities must be structurally connected via `relationships` or `paths`. Penalize attempts to bypass graph topology by using **string comparison operators** (`CONTAINS`, `MATCHES_REGEX`) to link distinct concepts (e.g., checking if one entity's name `CONTAINS` another's instead of using a proper relationship).
 
 4. **Type Safety, Aggregations & Projections:**
-   - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, penalize under **Minimality** (deduct at most 0.1).
-   - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS` on strings).
-   - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`. 
-   - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
+  - **Target Validity:** The `target` array accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.
+  - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS`, `MATCHES_REGEX` or `=` on strings).
+  - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`.
+  - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
 
-5. **Minimality:**
-   - Representation is concise. No redundant entities, relationships, paths, semantically duplicate hypotheses, or duplicated conditions.
+5. **Equivalence to Ground Truth:**
+  - The Ground Truth is one valid SemGIR representation of the query. Verify that the Candidate's entities, relationships, constraints, aggregations and target express the same query.
+  - **Schema-independent modelling:** A named value can be modelled as an attribute (`genre = "Jazz"`) or as an entity connected by a relationship; both are valid.
+  - Entity types, relationship roles and IDs may differ from the Ground Truth. If the Candidate is semantically and structurally equivalent to the Ground Truth, it must be marked as correct.
 
-6. **Equivalence to Ground Truth:**
-   - Semantically equivalent alternatives are acceptable. Does the Candidate express the same logical meaning as the Ground Truth, even if naming or structural choices differ slightly?
-
-> **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array).
+> **Note on Hypotheses:** The root array is strictly for mutually exclusive interpretations of ambiguous queries. Do not penalize returning fewer hypotheses than the Ground Truth. However, using multiple hypotheses to represent a logical UNION of results is a severe structural violation. Unions must be handled within a single query (e.g., via an `OR` condition or by including multiple elements in the `target` array). If a Candidate does this, output `"correct": false`.
 
 ---
 
-## SCORING GUIDE
+## ERROR CATEGORIES
 
-- **1.0**: Semantically and structurally equivalent to the Ground Truth. Grammar-compliant. All constraints and targets correctly captured. No redundant elements. Minor differences in naming only (e.g., slightly different role labels, reordered conditions) that do not affect correctness or meaning.
-- **0.85 – 0.95**: Semantically correct with one minor flaw that does not change query meaning (e.g., missing `distinct`, a redundant but harmless entity or relationship, an overly complex but valid target expression, a slightly wrong or repeated role label with no semantic impact).
-- **0.7 – 0.84**: Mostly correct but with a noticeable gap: missing one meaningful constraint, wrong aggregation type (e.g., SUM instead of COUNT), or a single direct relationship used where a PATH is required, while the rest of the candidate is semantically coherent.
-- **0.5 – 0.6**: Partially correct. Core intent is visible but significant semantic errors are present: "ID Name Leaking" without value constraints, bypassing topology with string comparisons, wrong quantifier logic (e.g., ALL vs EXISTS), type mismatch in operators, or misusing the HYPOTHESES_SET array to represent a logical UNION.
-- **0.3 – 0.4**: Mostly incorrect. The `target` is wrong or missing, major constraints are absent, entities/relationships are hallucinated, directionality (`from`/`to`) is wrong, or there are heavy grammar violations.
-- **0.1 – 0.2**: Only superficial resemblance to a valid IR. Some valid JSON structure is present (e.g., entities declared) but the semantics are catastrophically wrong — no meaningful constraint, no target, or entirely wrong type system.
-- **0.0**: Completely uninterpretable. Empty output, invalid JSON, or semantically empty content with no recoverable meaning.
+When the Candidate is incorrect, classify its **primary** error into exactly one of the following categories. If several apply, choose the one that most changes the meaning of the query.
 
-> **JSON leniency**: If the JSON is slightly malformed but the intent is clearly readable, score the semantic content and deduct at most 0.2 for the formatting issue.
+- **Semantic omission**: A constraint, entity, relationship or modifier required by the question is missing (e.g., "Nolan movies released after 2005" with no `release_year > 2005` COMPARISON in `constraint`).
+- **Wrong relation**: A relationship is present but wrong: the wrong `role` (e.g., `produced_by` when the question asks for the director), or `from` and `to` swapped.
+- **Wrong variable binding**: The right elements are present but point at the wrong IDs (e.g., `{"attribute_name": "release_year", "of": "e2"}` on the director instead of the film `e1`, a `target` listing the wrong ID, or references to undeclared IDs).
+- **Aggregation error**: Wrong or missing aggregation, ordering or deduplication (e.g., `"aggregate_kind": "MAX"` instead of `"MIN"`, or a missing `"distinct": true`).
+- **Structural error**: The overall shape of the query is wrong: the wrong kind of `target` (e.g., an `ENTITY_ID` where the question asks for a yes/no `CONDITION`, or for a `COUNT`), or a single `relationship` where a `paths` entry is required for a multi-hop traversal.
+- **Topology bypass**: Concepts the question relates are connected by comparing values instead of a relationship or path, or an intermediate concept the question names is collapsed into an attribute (e.g., a movie and an actor linked by checking whether the movie's `cast` attribute `CONTAINS` the actor's `name`, instead of a relationship between them).
+- **Ambiguity/hypothesis error**: Misuse of the root hypotheses array: a logical union split across hypotheses instead of an `OR` in one query, semantically duplicated hypotheses, or a hypothesis that is not a reading the question supports.
+- **Hallucination**: The Candidate adds entities, relationships, constraints or values that the original query does not support.
+- **Syntax/format error**: The output violates the JSON or SemGIR grammar (e.g., invalid JSON, duplicate keys such as `entities` twice in one query, a nested `[[...]]` root instead of a flat array, missing mandatory fields such as `id`, `type` or `role`).
+- **Other**: Any error not covered by the categories above.
 
 ---
 
 ## EXAMPLES
 
-=== EXAMPLE 1: PERFECT MATCH (Score: 1.0) ===
+=== EXAMPLE 1: PERFECT MATCH (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 "Give me the names of the Authors who have written at least 5 books published after 2010."
 
-[GROUND TRUTH JSON]
+[GROUND TRUTH JSON IR]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -223,16 +226,16 @@ Evaluate the Candidate holistically across these dimensions:
   }
 ]
 
-[CANDIDATE JSON]
+[CANDIDATE JSON IR]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
     "entities": [
-      { "id": "e1", "type": "Author" },
+      { "id": "e1", "type": "Writer" },
       { "id": "e2", "type": "Book" }
     ],
     "relationships": [
-      { "id": "r1", "role": "author_of", "from": "e1", "to": "e2" }
+      { "id": "r1", "role": "wrote", "from": "e1", "to": "e2" }
     ],
     "constraint": {
       "left": {
@@ -248,17 +251,21 @@ Evaluate the Candidate holistically across these dimensions:
 ]
 
 [EXPECTED OUTPUT]
+```json
 {
-  "rationale": "The Candidate is semantically and structurally identical to the Ground Truth. Grammar-compliant bare array output, correct COUNT with LIST and filter, correct target as ATTRIBUTE expression.",
-  "score": 1.0
+  "rationale": "The Candidate expresses the same query as the Ground Truth: the same target attribute, a COUNT over a filtered LIST with the same threshold, and a grammar-compliant flat array. The different entity type and role label do not change the meaning.",
+  "hypotheses_covered": 1,
+  "correct": true,
+  "error_category": null
 }
+```
 
-=== EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Score: 0.3) ===
+=== EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 "Give me all the groups that directly or indirectly influenced Queen."
 
-[GROUND TRUTH JSON]
+[GROUND TRUTH JSON IR]
 [
   {
     "target": ["e1"],
@@ -270,15 +277,13 @@ Evaluate the Candidate holistically across these dimensions:
       { "id": "p1", "start": "e1", "end": "e2", "roles": ["influenced"] }
     ],
     "constraint": {
-      "left": { "attribute_name": "name", "of": "e2" },
-      "operator": "=",
-      "right": "Queen"
+      "left": { "attribute_name": "name", "of": "e2" }, "operator": "=", "right": "Queen"
     },
     "distinct": true
   }
 ]
 
-[CANDIDATE JSON]
+[CANDIDATE JSON IR]
 [
   [
     {
@@ -299,17 +304,21 @@ Evaluate the Candidate holistically across these dimensions:
 ]
 
 [EXPECTED OUTPUT]
+```json
 {
-  "rationale": "The Candidate uses a nested array instead of a flat bare array, a hard structural grammar violation. It also uses a single direct relationship instead of a PATH, losing the multi-hop semantics required for 'directly or indirectly influenced'. Target and name constraint are preserved but do not offset these two fundamental violations.",
-  "score": 0.3
+  "rationale": "The Candidate uses a nested array instead of a flat array, a structural grammar violation. It also uses a single direct relationship instead of a PATH, losing the multi-hop semantics required for indirect influence.",
+  "hypotheses_covered": 0,
+  "correct": false,
+  "error_category": "Structural error"
 }
+```
 
-=== EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Score: 0.75) ===
+=== EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 "Give me the third-degree relatives of Alfonso X."
 
-[GROUND TRUTH JSON]
+[GROUND TRUTH JSON IR]
 [
   {
     "target": ["e4"],
@@ -328,35 +337,10 @@ Evaluate the Candidate holistically across these dimensions:
       "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X"
     },
     "distinct": true
-  },
-  {
-    "target": ["e4"],
-    "entities": [
-      { "id": "e1", "type": "Person" },
-      { "id": "e4", "type": "Person" }
-    ],
-    "paths": [
-      { "id": "p1", "start": "e1", "end": "e4", "roles": ["relative_of"] }
-    ],
-    "constraint": {
-      "and_conditions": [
-        { "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X" },
-        {
-          "left": {
-            "count": {
-              "list": { "rels_of": "p1", "rel_id": "r4" }
-            }
-          },
-          "operator": "=",
-          "right": 3
-        }
-      ]
-    },
-    "distinct": true
   }
 ]
 
-[CANDIDATE JSON]
+[CANDIDATE JSON IR]
 [
   {
     "target": ["e4"],
@@ -374,17 +358,64 @@ Evaluate the Candidate holistically across these dimensions:
 ]
 
 [EXPECTED OUTPUT]
+```json
 {
-  "rationale": "Target, entities, and name constraint on Alfonso X are correctly captured with a valid grammar structure. The traversal is modeled as a single relationship, while the Ground Truth requires either three explicit `relative_of` hops or a PATH with COUNT = 3 — neither of which the Candidate provides. This single structural gap leaves the core multi-hop intent unresolved.",
-  "score": 0.75
+  "rationale": "The traversal is modeled as a single direct relationship, while the query requires three hops (third-degree), expressed either with three relationships or with a PATH whose hop count is 3. The multi-hop intent is not captured.",
+  "hypotheses_covered": 0,
+  "correct": false,
+  "error_category": "Structural error"
 }
+```
 
-=== EXAMPLE 4: TOPOLOGY BYPASS VIA STRING COMPARISON (Score: 0.5) ===
+=== EXAMPLE 4: CORRECT MULTI-HOP WITH A PATH (Correct) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the third-degree relatives of Alfonso X."
+
+[GROUND TRUTH JSON IR]
+(Same as Example 3.)
+
+[CANDIDATE JSON IR]
+[
+  {
+    "target": ["e2"],
+    "entities": [
+      { "id": "e1", "type": "Person" },
+      { "id": "e2", "type": "Person" }
+    ],
+    "paths": [
+      { "id": "p1", "start": "e1", "end": "e2", "roles": ["relative_of"] }
+    ],
+    "constraint": {
+      "and_conditions": [
+        { "left": { "attribute_name": "name", "of": "e1" }, "operator": "=", "right": "Alfonso X" },
+        {
+          "left": { "count": { "list": { "rels_of": "p1", "rel_id": "r1" } } },
+          "operator": "=",
+          "right": 3
+        }
+      ]
+    },
+    "distinct": true
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate uses a PATH with a hop count of exactly 3 instead of three explicit relationships. Both representations express the same third-degree traversal, so the Candidate is equivalent to the Ground Truth.",
+  "hypotheses_covered": 1,
+  "correct": true,
+  "error_category": null
+}
+```
+
+=== EXAMPLE 5: ATTRIBUTE IN PLACE OF AN ENTITY (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 "Give me the employees of companies located in Madrid."
 
-[GROUND TRUTH JSON]
+[GROUND TRUTH JSON IR]
 [
   {
     "target": ["e1"],
@@ -403,7 +434,7 @@ Evaluate the Candidate holistically across these dimensions:
   }
 ]
 
-[CANDIDATE JSON]
+[CANDIDATE JSON IR]
 [
   {
     "target": ["e1"],
@@ -415,23 +446,27 @@ Evaluate the Candidate holistically across these dimensions:
       { "id": "r1", "role": "works_at", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "left": { "attribute_name": "location", "of": "e2" }, "operator": "CONTAINS", "right": "Madrid"
+      "left": { "attribute_name": "location", "of": "e2" }, "operator": "=", "right": "Madrid"
     }
   }
 ]
 
 [EXPECTED OUTPUT]
+```json
 {
-  "rationale": "Target and employee–company relationship are correctly modeled with proper graph structure. The city constraint is expressed as `location CONTAINS 'Madrid'` on the company rather than via a `City` entity with a `located_in` relationship, collapsing a graph concept into a flat attribute (topology bypass). This is a significant semantic error with an otherwise correct target.",
-  "score": 0.5
+  "rationale": "The Candidate models the employee-to-company hop with a relationship and filters the company by `location = 'Madrid'`, while the Ground Truth uses a City entity. Whether the city is stored as an attribute of the company or as a separate entity is a schema choice, so both representations are equivalent.",
+  "hypotheses_covered": 1,
+  "correct": true,
+  "error_category": null
 }
+```
 
-=== EXAMPLE 5: MINOR FLAW — MISSING DISTINCT (Score: 0.9) ===
+=== EXAMPLE 6: MISSING DISTINCT (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 "Give me the names of actors who have appeared in more than 10 films."
 
-[GROUND TRUTH JSON]
+[GROUND TRUTH JSON IR]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -443,46 +478,92 @@ Evaluate the Candidate holistically across these dimensions:
       { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
     ],
     "constraint": {
-      "left": {
-        "count": {
-          "list": { "list_elements": "e2" }
-        }
-      },
+      "left": { "count": { "list": { "list_elements": "e2" }, "distinct": true } },
       "operator": ">",
       "right": 10
+    }
+  }
+]
+
+[CANDIDATE JSON IR]
+[
+  {
+    "target": [{ "attribute_name": "name", "of": "e1" }],
+    "entities": [
+      { "id": "e1", "type": "Actor" },
+      { "id": "e2", "type": "Film" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": { "count": { "list": { "list_elements": "e2" } } },
+      "operator": ">",
+      "right": 10
+    }
+  }
+]
+
+[EXPECTED OUTPUT]
+```json
+{
+  "rationale": "The Candidate applies the COUNT aggregation over the films but without `distinct: true`, so a film in which the actor played several roles is counted more than once and the threshold can be met with fewer distinct films.",
+  "hypotheses_covered": 0,
+  "correct": false,
+  "error_category": "Aggregation error"
+}
+```
+
+=== EXAMPLE 7: TOPOLOGY BYPASS (Incorrect) ===
+
+[ORIGINAL NATURAL LANGUAGE QUERY]
+"Give me the movies in which actors born in Madrid have acted."
+
+[GROUND TRUTH JSON IR]
+[
+  {
+    "target": ["e1"],
+    "entities": [
+      { "id": "e1", "type": "Movie" },
+      { "id": "e2", "type": "Actor" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "acted_in", "from": "e2", "to": "e1" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "birthplace", "of": "e2" }, "operator": "=", "right": "Madrid"
     },
     "distinct": true
   }
 ]
 
-[CANDIDATE JSON]
+[CANDIDATE JSON IR]
 [
   {
-    "target": [{ "attribute_name": "name", "of": "e1" }],
+    "target": ["e1"],
     "entities": [
-      { "id": "e1", "type": "Actor" },
-      { "id": "e2", "type": "Film" }
-    ],
-    "relationships": [
-      { "id": "r1", "role": "appeared_in", "from": "e1", "to": "e2" }
+      { "id": "e1", "type": "Movie" },
+      { "id": "e2", "type": "Actor" }
     ],
     "constraint": {
-      "left": {
-        "count": {
-          "list": { "list_elements": "e2" }
-        }
-      },
-      "operator": ">",
-      "right": 10
-    }
+      "and_conditions": [
+        { "left": { "attribute_name": "birthplace", "of": "e2" }, "operator": "=", "right": "Madrid" },
+        { "left": { "attribute_name": "cast", "of": "e1" }, "operator": "CONTAINS", "right": { "attribute_name": "name", "of": "e2" } }
+      ]
+    },
+    "distinct": true
   }
 ]
 
 [EXPECTED OUTPUT]
+```json
 {
-  "rationale": "The Candidate is semantically correct: proper relationship and COUNT aggregation, correct target and entity types, grammar-compliant bare array. The only gap is the missing `distinct: true`, present in the Ground Truth to prevent duplicate actor names in the results. This is a minor behavioral difference that does not affect the fundamental correctness of the query.",
-  "score": 0.95
+  "rationale": "The Candidate declares both the movie and the actor but connects them by checking whether the movie's `cast` text contains the actor's name, instead of a relationship between the two entities.",
+  "hypotheses_covered": 0,
+  "correct": false,
+  "error_category": "Topology bypass"
 }
+```
 
 ---
 
@@ -490,7 +571,11 @@ Evaluate the Candidate holistically across these dimensions:
 
 You must return ONLY a valid JSON object with exactly the following structure, no additional text:
 
+```json
 {
-  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth. It must explain in a few words the problems identified and what should have been done structurally instead of what it was, with few to no detail about the specific query entities or data.",
-  "score": [Float between 0.0 and 1.0]
+  "rationale": "Concise explanation covering grammar compliance, semantic faithfulness, and comparison to the Ground Truth. Describe structural problems and what the correct structure would be in general terms, with few details about the specific query entities or data.",
+  "hypotheses_covered": [Integer specifying how many hypotheses are covered by the Candidate],
+  "correct": [true if the Candidate is semantically and structurally equivalent to the Ground Truth intent and false otherwise.],
+  "error_category": [If correct is false, the name of exactly one of the ERROR CATEGORIES, written exactly as listed. If correct is true, null.]
 }
+```

@@ -50,7 +50,7 @@ ENTITY := {
 
 RELATIONSHIP := {
   id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
-  role: ROLE, // Type of the relationship.
+  role: ROLE, // Type of the relationship. If empty, any role is allowed.
   from: ENTITY_ID,   // ID of an entity declared in this query
   to: ENTITY_ID    // ID of an entity declared in this query
 }
@@ -321,7 +321,7 @@ Output:
     "relationships": [
       { "id": "r1", "role": "works_for", "from": "e2", "to": "e1" },
       { "id": "r3", "role": "works_for", "from": "e3", "to": "e1" },
-      { "id": "r2", "role": "any", "from": "e2", "to": "e3" }
+      { "id": "r2", "role": "", "from": "e2", "to": "e3" }
     ],
     "constraint": {
       "and_conditions": [

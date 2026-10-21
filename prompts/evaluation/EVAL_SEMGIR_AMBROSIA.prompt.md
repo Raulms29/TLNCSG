@@ -47,7 +47,7 @@ ENTITY := {
 
 RELATIONSHIP := {
   id: RELATIONSHIP_ID,   // new fresh unique ID of the relationship
-  role: ROLE, // Type of the relationship.
+  role: ROLE, // Type of the relationship. If empty, any role is allowed.
   from: ENTITY_ID,   // ID of an entity declared in this query
   to: ENTITY_ID    // ID of an entity declared in this query
 }
@@ -192,7 +192,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 - **Wrong variable binding**: The right elements are present but point at the wrong IDs (e.g., `{"attribute_name": "release_year", "of": "e2"}` on the director instead of the film `e1`, a `target` listing the wrong ID, or references to undeclared IDs).
 - **Aggregation error**: Wrong or missing aggregation, ordering or deduplication (e.g., `"aggregate_kind": "MAX"` where the SQL uses `MIN`, or a missing `"distinct": true` for `SELECT DISTINCT`).
 - **Structural error**: The overall shape of the query is wrong: the wrong kind of `target` (e.g., an `ENTITY_ID` where the SQL returns a `COUNT`), or a single `relationship` where the SQL chains several JOINs and a `paths` entry is required.
-- **Topology bypass**: Concepts the question relates are connected by comparing values instead of a relationship or path, or an intermediate concept the question names is collapsed into an attribute (e.g., `{"attribute_name": "company_location", "of": "e1"}` on the employee for "employees of companies located in Madrid").
+- **Topology bypass**: Concepts the question relates are connected by comparing values instead of a relationship or path, or an intermediate concept the question names is collapsed into an attribute (e.g., a movie and an actor linked by checking whether the movie's `cast` attribute `CONTAINS` the actor's `name`, instead of a relationship between them).
 - **Ambiguity/hypothesis error**: Misuse of the root hypotheses array: a logical union split across hypotheses instead of an `OR` in one query, semantically duplicated hypotheses, or a hypothesis that matches none of the SQL interpretations.
 - **Hallucination**: The Candidate adds entities, relationships, constraints or values that the original query does not support.
 - **Syntax/format error**: The output violates the JSON or SemGIR grammar (e.g., invalid JSON, duplicate keys such as `entities` twice in one query, a nested `[[...]]` root instead of a flat array, missing mandatory fields such as `id`, `type` or `role`).
@@ -463,28 +463,33 @@ SELECT DISTINCT Actors.name FROM Actors JOIN Performances ON Actors.id = Perform
 === EXAMPLE 7: TOPOLOGY BYPASS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the employees of companies located in Madrid."
+"Give me the movies in which actors born in Madrid have acted."
 
 [GROUND TRUTH SQL]
-SELECT Employees.id FROM Employees JOIN Companies ON Employees.company_id = Companies.id JOIN Cities ON Companies.city_id = Cities.id WHERE Cities.name = 'Madrid'
+SELECT DISTINCT Movies.id FROM Movies JOIN Casting ON Movies.id = Casting.movie_id JOIN Actors ON Casting.actor_id = Actors.id WHERE Actors.birthplace = 'Madrid'
 
 [CANDIDATE JSON]
 [
   {
     "target": ["e1"],
     "entities": [
-      { "id": "e1", "type": "Employee" }
+      { "id": "e1", "type": "Movie" },
+      { "id": "e2", "type": "Actor" }
     ],
     "constraint": {
-      "left": { "attribute_name": "company_location", "of": "e1" }, "operator": "=", "right": "Madrid"
-    }
+      "and_conditions": [
+        { "left": { "attribute_name": "birthplace", "of": "e2" }, "operator": "=", "right": "Madrid" },
+        { "left": { "attribute_name": "cast", "of": "e1" }, "operator": "CONTAINS", "right": { "attribute_name": "name", "of": "e2" } }
+      ]
+    },
+    "distinct": true
   }
 ]
 
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate drops the Company entity and stores its location as an attribute of the employee, so the employee-to-company relationship required by the question is missing.",
+  "rationale": "The Candidate declares both the movie and the actor but connects them by checking whether the movie's `cast` text contains the actor's name, instead of a relationship between the two entities.",
   "hypotheses_covered": 0,
   "correct": false,
   "error_category": "Topology bypass"
