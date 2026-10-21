@@ -66,6 +66,9 @@ class ExecutionConfig:
         default_factory=lambda: {"num_predict": 3072, "num_ctx": 32768}
     )
     runs_per_model: int = 30
+    # Repetitions of a query sent to Ollama at once (needs OLLAMA_NUM_PARALLEL on the server).
+    # Values > 1 raise the recorded per-request inference time: compare only runs with the same value.
+    parallel_requests: int = 1
     output_dir: str = "outputs/execution"
     max_retries: int = 5
     retry_wait_seconds: int = 5
@@ -91,7 +94,7 @@ class ExecutionConfig:
         }
         
         optional_keys = [
-            "ollama_options", "runs_per_model",
+            "ollama_options", "runs_per_model", "parallel_requests",
             "output_dir", "max_retries", "retry_wait_seconds"
         ]
         for key in optional_keys:
@@ -111,6 +114,7 @@ class ExecutionConfig:
             "ollama_host": self.ollama_host,
             "ollama_options": self.ollama_options,
             "runs_per_model": self.runs_per_model,
+            "parallel_requests": self.parallel_requests,
             "output_dir": self.output_dir,
             "max_retries": self.max_retries,
             "retry_wait_seconds": self.retry_wait_seconds,

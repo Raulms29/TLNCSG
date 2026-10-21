@@ -6,6 +6,8 @@ import csv
 import json
 import logging
 import re
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -82,9 +84,11 @@ class EvaluationRunner:
                 logger.info("  Model: %s", model)
                 model_stats = stats.setdefault((grammar, model), [0, 0, 0, 0, 0])
 
-                for csv_file in sorted(model_dir.glob("*_grouped.csv")):
+                csv_files = sorted(model_dir.glob("*_grouped.csv"))
+                for csv_file, evaluated_rows in zip(
+                    csv_files, self._evaluate_files(csv_files, grammar)
+                ):
                     total_files += 1
-                    evaluated_rows = self._process_grouped_file(csv_file, grammar)
 
                     n_correct = sum(
                         1 for row in evaluated_rows if row.get("Correct") == "True"
@@ -154,6 +158,15 @@ class EvaluationRunner:
     # ------------------------------------------------------------------
     # Per-file processing
     # ------------------------------------------------------------------
+
+    def _evaluate_files(
+        self, csv_files: list[Path], grammar: str
+    ) -> Iterator[list[dict[str, Any]]]:
+        """Evaluate up to ``parallel_requests`` files at once, yielding results in file order."""
+        with ThreadPoolExecutor(self.config.parallel_requests) as pool:
+            yield from pool.map(
+                lambda csv_file: self._process_grouped_file(csv_file, grammar), csv_files
+            )
 
     def _process_grouped_file(
         self, csv_file: Path, grammar: str

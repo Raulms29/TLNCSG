@@ -61,6 +61,8 @@ class EvaluationConfig:
     prompts_dir: str = "prompts/evaluation"
     max_retries: int = 5
     retry_wait_seconds: int = 5
+    # Grouped files evaluated at once (needs OLLAMA_NUM_PARALLEL on the server)
+    parallel_requests: int = 1
     # Configurable prefix for dataset detection
     ambrosia_qid_prefix: str = "AMB_"
 
@@ -87,6 +89,7 @@ class EvaluationConfig:
             "prompts_dir",
             "max_retries",
             "retry_wait_seconds",
+            "parallel_requests",
             "ambrosia_qid_prefix",
         ]
         for key in optional_keys:

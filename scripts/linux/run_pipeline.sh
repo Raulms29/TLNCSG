@@ -5,7 +5,7 @@
 # ./scripts/linux/run_pipeline.sh grouping --execution-dir outputs/execution/300926_300926_0001
 # ./scripts/linux/run_pipeline.sh evaluation --grouping-dir outputs/grouping/011026_011026_0001
 # ./scripts/linux/run_pipeline.sh review
-# ./scripts/linux/run_pipeline.sh metrics --review-dir outputs/review/011026_011026_0001
+# ./scripts/linux/run_pipeline.sh metrics --run-dir outputs/review/011026_011026_0001
 
 cd "$(dirname "$0")/../.." || exit
 
@@ -14,7 +14,7 @@ shift
 
 if [ -z "$MODULE" ]; then
   echo "Usage: $0 <module> [args...]"
-  echo "Modules: execution, grouping, evaluation, review"
+  echo "Modules: execution, grouping, evaluation, review, metrics"
   exit 1
 fi
 
@@ -62,7 +62,7 @@ case $MODULE in
     ;;
   *)
     echo "Unknown module: $MODULE"
-    echo "Modules: execution, grouping, evaluation, review"
+    echo "Modules: execution, grouping, evaluation, review, metrics"
     exit 1
     ;;
 esac

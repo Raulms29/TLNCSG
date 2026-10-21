@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -298,57 +299,71 @@ class ExecutionRunner:
         system_prompt: str,
         thinking: bool,
     ) -> list[dict]:
-        """Execute all repetitions of a single query and return records."""
-        records: list[dict] = []
+        """Execute all repetitions of a single query and return records.
 
-        for run in range(1, self.config.runs_per_model + 1):
-            try:
-                content, reasoning, inference_s, meta = self.client.chat_with_metadata(
-                    model=model_cfg.name,
-                    query=query.text,
-                    system_prompt=system_prompt,
-                    options=self.config.ollama_options,
-                    temperature=model_cfg.temperature,
-                    thinking=thinking,
+        Up to ``parallel_requests`` repetitions are sent to Ollama at once.
+        """
+        runs = range(1, self.config.runs_per_model + 1)
+        with ThreadPoolExecutor(self.config.parallel_requests) as pool:
+            return list(
+                pool.map(
+                    lambda run: self._run_once(model_cfg, query, system_prompt, thinking, run),
+                    runs,
                 )
-                error = None
-            except Exception as e:
-                logger.error(
-                    "Unexpected error (model=%s, query=%s, run=%d): %s",
-                    model_cfg.name,
-                    query.id,
-                    run,
-                    e,
-                )
-                content, reasoning, inference_s, meta = (
-                    "",
-                    None,
-                    0.0,
-                    {
-                        "prompt_eval_count": 0,
-                        "eval_count": 0,
-                    },
-                )
-                error = str(e)
-
-            records.append(
-                {
-                    "Run": run,
-                    "Model": model_cfg.name,
-                    "Thinking": thinking,
-                    "QID": query.id,
-                    "Query": query.text,
-                    "Prompt Tokens": meta.get("prompt_eval_count", 0),
-                    "Completion Tokens": meta.get("eval_count", 0),
-                    "Inference Time (s)": round(inference_s, 4),
-                    "Response": content,
-                    "Reasoning": reasoning or "",
-                    "Timestamp": datetime.now().isoformat(),
-                    "Error": error,
-                }
             )
 
-        return records
+    def _run_once(
+        self,
+        model_cfg: ModelConfig,
+        query: Query,
+        system_prompt: str,
+        thinking: bool,
+        run: int,
+    ) -> dict:
+        """Execute one repetition of a query and return its record."""
+        try:
+            content, reasoning, inference_s, meta = self.client.chat_with_metadata(
+                model=model_cfg.name,
+                query=query.text,
+                system_prompt=system_prompt,
+                options=self.config.ollama_options,
+                temperature=model_cfg.temperature,
+                thinking=thinking,
+            )
+            error = None
+        except Exception as e:
+            logger.error(
+                "Unexpected error (model=%s, query=%s, run=%d): %s",
+                model_cfg.name,
+                query.id,
+                run,
+                e,
+            )
+            content, reasoning, inference_s, meta = (
+                "",
+                None,
+                0.0,
+                {
+                    "prompt_eval_count": 0,
+                    "eval_count": 0,
+                },
+            )
+            error = str(e)
+
+        return {
+            "Run": run,
+            "Model": model_cfg.name,
+            "Thinking": thinking,
+            "QID": query.id,
+            "Query": query.text,
+            "Prompt Tokens": meta.get("prompt_eval_count", 0),
+            "Completion Tokens": meta.get("eval_count", 0),
+            "Inference Time (s)": round(inference_s, 4),
+            "Response": content,
+            "Reasoning": reasoning or "",
+            "Timestamp": datetime.now().isoformat(),
+            "Error": error,
+        }
 
     # ------------------------------------------------------------------
     # Summary generation
