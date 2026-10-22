@@ -232,14 +232,12 @@ class EvaluationRunner:
             )
 
             # Call evaluator LLM
-            content, _, _, _ = self.client.chat_with_metadata(
-                model=self.config.evaluator_model.name,
-                query=user_message,
-                system_prompt=sys_prompt,
-                options=self.config.evaluator_model.ollama_options,
-                temperature=self.config.evaluator_model.temperature,
-                thinking=self.config.evaluator_model.supports_thinking,
-            )
+            evaluator = self.config.evaluator_model
+            content, meta = self._judge(evaluator.name, user_message, sys_prompt)
+            # The thinking looped until num_predict: the same model at temperature 0 usually loops again
+            if evaluator.fallback_model and meta["done_reason"] == "length" and not content.strip():
+                logger.warning("Evaluator ran out of tokens on %s, retrying with %s", qid, evaluator.fallback_model)
+                content, _ = self._judge(evaluator.fallback_model, user_message, sys_prompt)
 
             # Parse the LLM's JSON response (take the last block)
             result = self._parse_eval_response(content)
@@ -255,6 +253,18 @@ class EvaluationRunner:
             evaluated.append(row)
 
         return evaluated
+
+    def _judge(self, model: str, user_message: str, sys_prompt: str) -> tuple[str, dict]:
+        """One evaluator call: returns the response content and the Ollama metadata."""
+        content, _, _, meta = self.client.chat_with_metadata(
+            model=model,
+            query=user_message,
+            system_prompt=sys_prompt,
+            options=self.config.evaluator_model.ollama_options,
+            temperature=self.config.evaluator_model.temperature,
+            thinking=self.config.evaluator_model.supports_thinking,
+        )
+        return content, meta
 
     # ------------------------------------------------------------------
     # User message construction

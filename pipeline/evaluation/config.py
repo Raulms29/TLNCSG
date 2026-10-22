@@ -20,6 +20,8 @@ class EvaluatorModelConfig:
     ollama_options: dict[str, Any] = field(
         default_factory=lambda: {"num_predict": 4096, "num_ctx": 16384}
     )
+    # Model that retries a call whose thinking ran out of tokens without an answer
+    fallback_model: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> EvaluatorModelConfig:
@@ -30,6 +32,8 @@ class EvaluatorModelConfig:
             kwargs["supports_thinking"] = data["supports_thinking"]
         if "ollama_options" in data:
             kwargs["ollama_options"] = data["ollama_options"]
+        if "fallback_model" in data:
+            kwargs["fallback_model"] = data["fallback_model"]
         return cls(**kwargs)
 
 
