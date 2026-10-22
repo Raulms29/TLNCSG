@@ -64,6 +64,7 @@ def build_runner(config: Dict[str, Any], ollama_url: str) -> ValidationRunner:
         num_ctx=evaluator_cfg["num_ctx"],
         num_predict=evaluator_cfg["num_predict"],
         thinking=evaluator_cfg.get("thinking", False),
+        fallback_model=evaluator_cfg.get("fallback_model"),
         prompt_path=str(resolve(config["paths"]["evaluator_prompt"])),
     )
     return ValidationRunner(

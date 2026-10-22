@@ -24,6 +24,7 @@ class EvaluatorAgent:
         num_predict: int,
         prompt_path: str,
         thinking: bool = False,
+        fallback_model: Optional[str] = None,
     ):
         self.client = Client(ollama_url)
         self.model_name = model_name
@@ -31,6 +32,7 @@ class EvaluatorAgent:
         self.num_ctx = num_ctx
         self.num_predict = num_predict
         self.thinking = thinking
+        self.fallback_model = fallback_model
 
         # Load evaluator prompt directly from disk
         with open(prompt_path, "r", encoding="utf-8") as f:
@@ -61,6 +63,17 @@ class EvaluatorAgent:
         name = str(category or "").strip().lower()
         return next((known for known in ERROR_CATEGORIES if known.lower() == name), "Other")
 
+    def _chat(self, model: str, user_prompt: str, options: Dict[str, Any]) -> Any:
+        return self.client.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            options=options,
+            think=self.thinking,
+        )
+
     def evaluate(
         self,
         query_text: str,
@@ -88,16 +101,13 @@ class EvaluatorAgent:
         delay = 2.0
         for attempt in range(1, max_retries + 1):
             try:
-                response = self.client.chat(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": self.system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    options=options,
-                    think=self.thinking,
-                )
+                response = self._chat(self.model_name, user_prompt, options)
                 content = response.get("message", {}).get("content", "").strip()
+                # The thinking looped until num_predict: the same model at temperature 0 usually loops again
+                stuck = response.get("done_reason") == "length" and not content
+                if stuck and self.fallback_model:
+                    response = self._chat(self.fallback_model, user_prompt, options)
+                    content = response.get("message", {}).get("content", "").strip()
             except Exception as e:
                 # The judge could not be reached: raise instead of counting it as a verdict
                 if attempt == max_retries:
@@ -109,8 +119,8 @@ class EvaluatorAgent:
             try:
                 verdict = self._parse_verdict(content)
             except ValueError as e:
-                # An unparseable verdict counts as incorrect
-                if attempt == max_retries:
+                # An unparseable verdict counts as incorrect; a stuck call is not retried
+                if attempt == max_retries or stuck:
                     return False, "Other", f"Evaluation failed: {e}"
                 continue
 
