@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # Bootstrap: Add project root to path so absolute imports work
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -46,7 +46,7 @@ def add_file_logging(timestamp: str) -> None:
     logger.info("Logging to %s", run_dir / "autoresearch.log")
 
 
-def build_runner(config: Dict[str, Any], ollama_url: str, verdict_cache: Optional[Path] = None) -> ValidationRunner:
+def build_runner(config: Dict[str, Any], ollama_url: str) -> ValidationRunner:
     """The generator and the judge, and the runner that evaluates a prompt with them."""
     generator_cfg, evaluator_cfg = config["generator"], config["evaluator"]
     generator = GeneratorClient(
@@ -74,7 +74,7 @@ def build_runner(config: Dict[str, Any], ollama_url: str, verdict_cache: Optiona
         runs_per_query=generator_cfg.get("runs_per_query", 1),
         pass_threshold=config["acceptance"]["pass_threshold"],
         parallel_requests=config["loop_settings"].get("parallel_requests", 1),
-        verdict_cache_path=str(verdict_cache) if verdict_cache else None,
+        verdict_cache_path=str(resolve(config["paths"]["verdict_cache"])),
     )
 
 
@@ -124,7 +124,7 @@ def main():
     ollama_url = get_ollama_host()
     OptimizationLoop(
         config=config,
-        runner=build_runner(config, ollama_url, ARCHIVE_DIR / f"run_{timestamp}" / "verdict_cache.json"),
+        runner=build_runner(config, ollama_url),
         optimizer=build_optimizer(config, ollama_url),
         prompt_store=PromptStore(str(resolve(config["paths"]["generator_prompt"])), str(prompts_dir)),
         experiments=experiments,

@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 import logging
 import time
@@ -24,8 +25,8 @@ class ValidationRunner:
     """
     Orchestrates query generations and evaluations over the full validation dataset.
     Each query is run runs_per_query times; a query passes when the share of correct
-    runs reaches pass_threshold. An output judged earlier in the run keeps its verdict, so
-    an unchanged output cannot flip; the verdicts are saved to verdict_cache_path, if given.
+    runs reaches pass_threshold. An output judged before keeps its verdict, so an unchanged output
+    cannot flip; the verdicts are kept in verdict_cache_path, if given, shared by every run.
     """
 
     def __init__(
@@ -45,6 +46,7 @@ class ValidationRunner:
         self.pass_threshold = pass_threshold
         self.parallel_requests = max(1, parallel_requests)
         self.queries = self._load_queries()
+        self.ground_truth_hashes = {query.id: self._ground_truth_hash(query) for query in self.queries}
         self.cache_path = Path(verdict_cache_path) if verdict_cache_path else None
         self.verdicts = self._load_verdict_cache()
 
@@ -67,18 +69,31 @@ class ValidationRunner:
                 )
         return queries
 
+    @staticmethod
+    def _ground_truth_hash(query: Query) -> str:
+        solution = json.dumps(query.solution, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha1(solution.encode("utf-8")).hexdigest()[:12]
+
     def _load_verdict_cache(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
-        """Verdicts of the run by query ID and normalized output. The file can be edited to fix a wrong verdict."""
+        """Verdicts by query ID and normalized output. The verdicts of a query whose ground truth changed
+        since they were given are dropped. The file can be edited to fix a wrong verdict."""
         if not self.cache_path or not self.cache_path.exists():
             return {}
         data = json.loads(self.cache_path.read_text(encoding="utf-8"))
-        return {qid: {entry.pop("output"): entry for entry in entries} for qid, entries in data.items()}
+        return {
+            qid: {entry.pop("output"): entry for entry in item["verdicts"]}
+            for qid, item in data.items()
+            if item["ground_truth"] == self.ground_truth_hashes.get(qid)
+        }
 
     def _save_verdict_cache(self) -> None:
         if not self.cache_path:
             return
         data = {
-            qid: [{"output": output, **verdict} for output, verdict in outputs.items()]
+            qid: {
+                "ground_truth": self.ground_truth_hashes[qid],
+                "verdicts": [{"output": output, **verdict} for output, verdict in outputs.items()],
+            }
             for qid, outputs in sorted(self.verdicts.items())
         }
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +139,7 @@ class ValidationRunner:
                 distinct.setdefault((query.id, normalize_json_output(gen["candidate_raw"])), (query, gen))
         todo = {key: job for key, job in distinct.items() if key[1] not in self.verdicts.get(key[0], {})}
         logger.info(
-            "  Judging %d new distinct outputs of %d runs (%d judged earlier in the run)...",
+            "  Judging %d new distinct outputs of %d runs (%d already in the verdict cache)...",
             len(todo), len(jobs), len(distinct) - len(todo),
         )
 
