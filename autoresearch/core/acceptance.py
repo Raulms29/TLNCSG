@@ -21,11 +21,6 @@ def mean_rate(results: Results) -> float:
     return sum(result["rate"] for result in results.values()) / len(results) if results else 0.0
 
 
-def count_flips(first: Results, second: Results) -> int:
-    """Number of queries whose pass/fail verdict differs between two evaluations."""
-    return sum(first[qid]["passed"] != second[qid]["passed"] for qid in first)
-
-
 def pick_hidden(queries: List[Query], fraction: float, seed: int) -> List[str]:
     """
     Picks the queries hidden from the optimizer in one iteration, stratified by

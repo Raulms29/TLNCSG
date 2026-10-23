@@ -4,7 +4,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from autoresearch.core import Experiment
-from autoresearch.core.acceptance import count_flips, decide, mean_rate, net_change, pick_hidden, word_count
+from autoresearch.core.acceptance import decide, mean_rate, net_change, pick_hidden, word_count
 from autoresearch.core.constants import AUTORESEARCH_DIR
 from autoresearch.services import OptimizerAgent, PromptAssembler, ValidationRunner
 from autoresearch.services.runner import ValidationAborted
@@ -17,14 +17,14 @@ DISCARD_STATUSES = ("DISCARDED", "SKIPPED")
 STOP_FILE = AUTORESEARCH_DIR / "stop.txt"
 
 
-def trailing_discards(history: List[Experiment]) -> int:
-    """Number of discarded or skipped iterations since the last kept one."""
-    count = 0
+def rejected_since_keep(history: List[Experiment]) -> List[Experiment]:
+    """The discarded or skipped iterations since the last kept one, oldest first."""
+    rejected = []
     for exp in reversed(history):
         if exp.status not in DISCARD_STATUSES:
             break
-        count += 1
-    return count
+        rejected.insert(0, exp)
+    return rejected
 
 
 class OptimizationLoop:
@@ -40,7 +40,6 @@ class OptimizationLoop:
         run_timestamp: str,
     ):
         self.acceptance = config["acceptance"]
-        self.simplify = config["simplify"]
         self.loop_settings = config["loop_settings"]
         self.runner = runner
         self.optimizer = optimizer
@@ -61,13 +60,12 @@ class OptimizationLoop:
         self.score = 0.0
         self.prompt_path = ""
         self.iteration = 0
-        self.flips = 0
-        self.min_net_gain = 0
-        self.discards = 0
+        self.discards = 0  # optimize iterations rejected since the last kept change
+        self.simplify_next = False
 
     def run(self) -> None:
         self._start()
-        logger.info("Minimum net gain to keep a change: %d", self.min_net_gain)
+        logger.info("Minimum net gain to keep a change: %d", self.acceptance["min_net_gain"])
         logger.info("Entering optimization loop...")
         while not self._should_stop() and self._run_iteration():
             pass
@@ -85,63 +83,55 @@ class OptimizationLoop:
     # ------------------------------------------------------------------
 
     def _start(self) -> None:
-        """Restores the champion of a resumed run, or evaluates the baseline twice to set it."""
-        history = self.experiments.load_history()
+        """Restores the champion of a resumed run, or evaluates the baseline to set it."""
         champion = self.experiments.get_champion()
-        if champion and not champion.reference_results:
-            logger.error("experiments.json comes from an older version of autoresearch. Run with --reset.")
-            sys.exit(1)
-
         if champion:
-            calibration = next((exp for exp in history if exp.status == "CALIBRATION"), None)
-            self.flips = calibration.net if calibration else 0
             self.iteration = self.experiments.get_next_iteration_number()
             logger.info("Resuming optimization loop from iteration #%d.", self.iteration)
+            # The champion is evaluated again so verdicts fixed by hand in the verdict cache apply;
+            # its outputs are unchanged, so the judge is not called again
+            logger.info("Evaluating the champion again to read its verdicts from the verdict cache...")
+            _, self.results, _ = self._evaluate_champion(champion.iteration)
         else:
             champion = self._evaluate_baseline()
             self.iteration = 1
+            self.results = champion.reference_results
 
-        # Candidates are compared with the champion's two evaluations merged, not with the single one that got it kept
-        self.results = champion.reference_results
         self.score = mean_rate(self.results)
         self.prompt_path = champion.prompt_path
-        self.min_net_gain = max(self.acceptance["min_net_gain"], self.flips + 1)
         logger.info("Current champion: iteration #%d with mean correct rate %.4f", champion.iteration, self.score)
 
         # Restore the optimizer's memory of the changes rejected since the last kept prompt
         history = self.experiments.load_history()
-        self.discards = trailing_discards(history)
-        for exp in history[len(history) - self.discards:]:
+        rejected = rejected_since_keep(history)
+        self.discards = sum(exp.mode == "optimize" for exp in rejected)
+        self.simplify_next = history[-1].status == "KEEP" and history[-1].mode == "optimize"
+        for exp in rejected:
             if exp.instructions is not None:
-                self.optimizer.add_to_failure_history(self.instructions, exp.instructions, exp.net)
+                self.optimizer.add_to_failure_history(
+                    self.instructions, exp.instructions, exp.net, self._broken(exp.query_results)
+                )
 
     def _evaluate_baseline(self) -> Experiment:
-        """Evaluates the baseline twice: the merged results are the reference, the differences calibrate the noise."""
-        logger.info("=== Iteration #0 (baseline): evaluating the baseline prompt twice ===")
+        logger.info("=== Iteration #0 (baseline) ===")
+        score, results, log_file = self._evaluate_champion(0)
         prompt = self.assembler.assemble_prompt(self.prefix, self.instructions, self.suffix)
-        try:
-            score, results, log_file = self.runner.run_validation(prompt, 0, self.run_timestamp)
-            score_2, results_2, log_file_2 = self.runner.run_validation(prompt, 0, self.run_timestamp)
-        except ValidationAborted as e:
-            logger.error("%s. Stopping: run again to repeat the baseline.", e)
-            sys.exit(1)
-
-        self.flips = count_flips(results, results_2)
-        prompt_path = str(self.prompt_store.save_champion(0, prompt))
-        words = word_count(self.instructions)
         champion = Experiment(
-            iteration=0, score=score, delta=0.0, status="CHAMPION_INIT", prompt_path=prompt_path,
-            query_results=results, instructions_words=words, results_file=log_file,
-            reference_results=self.runner.merge_results(results, results_2), reevaluation_file=log_file_2,
+            iteration=0, score=score, delta=0.0, status="CHAMPION_INIT",
+            prompt_path=str(self.prompt_store.save_champion(0, prompt)), query_results=results,
+            instructions_words=word_count(self.instructions), results_file=log_file, reference_results=results,
         )
         self.experiments.log_experiment(champion)
-        self.experiments.log_experiment(Experiment(
-            iteration=0, score=score_2, delta=score_2 - score, status="CALIBRATION", prompt_path=prompt_path,
-            query_results=results_2, net=self.flips, instructions_words=words, results_file=log_file_2,
-            rationale=f"Baseline re-evaluated: {self.flips} queries flipped between two identical evaluations.",
-        ))
-        logger.info("Baseline established. Calibration flips: %d.", self.flips)
+        logger.info("Baseline established.")
         return champion
+
+    def _evaluate_champion(self, iteration: int) -> Tuple[float, Results, str]:
+        prompt = self.assembler.assemble_prompt(self.prefix, self.instructions, self.suffix)
+        try:
+            return self.runner.run_validation(prompt, iteration, self.run_timestamp)
+        except ValidationAborted as e:
+            logger.error("%s. Stopping: run again to repeat the champion evaluation.", e)
+            sys.exit(1)
 
     # ------------------------------------------------------------------
     # Iterations
@@ -172,6 +162,7 @@ class OptimizationLoop:
         )
         failures = self.runner.build_failures(self.results, excluded_ids=hidden_ids)
         mode = self._choose_mode(failures)
+        self.simplify_next = False
         logger.info("=== Iteration #%d (%s) ===", self.iteration, mode)
         logger.info("Champion mean correct rate: %.4f", self.score)
         logger.info("Failing queries shown to the optimizer: %d (%d queries hidden)", len(failures), len(hidden_ids))
@@ -197,14 +188,9 @@ class OptimizationLoop:
         return True
 
     def _choose_mode(self, failures: List[Dict[str, Any]]) -> str:
-        # With every failing query hidden there is nothing to address, so the iteration simplifies instead
-        if (
-            not failures
-            or self.iteration % self.simplify["every_n"] == 0
-            or self.discards == self.simplify["after_discards"]
-        ):
-            return "simplify"
-        return "optimize"
+        # A kept change is followed by one simplification; with every failing query hidden there is
+        # nothing to address, so the iteration simplifies instead
+        return "simplify" if self.simplify_next or not failures else "optimize"
 
     def _skip_reason(self, instructions: str, mode: str) -> Optional[str]:
         """Why a candidate cannot be kept without evaluating it, or None if it has to be evaluated."""
@@ -216,8 +202,7 @@ class OptimizationLoop:
 
     def _skip(self, instructions: str, rationale: str, reason: str, mode: str, hidden_ids: List[str]) -> None:
         logger.info("SKIPPED: %s.", reason)
-        self.optimizer.add_to_failure_history(self.instructions, instructions, net=0)
-        self.discards += 1
+        self._reject(instructions, 0, [], mode)
         self.experiments.log_experiment(Experiment(
             iteration=self.iteration, score=0.0, delta=0.0, status="SKIPPED", prompt_path=self.prompt_path,
             mode=mode, hidden_ids=hidden_ids, instructions_words=word_count(instructions),
@@ -240,44 +225,46 @@ class OptimizationLoop:
             score, net, net_hidden, words_before, words_after,
         )
 
-        # A candidate that meets the rule is evaluated a second time and kept only if it still meets it
-        # with both evaluations merged, so a lucky evaluation is not kept
-        reference: Optional[Results] = None
-        reevaluation_file = None
-        if decide(net, net_hidden, shorter, mode, self.min_net_gain):
-            logger.info("Candidate meets the acceptance rule: evaluating it a second time to confirm...")
-            _, results_2, reevaluation_file = self.runner.run_validation(prompt, self.iteration, self.run_timestamp)
-            merged = self.runner.merge_results(results, results_2)
-            net, net_hidden = self._net(merged, hidden_ids)
-            logger.info("Both evaluations merged | net: %+d | net on hidden queries: %+d", net, net_hidden)
-            if decide(net, net_hidden, shorter, mode, self.min_net_gain):
-                reference = merged
-
+        keep = decide(net, net_hidden, shorter, mode, self.acceptance["min_net_gain"])
         delta = score - self.score
-        if reference is not None:
+        if keep:
             status = "KEEP"
-            self._keep(instructions, prompt, reference)
+            self._keep(instructions, prompt, results, mode)
         else:
             status = "DISCARDED"
             logger.info("DISCARDED: the change does not meet the acceptance rule.")
-            self.optimizer.add_to_failure_history(self.instructions, instructions, net)
-            self.discards += 1
+            self._reject(instructions, net, self._broken(results), mode)
 
         # prompt_path is the new champion when kept, or the champion the candidate was compared against
         self.experiments.log_experiment(Experiment(
             iteration=self.iteration, score=score, delta=delta, status=status, prompt_path=self.prompt_path,
             mode=mode, query_results=results, hidden_ids=hidden_ids, net=net, net_hidden=net_hidden,
             instructions_words=words_after, instructions=instructions, rationale=rationale,
-            results_file=log_file, reference_results=reference, reevaluation_file=reevaluation_file,
+            results_file=log_file, reference_results=results if keep else None,
         ))
         logger.info("Iteration #%d logged to experiments.json.", self.iteration)
 
-    def _keep(self, instructions: str, prompt: str, reference: Results) -> None:
+    def _broken(self, results: Results) -> List[Dict[str, str]]:
+        """The queries the champion passes and a candidate fails, with the judge's rationale."""
+        return [
+            {"id": qid, "rationale": result["rationale"]}
+            for qid, result in results.items()
+            if self.results[qid]["passed"] and not result["passed"]
+        ]
+
+    def _reject(self, instructions: str, net: int, broken: List[Dict[str, str]], mode: str) -> None:
+        self.optimizer.add_to_failure_history(self.instructions, instructions, net, broken)
+        # Only optimize iterations count toward the stop: a simplification does not try to fix anything
+        if mode == "optimize":
+            self.discards += 1
+
+    def _keep(self, instructions: str, prompt: str, results: Results, mode: str) -> None:
         logger.info("KEEP: saving new champion prompt.")
         self.prompt_path = str(self.prompt_store.save_champion(self.iteration, prompt))
         self.optimizer.clear_failure_history()
         self.instructions = instructions
-        self.results = reference
-        self.score = mean_rate(reference)
+        self.results = results
+        self.score = mean_rate(results)
         self.discards = 0
-        logger.info("New champion mean correct rate over both evaluations: %.4f", self.score)
+        self.simplify_next = mode == "optimize"
+        logger.info("New champion mean correct rate: %.4f", self.score)

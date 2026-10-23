@@ -25,7 +25,6 @@ class Experiment:
         timestamp: Optional[str] = None,
         results_file: Optional[str] = None,
         reference_results: Optional[Dict[str, Dict[str, Any]]] = None,
-        reevaluation_file: Optional[str] = None,
     ):
         self.iteration = iteration
         self.score = score
@@ -42,9 +41,8 @@ class Experiment:
         self.rationale = rationale
         self.timestamp = timestamp or datetime.now().isoformat()
         self.results_file = results_file
-        # Champions only: both evaluations of the prompt merged, the reference later candidates are compared to
+        # Champions only: the results later candidates are compared to
         self.reference_results = reference_results or {}
-        self.reevaluation_file = reevaluation_file
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -59,7 +57,6 @@ class Experiment:
             "instructions_words": self.instructions_words,
             "prompt_path": self.prompt_path,
             "results_file": self.results_file,
-            "reevaluation_file": self.reevaluation_file,
             "hidden_ids": self.hidden_ids,
             "query_results": self.query_results,
             "reference_results": self.reference_results,
@@ -86,7 +83,6 @@ class Experiment:
             timestamp=data.get("timestamp"),
             results_file=data.get("results_file"),
             reference_results=data.get("reference_results", {}),
-            reevaluation_file=data.get("reevaluation_file"),
         )
 
     def __repr__(self) -> str:

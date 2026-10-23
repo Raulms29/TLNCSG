@@ -5,7 +5,7 @@ import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Iterable, Callable, Iterator
+from typing import List, Dict, Any, Tuple, Iterable, Callable, Iterator, Optional
 from autoresearch.core.query import Query
 from autoresearch.services.services_utils import _extract_json_text
 from autoresearch.services.generator import GeneratorClient
@@ -24,7 +24,8 @@ class ValidationRunner:
     """
     Orchestrates query generations and evaluations over the full validation dataset.
     Each query is run runs_per_query times; a query passes when the share of correct
-    runs reaches pass_threshold.
+    runs reaches pass_threshold. An output judged earlier in the run keeps its verdict, so
+    an unchanged output cannot flip; the verdicts are saved to verdict_cache_path, if given.
     """
 
     def __init__(
@@ -35,6 +36,7 @@ class ValidationRunner:
         runs_per_query: int = 1,
         pass_threshold: float = 0.8,
         parallel_requests: int = 1,
+        verdict_cache_path: Optional[str] = None,
     ):
         self.ground_truths_path = Path(ground_truths_path)
         self.generator = generator
@@ -43,6 +45,8 @@ class ValidationRunner:
         self.pass_threshold = pass_threshold
         self.parallel_requests = max(1, parallel_requests)
         self.queries = self._load_queries()
+        self.cache_path = Path(verdict_cache_path) if verdict_cache_path else None
+        self.verdicts = self._load_verdict_cache()
 
     def _load_queries(self) -> List[Query]:
         """Loads validation queries from the ground truths file."""
@@ -62,6 +66,23 @@ class ValidationRunner:
                     Query(q_id, query_text, q_data.get("solution", ""), q_data.get("rubric_features", []))
                 )
         return queries
+
+    def _load_verdict_cache(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Verdicts of the run by query ID and normalized output. The file can be edited to fix a wrong verdict."""
+        if not self.cache_path or not self.cache_path.exists():
+            return {}
+        data = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        return {qid: {entry.pop("output"): entry for entry in entries} for qid, entries in data.items()}
+
+    def _save_verdict_cache(self) -> None:
+        if not self.cache_path:
+            return
+        data = {
+            qid: [{"output": output, **verdict} for output, verdict in outputs.items()]
+            for qid, outputs in sorted(self.verdicts.items())
+        }
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self.cache_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def run_validation(
         self, system_prompt: str, iteration: int = 1, run_timestamp_str: str = ""
@@ -101,26 +122,37 @@ class ValidationRunner:
         for query in self.queries:
             for gen in generations[query.id]:
                 distinct.setdefault((query.id, normalize_json_output(gen["candidate_raw"])), (query, gen))
-        logger.info("  Judging %d distinct outputs of %d runs...", len(distinct), len(jobs))
+        todo = {key: job for key, job in distinct.items() if key[1] not in self.verdicts.get(key[0], {})}
+        logger.info(
+            "  Judging %d new distinct outputs of %d runs (%d judged earlier in the run)...",
+            len(todo), len(jobs), len(distinct) - len(todo),
+        )
 
-        # Verdicts arrive in query order: each query is summarized and logged as soon as its outputs are judged
-        pending = Counter(qid for qid, _ in distinct)
-        verdicts = {}
+        # Queries are summarized and logged in order, as soon as every output of the query has a verdict
+        pending = Counter(qid for qid, _ in todo)
+        queue = list(self.queries)
         runs_by_query = {}
         results = {}
+
+        def summarize_ready() -> None:
+            while queue and pending[queue[0].id] == 0:
+                qid = queue.pop(0).id
+                runs_by_query[qid] = [
+                    {**gen, **self.verdicts[qid][normalize_json_output(gen["candidate_raw"])]} for gen in generations[qid]
+                ]
+                results[qid] = self._summarize(runs_by_query[qid])
+                self._log_query(len(results), total_queries, qid, runs_by_query[qid])
+
         try:
-            for key, verdict in zip(distinct, self._run_parallel(lambda job: self._evaluate(*job), list(distinct.values()))):
-                verdicts[key] = verdict
-                qid = key[0]
+            summarize_ready()
+            for (qid, output), verdict in zip(todo, self._run_parallel(lambda job: self._evaluate(*job), list(todo.values()))):
+                self.verdicts.setdefault(qid, {})[output] = verdict
                 pending[qid] -= 1
-                if pending[qid] == 0:
-                    runs_by_query[qid] = [
-                        {**gen, **verdicts[(qid, normalize_json_output(gen["candidate_raw"]))]} for gen in generations[qid]
-                    ]
-                    results[qid] = self._summarize(runs_by_query[qid])
-                    self._log_query(len(results), total_queries, qid, runs_by_query[qid])
+                summarize_ready()
         except RuntimeError as e:
             raise ValidationAborted(str(e)) from e
+        finally:
+            self._save_verdict_cache()
 
         log_file = self._save_csv(runs_by_query, results, iteration, run_timestamp_str)
         mean_rate = sum(r["rate"] for r in results.values()) / len(results) if results else 0.0
@@ -141,18 +173,6 @@ class ValidationRunner:
             "  [%s/%d] %s — %s/%d | %s",
             str(idx).zfill(len(str(total))), total, qid, str(correct).zfill(width), len(runs), marks,
         )
-
-    def merge_results(
-        self, first: Dict[str, Dict[str, Any]], second: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Dict[str, Any]]:
-        """Combines two evaluations of the same prompt into one with twice the runs per query."""
-        merged = {}
-        for qid in first:
-            rate = (first[qid]["rate"] + second[qid]["rate"]) / 2
-            # Keep the error category and rationale of an evaluation where the query had wrong runs
-            failing = [result for result in (second[qid], first[qid]) if result["error_category"]]
-            merged[qid] = {**(failing[0] if failing else second[qid]), "rate": rate, "passed": rate >= self.pass_threshold}
-        return merged
 
     def build_failures(self, results: Dict[str, Dict[str, Any]], excluded_ids: Iterable[str] = ()) -> List[Dict[str, Any]]:
         """Lists the failing queries the optimizer may see, skipping the excluded (hidden) ones."""

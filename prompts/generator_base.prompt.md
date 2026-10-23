@@ -152,7 +152,7 @@ Identify genuine syntactic or structural ambiguity. If present, output each inte
 
 **Step 2. Identify Targets**
 
-* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`, or a `RELATIONSHIP`), a `CONDITION` or a `LIST`.
+* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`), a `CONDITION` or a `LIST`.
 
 **Step 3. Identify Entities**
 
@@ -221,7 +221,7 @@ Output:
 ]
 ```
 
-Input: "Identify the vehicles that are manufactured by Tesla or use hydrogen fuel
+Input: Identify the vehicles that are manufactured by Tesla or use hydrogen fuel
 Output:
 ```json
 [
@@ -633,7 +633,7 @@ Output:
     "constraint": {
       "left": { "attribute_name": "release_date", "of": "e2" },
       "operator": ">",
-      "right": "2020"
+      "right": "2020-12-31"
     }
   },
   {
@@ -647,15 +647,146 @@ Output:
         {
           "left": { "attribute_name": "release_date", "of": "e1" },
           "operator": ">",
-          "right": "2020"
+          "right": "2020-12-31"
         },
         {
           "left": { "attribute_name": "release_date", "of": "e2" },
           "operator": ">",
-          "right": "2020"
+          "right": "2020-12-31"
         }
       ]
     }
+  }
+]
+```
+
+Input: Which observatories have tracked more than 3 different comets discovered after 1990?
+Output:
+```json
+[
+  {
+    "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Observatory" },
+      { "id": "e2", "type": "Comet" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "tracked", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" },
+          "filter": {
+            "left": { "attribute_name": "discovery_year", "of": "e2" },
+            "operator": ">",
+            "right": 1990
+          },
+          "distinct": true
+        }
+      },
+      "operator": ">",
+      "right": 3
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Give me the list of distinct blood types of the donors registered at the Bergen Blood Bank
+Output:
+```json
+[
+  {
+    "target": [
+      { "attribute_name": "blood_type", "of": "e1" }
+    ],
+    "entities": [
+      { "id": "e1", "type": "Donor" },
+      { "id": "e2", "type": "BloodBank" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "registered_at", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e2" },
+      "operator": "=",
+      "right": "Bergen Blood Bank"
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Which airlines fly to every airport in Iceland and have never been fined by an aviation authority?
+Output:
+```json
+[
+  {
+    "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Airline" },
+      { "id": "e2", "type": "Airport" },
+      { "id": "e3", "type": "Country" },
+      { "id": "e4", "type": "AviationAuthority" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "flies_to", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "located_in", "from": "e2", "to": "e3" },
+      { "id": "r3", "role": "fined", "from": "e4", "to": "e1" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "name", "of": "e3" },
+          "operator": "=",
+          "right": "Iceland"
+        },
+        {
+          "list": {
+            "list": { "list_elements": "e2" }
+          },
+          "condition": "r1",
+          "quantifier_kind": "ALL"
+        },
+        { "not_condition": "r3" }
+      ]
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Which apartments have the same floor area as another apartment in their building?
+Output:
+```json
+[
+  {
+    "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Apartment" },
+      { "id": "e2", "type": "Apartment" },
+      { "id": "e3", "type": "Building" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "located_in", "from": "e1", "to": "e3" },
+      { "id": "r2", "role": "located_in", "from": "e2", "to": "e3" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "id", "of": "e1" },
+          "operator": "!=",
+          "right": { "attribute_name": "id", "of": "e2" }
+        },
+        {
+          "left": { "attribute_name": "floor_area", "of": "e1" },
+          "operator": "=",
+          "right": { "attribute_name": "floor_area", "of": "e2" }
+        }
+      ]
+    },
+    "distinct": true
   }
 ]
 ```

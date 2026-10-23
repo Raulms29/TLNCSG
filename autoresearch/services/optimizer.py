@@ -45,8 +45,11 @@ class OptimizerAgent:
         with open(prompt_path, "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
 
-    def add_to_failure_history(self, champion_instructions: str, rejected_instructions: str, net: int):
-        """Adds a rejected change, as a diff against the champion, to memory to prevent repeating it."""
+    def add_to_failure_history(
+        self, champion_instructions: str, rejected_instructions: str, net: int, broken: List[Dict[str, str]]
+    ):
+        """Adds a rejected change, as a diff against the champion with the queries it broke, to memory
+        to prevent repeating it."""
         diff = "\n".join(
             difflib.unified_diff(
                 champion_instructions.splitlines(),
@@ -56,7 +59,7 @@ class OptimizerAgent:
                 lineterm="",
             )
         )
-        self.failure_history.append({"net": net, "diff": diff or "(no change)"})
+        self.failure_history.append({"net": net, "diff": diff or "(no change)", "broken": broken})
         if len(self.failure_history) > self.memory_size:
             self.failure_history.pop(0)
 
@@ -84,12 +87,20 @@ class OptimizerAgent:
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks) if blocks else "None."
 
+    @staticmethod
+    def _format_rejected(idx: int, item: Dict[str, Any]) -> str:
+        text = f"Rejected change #{idx} (net queries fixed: {item['net']}):\n{item['diff']}"
+        if item["broken"]:
+            text += "\nQueries this change broke:\n" + "\n".join(
+                f"- Query {query['id']} | Evaluator rationale: {query['rationale']}" for query in item["broken"]
+            )
+        return text
+
     def _build_user_prompt(
         self, current_instructions: str, prompt_context: str, failures: List[Dict[str, Any]], mode: str
     ) -> str:
         history = "\n\n".join(
-            f"Rejected change #{idx} (net queries fixed: {item['net']}):\n{item['diff']}"
-            for idx, item in enumerate(self.failure_history, 1)
+            self._format_rejected(idx, item) for idx, item in enumerate(self.failure_history, 1)
         ) or "None."
 
         sections = [
