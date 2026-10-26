@@ -8,7 +8,7 @@ import streamlit as st
 
 from pipeline.review.components.data import Answer, Query, is_true
 from pipeline.review.components.views import render_output
-from pipeline.review.config import ERROR_CATEGORIES
+from pipeline.evaluation.error_categories import ERROR_CATEGORIES
 from pipeline.review.state import ReviewState
 
 CORRECT, INCORRECT = "✓ Correct", "✗ Incorrect"

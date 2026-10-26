@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pipeline.config_utils import known_fields, read_json
 from project_config import get_ollama_host
 
 
@@ -25,16 +25,7 @@ class EvaluatorModelConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> EvaluatorModelConfig:
-        kwargs = {"name": data["name"]}
-        if "temperature" in data:
-            kwargs["temperature"] = data["temperature"]
-        if "supports_thinking" in data:
-            kwargs["supports_thinking"] = data["supports_thinking"]
-        if "ollama_options" in data:
-            kwargs["ollama_options"] = data["ollama_options"]
-        if "fallback_model" in data:
-            kwargs["fallback_model"] = data["fallback_model"]
-        return cls(**kwargs)
+        return cls(**known_fields(cls, data))
 
 
 @dataclass
@@ -46,12 +37,7 @@ class DatasetPaths:
 
     @classmethod
     def from_dict(cls, data: dict) -> DatasetPaths:
-        kwargs = {}
-        if "ambrosia" in data:
-            kwargs["ambrosia"] = data["ambrosia"]
-        if "grailqa" in data:
-            kwargs["grailqa"] = data["grailqa"]
-        return cls(**kwargs)
+        return cls(**known_fields(cls, data))
 
 
 @dataclass
@@ -72,32 +58,9 @@ class EvaluationConfig:
 
     @classmethod
     def from_json(cls, path: str | Path) -> EvaluationConfig:
-        config_path = Path(path)
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-
-        with open(config_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        kwargs: dict[str, Any] = {
-            "evaluator_model": EvaluatorModelConfig.from_dict(
-                data.get("evaluator_model", {"name": "gemma4:26b"})
-            ),
-        }
-
-        if "dataset_paths" in data:
-            kwargs["dataset_paths"] = DatasetPaths.from_dict(data["dataset_paths"])
-
-        optional_keys = [
-            "output_dir",
-            "prompts_dir",
-            "max_retries",
-            "retry_wait_seconds",
-            "parallel_requests",
-            "ambrosia_qid_prefix",
-        ]
-        for key in optional_keys:
-            if key in data:
-                kwargs[key] = data[key]
-
-        return cls(**kwargs)
+        data = read_json(path)
+        return cls(**{
+            **known_fields(cls, data),
+            "evaluator_model": EvaluatorModelConfig.from_dict(data.get("evaluator_model", {"name": "gemma4:26b"})),
+            "dataset_paths": DatasetPaths.from_dict(data.get("dataset_paths", {})),
+        })

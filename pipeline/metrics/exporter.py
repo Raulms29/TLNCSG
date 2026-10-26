@@ -7,7 +7,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
 
 from .config import MetricsConfig
 from .stats import calculate_mcnemar, calculate_wilcoxon
@@ -132,14 +131,15 @@ class MetricsExporter:
         return results
 
     def _compute_mcnemar_tests(self, model: str, baseline: str, comp: str, merged: pd.DataFrame) -> list[dict]:
-        """Run McNemar's test for binary Pass@30 limits."""
-        y1 = (merged["Pass@30_base"] >= 0.99).astype(int).tolist()
-        y2 = (merged["Pass@30_comp"] >= 0.99).astype(int).tolist()
+        """Run McNemar's test on Pass@k at the largest k, as solved / not solved per query."""
+        metric = f"Pass@{max(self.config.k_values)}"
+        y1 = (merged[f"{metric}_base"] >= 0.99).astype(int).tolist()
+        y2 = (merged[f"{metric}_comp"] >= 0.99).astype(int).tolist()
         chi2, p_mcnemar = calculate_mcnemar(y1, y2)
         
         return [{
             "Model": model,
-            "Metric": "Pass@30",
+            "Metric": metric,
             f"Baseline ({self.config.reference_grammar})": baseline,
             "Comparison Grammar": comp,
             "Test Used": "McNemar",

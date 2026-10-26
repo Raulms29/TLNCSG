@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class AmbrosiaDataset(QueryDataset):
-    """Loads the Ambrosia dataset, filters out *vague* entries,
-    and supports deterministic stratified sampling by ``(ambig_type, domain)``.
+    """Loads the Ambrosia dataset, filters out *vague* entries, and supports
+    deterministic stratified sampling by ``(ambig_type, domain, num_interpretations)``.
     """
 
     def load(self, seed: int = 42) -> list[Query]:

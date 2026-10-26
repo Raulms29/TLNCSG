@@ -1,9 +1,9 @@
 import difflib
-import time
 import re
 from collections import defaultdict
 from typing import List, Dict, Any, Tuple
-from ollama import Client
+
+from pipeline.clients import OllamaClient
 
 OPTIMIZE_REQUEST = (
     "Based on the failing queries, propose the smallest change to the instructions that addresses them. "
@@ -32,12 +32,11 @@ class OptimizerAgent:
         prompt_path: str,
         thinking: bool = False,
     ):
-        self.client = Client(ollama_url)
+        self.client = OllamaClient(ollama_url)
         self.model_name = model_name
         self.temperature = temperature
-        self.num_ctx = num_ctx
-        self.num_predict = num_predict
-        self.memory_size = memory_size
+        self.options = {"num_ctx": num_ctx, "num_predict": num_predict}
+        self.memory_size= memory_size
         self.thinking = thinking
         self.failure_history: List[Dict[str, Any]] = []  # sliding window of rejected attempts
 
@@ -159,32 +158,13 @@ class OptimizerAgent:
         """
         user_prompt = self._build_user_prompt(current_instructions, prompt_context, failures, mode)
 
-        options = {
-            "temperature": self.temperature,
-            "num_ctx": self.num_ctx,
-            "num_predict": self.num_predict,
-        }
-
-        delay = 2.0
+        # Connection errors are retried by the client; a malformed answer is asked for again here
         for attempt in range(1, max_retries + 1):
+            content, _, _, _ = self.client.chat_with_metadata(
+                self.model_name, user_prompt, self.system_prompt, self.options, self.temperature, self.thinking
+            )
             try:
-                response = self.client.chat(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": self.system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    options=options,
-                    think=self.thinking,
-                )
-                content = response.get("message", {}).get("content", "").strip()
-                return self._clean_optimizer_output(content)
-            except Exception as e:
+                return self._clean_optimizer_output(content.strip())
+            except ValueError as e:
                 if attempt == max_retries:
-                    raise RuntimeError(
-                        f"Failed to generate optimized instructions: {str(e)}"
-                    )
-                time.sleep(delay)
-                delay *= 2.0
-
-        return current_instructions, ""
+                    raise RuntimeError(f"Failed to generate optimized instructions: {e}") from e

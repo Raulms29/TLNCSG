@@ -9,7 +9,12 @@ from scipy import stats
 
 
 def calc_pass_at_k(n: int, c: int, k: int) -> float:
-    """Calculate Pass@k: probability of at least one correct solution in k attempts."""
+    """Calculate Pass@k: probability of at least one correct solution in k attempts.
+
+    With fewer runs than k (n < k) it is the share of queries solved at least once in the n runs.
+    """
+    if c == 0:
+        return 0.0
     if n - c < k:
         return 1.0
     return 1.0 - (math.comb(n - c, k) / math.comb(n, k))

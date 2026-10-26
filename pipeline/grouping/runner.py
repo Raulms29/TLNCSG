@@ -76,7 +76,7 @@ class GroupingRunner:
         return output_root
 
     def _process_query_file(self, csv_file: Path, grammar: str) -> list[dict[str, Any]]:
-        """Reads a QX.csv file, groups the 30 runs, and returns grouped rows."""
+        """Reads a QX.csv file, groups its runs, and returns grouped rows."""
         runs = []
         with open(csv_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)

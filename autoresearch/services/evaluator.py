@@ -1,12 +1,10 @@
 import json
 import re
-import time
 from typing import Any, Dict, Optional, Tuple
 
-from ollama import Client
-
 from autoresearch.services.services_utils import _extract_json_text
-from pipeline.evaluation.error_categories import ERROR_CATEGORIES
+from pipeline.clients import OllamaClient
+from pipeline.evaluation.error_categories import canonical_category
 
 
 class EvaluatorAgent:
@@ -26,11 +24,10 @@ class EvaluatorAgent:
         thinking: bool = False,
         fallback_model: Optional[str] = None,
     ):
-        self.client = Client(ollama_url)
+        self.client = OllamaClient(ollama_url)
         self.model_name = model_name
         self.temperature = temperature
-        self.num_ctx = num_ctx
-        self.num_predict = num_predict
+        self.options = {"num_ctx": num_ctx, "num_predict": num_predict}
         self.thinking = thinking
         self.fallback_model = fallback_model
 
@@ -55,24 +52,12 @@ class EvaluatorAgent:
                 "rationale": rationale_match.group(1) if rationale_match else json_str,
             }
 
-    @staticmethod
-    def _normalize_category(correct: bool, category: Any) -> Optional[str]:
-        """Returns None for correct verdicts and the canonical category name (or 'Other') otherwise."""
-        if correct:
-            return None
-        name = str(category or "").strip().lower()
-        return next((known for known in ERROR_CATEGORIES if known.lower() == name), "Other")
-
-    def _chat(self, model: str, user_prompt: str, options: Dict[str, Any]) -> Any:
-        return self.client.chat(
-            model=model,
-            messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            options=options,
-            think=self.thinking,
+    def _chat(self, model: str, user_prompt: str) -> Tuple[str, Optional[str]]:
+        """One judge call: the answer and Ollama's done_reason. Raises RuntimeError if Ollama is unreachable."""
+        content, _, _, meta = self.client.chat_with_metadata(
+            model, user_prompt, self.system_prompt, self.options, self.temperature, self.thinking
         )
+        return content.strip(), meta["done_reason"]
 
     def evaluate(
         self,
@@ -92,29 +77,13 @@ class EvaluatorAgent:
             f"Return the verdict in strict JSON format:"
         )
 
-        options = {
-            "temperature": self.temperature,
-            "num_ctx": self.num_ctx,
-            "num_predict": self.num_predict,
-        }
-
-        delay = 2.0
+        # An unreachable judge raises RuntimeError from the client instead of counting as a verdict
         for attempt in range(1, max_retries + 1):
-            try:
-                response = self._chat(self.model_name, user_prompt, options)
-                content = response.get("message", {}).get("content", "").strip()
-                # The thinking looped until num_predict: the same model at temperature 0 usually loops again
-                stuck = response.get("done_reason") == "length" and not content
-                if stuck and self.fallback_model:
-                    response = self._chat(self.fallback_model, user_prompt, options)
-                    content = response.get("message", {}).get("content", "").strip()
-            except Exception as e:
-                # The judge could not be reached: raise instead of counting it as a verdict
-                if attempt == max_retries:
-                    raise RuntimeError(f"Judge request failed after {max_retries} attempts: {e}")
-                time.sleep(delay)
-                delay *= 2.0
-                continue
+            content, done_reason = self._chat(self.model_name, user_prompt)
+            # The thinking looped until num_predict: the same model at temperature 0 usually loops again
+            stuck = done_reason == "length" and not content
+            if stuck and self.fallback_model:
+                content, _ = self._chat(self.fallback_model, user_prompt)
 
             try:
                 verdict = self._parse_verdict(content)
@@ -126,8 +95,6 @@ class EvaluatorAgent:
 
             # Accept the boolean or its string form ("true")
             correct = str(verdict.get("correct")).strip().lower() == "true"
-            category = self._normalize_category(correct, verdict.get("error_category"))
+            category = None if correct else canonical_category(verdict.get("error_category"))
             rationale = str(verdict.get("rationale", "")).strip()
             return correct, category, rationale
-
-        return False, "Other", "Evaluation failed to complete."

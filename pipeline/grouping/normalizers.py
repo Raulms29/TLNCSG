@@ -6,6 +6,19 @@ import hashlib
 import json
 import re
 
+from pipeline.grammars import is_semgir
+
+
+def code_blocks(text: str, language: str = r"\w+") -> list[str]:
+    """The contents of the fenced code blocks of *text*, in order. *language* is the optional tag after the fence."""
+    return re.findall(rf"```(?:{language})?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+
+
+def last_code_block(text: str, language: str = r"\w+") -> str:
+    """The last fenced code block of *text* (a model may correct itself), or the whole text if there is none."""
+    blocks = code_blocks(text, language)
+    return blocks[-1] if blocks else text.strip()
+
 
 def normalize_json_output(raw_text: str) -> str:
     """Extracts JSON and normalizes it to guarantee deterministic string grouping.
@@ -17,9 +30,8 @@ def normalize_json_output(raw_text: str) -> str:
     if not isinstance(raw_text, str) or not raw_text.strip():
         return ""
 
-    # 1. Extract JSON (ignores surrounding conversational text). Take the LAST match.
-    matches = list(re.finditer(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_text, re.IGNORECASE))
-    extracted_text = matches[-1].group(1) if matches else raw_text.strip()
+    # 1. Extract JSON (ignores surrounding conversational text). Take the LAST block.
+    extracted_text = last_code_block(raw_text, "json")
 
     try:
         # 2. Parse to Python object
@@ -46,12 +58,7 @@ def normalize_code_output(raw_text: str, language: str) -> str:
     if not isinstance(raw_text, str) or not raw_text.strip():
         return ""
 
-    if language:
-        pattern = rf"```(?:{language})?\s*([\s\S]*?)\s*```"
-    else:
-        pattern = r"```(?:\w+)?\s*([\s\S]*?)\s*```"
-    matches = list(re.finditer(pattern, raw_text, re.IGNORECASE))
-    extracted_text = matches[-1].group(1) if matches else raw_text.strip()
+    extracted_text = last_code_block(raw_text, language or r"\w+")
 
     # Normalize consecutive whitespace but preserve the raw semantic text
     return re.sub(r"\s+", " ", extracted_text.strip())
@@ -59,8 +66,7 @@ def normalize_code_output(raw_text: str, language: str) -> str:
 
 def normalize_output(raw_text: str, grammar: str) -> str:
     """Routes the raw text to the appropriate normalizer based on grammar."""
-    grammar = grammar.lower()
-    if "sem_gir" in grammar or "semgir" in grammar:
+    if is_semgir(grammar):
         return normalize_json_output(raw_text)
     else:
         # Default for any other code-like grammar (SQUALL, GraphQ IR, etc)

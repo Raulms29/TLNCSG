@@ -8,9 +8,6 @@ class PromptAssembler:
     and merges updated instructions back with static parts (prefix, grammar, examples).
     """
 
-    def __init__(self):
-        pass
-
     def extract_instructions(self, full_prompt_content: str) -> Tuple[str, str, str]:
         """
         Splits the prompt content into prefix, instructions, and suffix.

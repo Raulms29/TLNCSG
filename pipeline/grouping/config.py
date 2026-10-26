@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pipeline.config_utils import known_fields, read_json
 from project_config import get_ollama_host
 
 
@@ -23,14 +23,7 @@ class GrouperModelConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> GrouperModelConfig:
-        kwargs = {"name": data["name"]}
-        if "temperature" in data:
-            kwargs["temperature"] = data["temperature"]
-        if "supports_thinking" in data:
-            kwargs["supports_thinking"] = data["supports_thinking"]
-        if "ollama_options" in data:
-            kwargs["ollama_options"] = data["ollama_options"]
-        return cls(**kwargs)
+        return cls(**known_fields(cls, data))
 
 
 @dataclass
@@ -47,28 +40,8 @@ class GroupingConfig:
 
     @classmethod
     def from_json(cls, path: str | Path) -> GroupingConfig:
-        config_path = Path(path)
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-
-        with open(config_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        kwargs: dict[str, Any] = {
-            "grouper_model": GrouperModelConfig.from_dict(
-                data.get("grouper_model", {"name": "gemma4:26b"})
-            )
-        }
-
-        optional_keys = [
-            "enable_llm_fallback",
-            "output_dir",
-            "max_retries",
-            "retry_wait_seconds",
-            "llm_fallback_max_group_size",
-        ]
-        for key in optional_keys:
-            if key in data:
-                kwargs[key] = data[key]
-
-        return cls(**kwargs)
+        data = read_json(path)
+        return cls(**{
+            **known_fields(cls, data),
+            "grouper_model": GrouperModelConfig.from_dict(data.get("grouper_model", {"name": "gemma4:26b"})),
+        })

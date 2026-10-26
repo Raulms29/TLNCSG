@@ -92,14 +92,5 @@ class Query:
         self.features = derive_features(solution)
         self.rubric_features = rubric_features or []
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "text": self.text,
-            "solution": self.solution,
-            "features": self.features,
-            "rubric_features": self.rubric_features,
-        }
-
     def __repr__(self) -> str:
         return f"Query(id={self.id}, features={self.features})"

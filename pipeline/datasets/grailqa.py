@@ -6,7 +6,6 @@ import json
 import logging
 import random
 from collections import defaultdict
-from pathlib import Path
 
 import pandas as pd
 
@@ -16,9 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class GrailQADataset(QueryDataset):
-    """Loads GrailQA, filters *compositional-generalization* entries,
-    deduplicates by canonical ``qid[:8]``, and performs stratified sampling
-    by ``(function, num_node, num_edge)``.
+    """Loads GrailQA, keeps one paraphrase per canonical ``qid[:8]``, and performs
+    stratified sampling by ``(function, num_node, num_edge)``.
     """
 
     def load(self, seed: int = 42) -> list[Query]:

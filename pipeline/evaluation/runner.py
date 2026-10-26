@@ -5,15 +5,16 @@ from __future__ import annotations
 import csv
 import json
 import logging
-import re
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 from pipeline.clients.ollama_client import OllamaClient
+from pipeline.grammars import prompt_for_grammar
+from pipeline.grouping.normalizers import last_code_block
 from .config import EvaluationConfig
-from .error_categories import ERROR_CATEGORIES
+from .error_categories import canonical_category
 from .ground_truth import GroundTruth, GroundTruthStore
 
 logger = logging.getLogger(__name__)
@@ -203,24 +204,7 @@ class EvaluationRunner:
                 evaluated.append(row)
                 continue
 
-            # Select the correct prompt dynamically
-            grammar_clean = grammar.upper()
-            dataset_clean = dataset.upper()
-            prompt_filename = f"EVAL_{grammar_clean}_{dataset_clean}.prompt.md"
-
-            sys_prompt = self._prompt_cache.get(prompt_filename)
-            if not sys_prompt:
-                # Fallback: substring match (e.g. semgir_notypes -> semgir)
-                for cached_name, cached_prompt in self._prompt_cache.items():
-                    # Must match dataset
-                    if dataset_clean not in cached_name:
-                        continue
-                    # Check if any known grammar base is in the current grammar
-                    base_grammar = cached_name.replace("EVAL_", "").replace(f"_{dataset_clean}.prompt.md", "").lower()
-                    if base_grammar in grammar_clean.lower():
-                        sys_prompt = cached_prompt
-                        break
-
+            sys_prompt = prompt_for_grammar(self._prompts_for_dataset(dataset), grammar)
             if not sys_prompt:
                 msg = f"Missing required evaluation prompt for '{grammar}' (dataset: {dataset}) in {self.prompts_dir}"
                 logger.error(msg)
@@ -253,6 +237,15 @@ class EvaluationRunner:
             evaluated.append(row)
 
         return evaluated
+
+    def _prompts_for_dataset(self, dataset: str) -> dict[str, str]:
+        """The evaluation prompts of one dataset keyed by grammar: EVAL_SEMGIR_GRAILQA.prompt.md -> semgir."""
+        suffix = f"_{dataset.upper()}.prompt.md"
+        return {
+            name[len("EVAL_"):-len(suffix)].lower(): prompt
+            for name, prompt in self._prompt_cache.items()
+            if name.endswith(suffix)
+        }
 
     def _judge(self, model: str, user_message: str, sys_prompt: str) -> tuple[str, dict]:
         """One evaluator call: returns the response content and the Ollama metadata."""
@@ -298,10 +291,7 @@ class EvaluationRunner:
     @staticmethod
     def _parse_eval_response(content: str) -> dict:
         """Extract the last JSON block from the LLM response."""
-        matches = list(
-            re.finditer(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
-        )
-        extracted = matches[-1].group(1) if matches else content.strip()
+        extracted = last_code_block(content, "json")
 
         # Hardening: extract just the JSON object bounds if there is garbage text around it
         if "{" in extracted and "}" in extracted:
@@ -326,12 +316,10 @@ class EvaluationRunner:
         """Map the judge's category to its canonical name ("" if correct, "Other" if unknown)."""
         if correct:
             return ""
-        name = str(value or "").strip().lower()
-        for category in ERROR_CATEGORIES:
-            if category.lower() == name:
-                return category
-        logger.warning("Evaluator returned unknown error category %r, using 'Other'.", value)
-        return "Other"
+        category = canonical_category(value)
+        if category == "Other" and str(value or "").strip().lower() != "other":
+            logger.warning("Evaluator returned unknown error category %r, using 'Other'.", value)
+        return category
 
     # ------------------------------------------------------------------
     # CSV output

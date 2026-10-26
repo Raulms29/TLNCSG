@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import json
-import re
 
 import streamlit as st
 
 from pipeline.evaluation.ground_truth import GroundTruth
-
-
-def _is_semgir(grammar: str) -> bool:
-    return "sem_gir" in grammar.lower() or "semgir" in grammar.lower()
+from pipeline.grammars import is_semgir
+from pipeline.grouping.normalizers import last_code_block
 
 
 # ------------------------------------------------------------------
@@ -29,11 +26,8 @@ def render_query(qid: str, text: str, n_answers: int) -> None:
 
 def _readable_output(output: str, grammar: str) -> str:
     """Strip code fences and, for SemGIR, pretty-print the JSON (key order kept)."""
-    output = output.strip()
-    matches = list(re.finditer(r"```(?:\w+)?\s*([\s\S]*?)\s*```", output))
-    if matches:
-        output = matches[-1].group(1).strip()
-    if _is_semgir(grammar):
+    output = last_code_block(output)
+    if is_semgir(grammar):
         try:
             return json.dumps(json.loads(output), indent=2, ensure_ascii=False)
         except json.JSONDecodeError:
@@ -44,7 +38,7 @@ def _readable_output(output: str, grammar: str) -> str:
 def render_output(row: dict, grammar: str) -> None:
     """The answer, readable: fences stripped, SemGIR JSON pretty-printed."""
     output = _readable_output(str(row.get("Representative Output", "")), grammar)
-    st.code(output, language="json" if _is_semgir(grammar) else "text", wrap_lines=True)
+    st.code(output, language="json" if is_semgir(grammar) else "text", wrap_lines=True)
 
 
 # ------------------------------------------------------------------

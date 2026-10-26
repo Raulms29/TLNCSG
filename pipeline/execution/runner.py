@@ -36,26 +36,19 @@ PER_QUERY_COLUMNS = [
     "Error",
 ]
 
-SUMMARY_PER_QUERY_COLUMNS = [
-    "QID",
-    "Query",
-    "Thinking",
-    "Runs",
-    "Mean Inference Time (s)",
-    "Std Inference Time (s)",
-    "Mean Prompt Tokens",
-    "Mean Completion Tokens",
-]
-
-SUMMARY_COLUMNS = [
-    "Thinking",
-    "Total Queries",
-    "Total Runs",
-    "Mean Inference Time (s)",
-    "Std Inference Time (s)",
-    "Mean Prompt Tokens",
-    "Mean Completion Tokens",
-]
+# Measurements summarized for a group of runs (per query, and per thinking mode), and their decimals
+SUMMARY_MEASURES = {
+    "Mean Inference Time (s)": ("Inference Time (s)", "mean"),
+    "Std Inference Time (s)": ("Inference Time (s)", "std"),
+    "Mean Prompt Tokens": ("Prompt Tokens", "mean"),
+    "Mean Completion Tokens": ("Completion Tokens", "mean"),
+}
+SUMMARY_DECIMALS = {
+    "Mean Inference Time (s)": 4,
+    "Std Inference Time (s)": 4,
+    "Mean Prompt Tokens": 1,
+    "Mean Completion Tokens": 1,
+}
 
 
 # --------------------------------------------------------------------------
@@ -115,6 +108,8 @@ class ExecutionRunner:
         self.config = config
         self.client = client
         self.queries = queries
+        self._current_warmed_up_model: str | None = None
+        self._unsaved_queries = 0  # queries with a failed run, left for a resume
 
     # ------------------------------------------------------------------
     # Public API
@@ -170,8 +165,6 @@ class ExecutionRunner:
 
         enabled_models = self.config.enabled_models
 
-        self._current_warmed_up_model = None
-
         for model_idx, model_cfg in enumerate(enabled_models, 1):
             logger.info(
                 "--- Model: %s (%s) [%d/%d] ---",
@@ -204,6 +197,12 @@ class ExecutionRunner:
         final_dir = output_root_parent / final_name
 
         logger.info("=== Execution finished: %s ===", final_name)
+        if self._unsaved_queries:
+            logger.warning(
+                "%d queries had failed runs and were not saved: run again with --resume-dir %s",
+                self._unsaved_queries,
+                final_dir,
+            )
         # Clean up the file handler
         logging.getLogger().removeHandler(file_handler)
         file_handler.close()
@@ -255,7 +254,7 @@ class ExecutionRunner:
                     continue
 
                 # Trigger lazy warmup if this is the first actual work for this model
-                if getattr(self, "_current_warmed_up_model", None) != model_cfg.name:
+                if self._current_warmed_up_model != model_cfg.name:
                     self.client.warmup(
                         model=model_cfg.name,
                         system_prompt=system_prompt,
@@ -278,6 +277,20 @@ class ExecutionRunner:
                     system_prompt=system_prompt,
                     thinking=thinking,
                 )
+
+                # A failed run is not a model answer: leave the query unsaved so a resume runs it again
+                failed = sum(1 for record in records if record["Error"])
+                if failed:
+                    logger.error(
+                        "      [%d/%d] %s — %d/%d runs failed, not saved: resume the execution to retry it",
+                        q_idx,
+                        len(self.queries),
+                        query.id,
+                        failed,
+                        len(records),
+                    )
+                    self._unsaved_queries += 1
+                    continue
 
                 # Save per-query CSV
                 pd.DataFrame(records, columns=PER_QUERY_COLUMNS).to_csv(
@@ -380,53 +393,18 @@ class ExecutionRunner:
         # ---- Per-query summary ----
         per_query = (
             df.groupby(["QID", "Query", "Thinking"])
-            .agg(
-                Runs=("Run", "count"),
-                **{
-                    "Mean Inference Time (s)": ("Inference Time (s)", "mean"),
-                    "Std Inference Time (s)": ("Inference Time (s)", "std"),
-                    "Mean Prompt Tokens": ("Prompt Tokens", "mean"),
-                    "Mean Completion Tokens": ("Completion Tokens", "mean"),
-                },
-            )
+            .agg(Runs=("Run", "count"), **SUMMARY_MEASURES)
             .reset_index()
+            .round(SUMMARY_DECIMALS)
         )
-        per_query = per_query.round(
-            {
-                "Mean Inference Time (s)": 4,
-                "Std Inference Time (s)": 4,
-                "Mean Prompt Tokens": 1,
-                "Mean Completion Tokens": 1,
-            }
-        )
-        per_query.to_csv(
-            model_dir / "summary_per_query.csv",
-            index=False,
-            encoding="utf-8",
-        )
+        per_query.to_csv(model_dir / "summary_per_query.csv", index=False, encoding="utf-8")
 
         # ---- Overall summary (one row per thinking mode) ----
         overall = (
             df.groupby("Thinking")
-            .agg(
-                **{
-                    "Total Queries": ("QID", "nunique"),
-                    "Total Runs": ("Run", "count"),
-                    "Mean Inference Time (s)": ("Inference Time (s)", "mean"),
-                    "Std Inference Time (s)": ("Inference Time (s)", "std"),
-                    "Mean Prompt Tokens": ("Prompt Tokens", "mean"),
-                    "Mean Completion Tokens": ("Completion Tokens", "mean"),
-                },
-            )
+            .agg(**{"Total Queries": ("QID", "nunique"), "Total Runs": ("Run", "count")}, **SUMMARY_MEASURES)
             .reset_index()
-        )
-        overall = overall.round(
-            {
-                "Mean Inference Time (s)": 4,
-                "Std Inference Time (s)": 4,
-                "Mean Prompt Tokens": 1,
-                "Mean Completion Tokens": 1,
-            }
+            .round(SUMMARY_DECIMALS)
         )
         overall.to_csv(model_dir / "summary.csv", index=False, encoding="utf-8")
 

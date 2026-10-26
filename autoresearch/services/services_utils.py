@@ -1,5 +1,6 @@
 import json
-import re
+
+from pipeline.grouping.normalizers import code_blocks
 
 def _extract_json_text(text: str) -> str:
     """Extract JSON content, preferring the last fenced ```json block or last balanced curly brace structure when present."""
@@ -8,7 +9,7 @@ def _extract_json_text(text: str) -> str:
     text_str = str(text).strip()
     
     # 1. Try to find all markdown blocks and evaluate the last one
-    blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text_str, re.IGNORECASE)
+    blocks = code_blocks(text_str, "json")
     if blocks:
         for block in reversed(blocks):
             cleaned = block.strip()
@@ -46,10 +47,4 @@ def _extract_json_text(text: str) -> str:
                     except Exception:
                         pass
 
-    # 4. Fallback to original regex behavior or text strip
-    match = re.search(
-        r"```(?:json)?\s*(.*?)\s*```", text_str, flags=re.IGNORECASE | re.DOTALL
-    )
-    if match:
-        return match.group(1).strip()
     return text_str

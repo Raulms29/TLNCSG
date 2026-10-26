@@ -46,18 +46,19 @@ class OllamaClient:
     # ------------------------------------------------------------------
 
     def _chat_with_retry(self, **kwargs) -> dict:
-        """Execute an Ollama chat call, retrying on transient failures."""
+        """Execute an Ollama chat call, retrying on transient failures.
+
+        Raises RuntimeError once every attempt failed: an unreachable server must not
+        look like an empty answer from the model.
+        """
         for attempt in range(self._max_retries):
             try:
                 return self._client.chat(**kwargs)
             except Exception as e:
                 if attempt == self._max_retries - 1:
-                    logger.error(
-                        "Ollama call failed after %d attempts: %s",
-                        self._max_retries,
-                        e,
-                    )
-                    return {"message": {"content": ""}}
+                    raise RuntimeError(
+                        f"Ollama call failed after {self._max_retries} attempts: {e}"
+                    ) from e
                 logger.warning(
                     "Ollama call failed (attempt %d/%d): %s. "
                     "Retrying in %d seconds …",
@@ -67,7 +68,7 @@ class OllamaClient:
                     self._wait_seconds,
                 )
                 time.sleep(self._wait_seconds)
-        return {"message": {"content": ""}}
+        raise RuntimeError("max_retries must be at least 1")
 
     # ------------------------------------------------------------------
     # High-level helpers

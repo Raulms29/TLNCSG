@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -51,14 +50,3 @@ class PromptStore:
                 return f.read()
 
         return None
-
-    def get_prompt_path(self, version: int) -> Path:
-        """Returns the path to a specific versioned champion prompt."""
-        return self.prompts_dir / f"champion_v{version}.prompt.md"
-
-    def get_latest_prompt_path(self) -> Path:
-        """Returns the path to the latest champion prompt, falling back to the baseline path."""
-        latest_path = self.prompts_dir / "champion_latest.prompt.md"
-        if latest_path.exists():
-            return latest_path
-        return self.generator_prompt_path

@@ -66,7 +66,8 @@ class Unroller:
                     
                     time_tokens_map[(qid, thinking)] = {
                         "Inference Time (s)": row.get("Mean Inference Time (s)", 0.0),
-                        "Completion Tokens": row.get("Mean Completion Tokens", 0.0)
+                        "Completion Tokens": row.get("Mean Completion Tokens", 0.0),
+                        "Runs": row.get("Runs", 0),
                     }
             except Exception as e:
                 logger.warning("Failed to read %s: %s", summary_csv, e)
@@ -94,6 +95,9 @@ class Unroller:
         h_coverage = self._calculate_hypothesis_coverage(qid, rows, n)
         
         tt = time_tokens_map.get((qid, thinking), {})
+        # The review export keeps only reviewed groups: a partly reviewed query is scored on fewer runs
+        if n < int(tt.get("Runs", 0) or 0):
+            logger.warning("%s %s %s: only %d of %d runs are reviewed", grammar, model, qid, n, int(tt["Runs"]))
         inf_time = tt.get("Inference Time (s)", 0.0)
         tokens = tt.get("Completion Tokens", 0.0)
         

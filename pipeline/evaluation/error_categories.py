@@ -14,3 +14,9 @@ ERROR_CATEGORIES = [
     "Syntax/format error",
     "Other",
 ]
+
+
+def canonical_category(value) -> str:
+    """The canonical name of the error category a judge gave, matched without case; "Other" if unknown."""
+    name = str(value or "").strip().lower()
+    return next((category for category in ERROR_CATEGORIES if category.lower() == name), "Other")

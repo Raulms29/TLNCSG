@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 
 from pipeline.clients.ollama_client import OllamaClient
+from pipeline.grammars import prompt_for_grammar
 from .config import GrouperModelConfig
+from .normalizers import last_code_block
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +32,7 @@ class LLMGrouper:
             "Are Output A and Output B equivalent? Respond with a JSON block."
         )
 
-        sys_prompt = self.system_prompts.get(grammar.lower())
-        
-        # Try substring match (for ablation tests like 'semgir_notypes' -> 'semgir')
-        if not sys_prompt:
-            for known_grammar, prompt in self.system_prompts.items():
-                if known_grammar in grammar.lower():
-                    sys_prompt = prompt
-                    break
-
+        sys_prompt = prompt_for_grammar(self.system_prompts, grammar)
         if not sys_prompt:
             logger.warning("No system prompt found for grammar '%s'. LLM fallback skipped.", grammar)
             return False
@@ -53,9 +46,8 @@ class LLMGrouper:
             thinking=self.config.supports_thinking,
         )
 
-        # Manually extract the JSON block. Take the LAST match in case it self-corrected.
-        matches = list(re.finditer(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE))
-        extracted_text = matches[-1].group(1) if matches else content.strip()
+        # Take the LAST block in case it self-corrected
+        extracted_text = last_code_block(content, "json")
 
         try:
             result = json.loads(extracted_text)

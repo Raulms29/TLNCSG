@@ -48,6 +48,7 @@ class ValidationRunner:
         self.queries = self._load_queries()
         self.ground_truth_hashes = {query.id: self._ground_truth_hash(query) for query in self.queries}
         self.cache_path = Path(verdict_cache_path) if verdict_cache_path else None
+        self.other_verdicts: Dict[str, Any] = {}  # cache entries of queries outside this run
         self.verdicts = self._load_verdict_cache()
 
     def _load_queries(self) -> List[Query]:
@@ -76,10 +77,12 @@ class ValidationRunner:
 
     def _load_verdict_cache(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Verdicts by query ID and normalized output. The verdicts of a query whose ground truth changed
-        since they were given are dropped. The file can be edited to fix a wrong verdict."""
+        since they were given are dropped. The file can be edited to fix a wrong verdict.
+        Entries of queries outside this run are kept as they are and written back on save."""
         if not self.cache_path or not self.cache_path.exists():
             return {}
         data = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.other_verdicts = {qid: item for qid, item in data.items() if qid not in self.ground_truth_hashes}
         return {
             qid: {entry.pop("output"): entry for entry in item["verdicts"]}
             for qid, item in data.items()
@@ -94,8 +97,9 @@ class ValidationRunner:
                 "ground_truth": self.ground_truth_hashes[qid],
                 "verdicts": [{"output": output, **verdict} for output, verdict in outputs.items()],
             }
-            for qid, outputs in sorted(self.verdicts.items())
+            for qid, outputs in self.verdicts.items()
         }
+        data = dict(sorted({**self.other_verdicts, **data}.items()))
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         self.cache_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
