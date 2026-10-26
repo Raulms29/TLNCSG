@@ -168,7 +168,7 @@ Identify genuine syntactic or structural ambiguity. If present, output each inte
 
 * `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
   * Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
-  * If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
+  * If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `=` `COMPARISON` in `constraint`.
 
 **Step 6. Shape Results**
 
