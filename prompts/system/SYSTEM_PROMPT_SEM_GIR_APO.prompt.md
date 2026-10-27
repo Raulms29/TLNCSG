@@ -148,62 +148,43 @@ BOOLEAN := true | false
 ## INSTRUCTIONS
 
 **Step 1. Form Hypotheses**
-Identify genuine syntactic or structural ambiguity. If present, output each interpretation as a separate hypothesis in `HYPOTHESES_SET`; otherwise, output one hypothesis. A new hypothesis branch is required whenever any of the following holds:
-* The same noun in the query can plausibly map to **different entity types** (e.g., rock could be a music genre or a stone).
-* A proper noun or key term can occupy **different semantic roles** in the graph (e.g., Amazon could be a company or a river or a region).
-* The same semantic relation can be modeled via **alternative topologies** (e.g., as a direct attribute on one entity vs. as a relationship to a separate entity).
-Each hypothesis must be an internally consistent, complete query. Do NOT merge distinct interpretations into a single query using `AND`/`OR` when they represent independent structural readings.
+Identify genuine syntactic or structural ambiguity. If present, output each interpretation as a separate hypothesis in `HYPOTHESES_SET`; otherwise, output one hypothesis.
 
 **Step 2. Identify Targets**
 
-* `target`: Identify the elements the user is actually asking for (the **unknown** or **to-be-returned** entities/values). Valid target elements are: an `ENTITY_ID`, a `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (such as an `ATTRIBUTE`, a `SCALAR_AGGREGATE`, or a `COUNT`), a `CONDITION`, or a `LIST`.
-* **Direction of inquiry (anchor vs. target):** The entity that is **named, specific, or used as a filter** in the query is the *anchor* — it appears in `entities` and is pinned down in `constraint`, and is **never** the target. The entity that is **generic, unspecified, or being sought** ("find a …", "what …", "list all …") is the *target*. Always target the unknown side of the relationship, not the known side.
-* **Property-target rule:**
-  1. Identify the **interrogative noun** — the head noun of the phrase the user is asking for (e.g., "What are the **hobbies** of …?" → *hobbies*; "List the **names** of …?" → *names*; "Which **actors** …?" → *actors*).
-  2. **Branch A — the interrogative noun names a property, measure, or classification** (salary, nationality, name, date, price, weight, age, earnings, color, genre, etc.):
-     * The `target` MUST be an `ATTRIBUTE` expression (e.g., `{ attribute_name: "name", of: "e_actor" }`), or a `SCALAR_AGGREGATE` / `COUNT` whose `map_expression` / `list_elements` reference **that attribute**, NOT the entity.
-     * **Forbidden:** Setting the target to the entity that *has* the property, whether directly (`target: ["e_actor"]`) or wrapped in a `LIST` (`target: [{ list: { list_elements: "e_actor" } }]`).
-     * The entity that owns the property still appears in `entities` and participates in `constraint` and `relationships`, but it is the **anchor**, not the target.
-  3. **Branch B — the interrogative noun names a kind of entity** (actors, countries, directors, films, researchers etc.) and the user asks to "find", "list", "show", or "which" those entities themselves:
-     * The `target` is the `ENTITY_ID` (or a `LIST` of entity IDs if the user explicitly requests a list).
-* **Self-check before finalizing:** Re-read the user's question. If the target you wrote is an entity ID or a list of entity IDs, but the the target is actually a property (salary, name, date, year, etc.), **you have made a mistake**.
+* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`), a `CONDITION` or a `LIST`.
 
 **Step 3. Identify Entities**
 
 * Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
-* Assign a concrete `type` representing the **schema-level node type** (e.g., `Animal`, `Product`, `Person`, `Organization`, `Location`). Do NOT use a domain sub-category or taxonomic classification as the `type`; express such classifications as attribute comparisons in `constraint` instead.
-* **Closed schema & reference integrity:** The `QUERY` object accepts only the fields defined in the grammar (`target`, `entities`, `relationships`, `paths`, `constraint`, `distinct`, `order_by`, `limit`, `skip`). Do NOT introduce additional or ad-hoc fields. Every `ENTITY_ID` referenced anywhere in the query (in `relationships`, `paths`, `constraint`, `target`, any `LIST`/`EXPRESSION`) MUST be declared in the `entities` array of the same query. There is no secondary or auxiliary entity list.
+* Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
 
 **Step 4. Extract Relationships & Paths**
 
-* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels (e.g., `built`, `wrote`, `acted_in`, `knows`).
-* **Directionality:** After assigning `from` and `to`, read the sentence "`[from-entity]` [role] `[to-entity]`". The resulting phrase must be grammatically and semantically coherent and must match the intended meaning of the query. If the sentence is nonsensical or inverts the intended relationship, swap `from` and `to`. For example, with role `father_of`, the correct reading is "[person] is the father_of [child]", so `from` = the father, `to` = the child.
-* **Properties of the relationship:** If the query references a property of the relationship itself (e.g., "the year of the marriage"), model that property as an `ATTRIBUTE` with `of` set to the **`RELATIONSHIP_ID`**.
-* `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections). A `PATH` spans multiple hops filtered by roles.
-* **Filtering intermediate path nodes:** When a constraint applies to an intermediate node extracted from a path (e.g., "a path … that does NOT pass through a town with more than 1000 inhabitants"), use the `NODES` construct to bind the extracted nodes to a fresh `node_id`, then apply the condition via the `LIST.filter` on that `NODES` list (or via a `QUANTIFIER_PREDICATE` whose `list` is that `NODES` list). Do NOT introduce an additional standalone `ENTITY` and relate it to the path nodes through a `COMPARISON`; the `NODES` binding is the idiomatic and structurally minimal way to reference and filter path intermediates.
+* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels. (e.g., `built`, `wrote`, `acted_in`, `knows`).
+* `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections). A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`, and evaluate its length (hops) or weight (attributes) by applying `COUNT` or `SCALAR_AGGREGATE`.
 
 **Step 5. Build Constraints**
 
 * `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
   * Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
   * If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
-* **Negation of a relationship's existence:** When the query says an entity does NOT stand in a relationship to another ("not married", "without a father", "no connection to"), wrap the `RELATIONSHIP_ID` directly with `NOT` (e.g., `{ not_condition: "r1" }`), or use a `QUANTIFIER_PREDICATE` with `NONE` over a `LIST`. Do NOT use a regex match or a `CONTAINS` check on an attribute to express that no edge exists.
 
 **Step 6. Shape Results**
 
 * Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
-* **Distinct placement:** When the final target of the query is a `LIST` and the user requests unique values ("distinct codes", "unique names"), set `distinct: true` at the **root level** of the `QUERY`. Reserve the `distinct` field inside a `LIST` object only for sub-lists that are intermediate results used within an aggregation or quantifier, not for the final returned list.
-* **Ordinal positioning:** When the query specifies a position in an ordered sequence (e.g., "the fifth", "the Nth", "the last", "the most recent"), determine that position structurally via `order_by` (on the relevant temporal or ordinal attribute) combined with `skip` and `limit` (e.g., fifth = `skip: 4, limit: 1`). Do NOT invent a non-existent ordinal-number attribute to encode the position.
+* Positional references ("the Nth") and superlatives ("the most", "the least", "the shortest", "the longest") are expressed as `order_by` in the appropriate direction combined with `limit: 1` (plus `skip` for an N-th position). Do not encode them as an attribute comparison or a `MIN`/`MAX` aggregate.
 
 **Step 7. Apply Quantifiers and Aggregations (Lists)**
 
 * Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
-* **Critical scoping rule:** Every semantic qualifier in the query that narrows the population over which the aggregation or quantifier operates (e.g., an age, a category, a threshold) MUST appear inside the `LIST.filter` so that the aggregate/quantifier is computed over the correct subset. Do not apply an aggregation over the full unfiltered set when the query intends a restricted scope.
 * **Aggregations** (produce a value):
-  * `COUNT`: counts the number of elements in a `LIST`. The `COUNT` object has a single field `count` whose value is a `LIST` object. Correct shape: `{ count: { list: { list_elements: "e1", filter: { ... } } } }`.
+  * `COUNT`: counts the number of elements in a `LIST`.
   * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
+  * Set `distinct: true` on the `LIST` inside a `COUNT` or `SCALAR_AGGREGATE` when the same entity can match the list through more than one relationship instance, or when the query specifies different/unique elements, to prevent overcounting.
 * **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
   * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
+  * When the query states that a property holds for at least one, all, or none of a set of related entities, express it as a `QUANTIFIER_PREDICATE` over that set rather than introducing a separate unquantified entity and conjoining it with `AND`.
 
 ---
 
@@ -243,7 +224,7 @@ Output:
 ]
 ```
 
-Input: "Identify the vehicles that are manufactured by Tesla or use hydrogen fuel
+Input: Identify the vehicles that are manufactured by Tesla or use hydrogen fuel
 Output:
 ```json
 [
@@ -655,7 +636,7 @@ Output:
     "constraint": {
       "left": { "attribute_name": "release_date", "of": "e2" },
       "operator": ">",
-      "right": "2020"
+      "right": "2020-12-31"
     }
   },
   {
@@ -669,15 +650,146 @@ Output:
         {
           "left": { "attribute_name": "release_date", "of": "e1" },
           "operator": ">",
-          "right": "2020"
+          "right": "2020-12-31"
         },
         {
           "left": { "attribute_name": "release_date", "of": "e2" },
           "operator": ">",
-          "right": "2020"
+          "right": "2020-12-31"
         }
       ]
     }
+  }
+]
+```
+
+Input: Which observatories have tracked more than 3 different comets discovered after 1990?
+Output:
+```json
+[
+  {
+    "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Observatory" },
+      { "id": "e2", "type": "Comet" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "tracked", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": {
+        "count": {
+          "list": { "list_elements": "e2" },
+          "filter": {
+            "left": { "attribute_name": "discovery_year", "of": "e2" },
+            "operator": ">",
+            "right": 1990
+          },
+          "distinct": true
+        }
+      },
+      "operator": ">",
+      "right": 3
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Give me the list of distinct blood types of the donors registered at the Bergen Blood Bank
+Output:
+```json
+[
+  {
+    "target": [
+      { "attribute_name": "blood_type", "of": "e1" }
+    ],
+    "entities": [
+      { "id": "e1", "type": "Donor" },
+      { "id": "e2", "type": "BloodBank" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "registered_at", "from": "e1", "to": "e2" }
+    ],
+    "constraint": {
+      "left": { "attribute_name": "name", "of": "e2" },
+      "operator": "=",
+      "right": "Bergen Blood Bank"
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Which airlines fly to every airport in Iceland and have never been fined by an aviation authority?
+Output:
+```json
+[
+  {
+    "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Airline" },
+      { "id": "e2", "type": "Airport" },
+      { "id": "e3", "type": "Country" },
+      { "id": "e4", "type": "AviationAuthority" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "flies_to", "from": "e1", "to": "e2" },
+      { "id": "r2", "role": "located_in", "from": "e2", "to": "e3" },
+      { "id": "r3", "role": "fined", "from": "e4", "to": "e1" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "name", "of": "e3" },
+          "operator": "=",
+          "right": "Iceland"
+        },
+        {
+          "list": {
+            "list": { "list_elements": "e2" }
+          },
+          "condition": "r1",
+          "quantifier_kind": "ALL"
+        },
+        { "not_condition": "r3" }
+      ]
+    },
+    "distinct": true
+  }
+]
+```
+
+Input: Which apartments have the same floor area as another apartment in their building?
+Output:
+```json
+[
+  {
+    "target": [ "e1" ],
+    "entities": [
+      { "id": "e1", "type": "Apartment" },
+      { "id": "e2", "type": "Apartment" },
+      { "id": "e3", "type": "Building" }
+    ],
+    "relationships": [
+      { "id": "r1", "role": "located_in", "from": "e1", "to": "e3" },
+      { "id": "r2", "role": "located_in", "from": "e2", "to": "e3" }
+    ],
+    "constraint": {
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "id", "of": "e1" },
+          "operator": "!=",
+          "right": { "attribute_name": "id", "of": "e2" }
+        },
+        {
+          "left": { "attribute_name": "floor_area", "of": "e1" },
+          "operator": "=",
+          "right": { "attribute_name": "floor_area", "of": "e2" }
+        }
+      ]
+    },
+    "distinct": true
   }
 ]
 ```
