@@ -3,7 +3,7 @@ from pipeline.clients import OllamaClient
 
 class GeneratorClient:
     """
-    Calls the generator model, the parser whose prompt is being optimized, via Ollama.
+    Calls the generator model via Ollama.
     """
 
     def __init__(
@@ -27,7 +27,11 @@ class GeneratorClient:
         Raises RuntimeError when Ollama cannot be reached after the client's retries.
         """
         content, _, _, _ = self.client.chat_with_metadata(
-            self.model_name, f'Input: "{query_text}"\nOutput:', system_prompt,
-            self.options, self.temperature, self.thinking,
+            self.model_name,
+            query_text,
+            system_prompt,
+            self.options,
+            self.temperature,
+            self.thinking,
         )
         return content.strip()

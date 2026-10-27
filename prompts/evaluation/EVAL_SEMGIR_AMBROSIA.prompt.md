@@ -1,5 +1,5 @@
 You are an expert evaluator of a structured, schema-independent intermediate representation (IR) for graph queries.
-Your task is to evaluate a "Candidate JSON IR" (written in SemGIR grammar) against a "Ground Truth" (provided as SQL queries and the database schema).
+Your task is to evaluate a "Candidate JSON IR" (written in SemGIR grammar) against a "Ground Truth" (provided as SQL queries).
 
 Your evaluation must reflect how well the Candidate captures the intended meaning of the query, follows the grammar, and logically matches the Ground Truth SQL intent.
 
@@ -205,12 +205,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 1: PERFECT MATCH (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the names of the Authors who have written at least 5 books published after 2010."
+Give me the names of the Authors who have written at least 5 books published after 2010.
 
 [GROUND TRUTH SQL]
 SELECT Authors.name FROM Authors JOIN Books ON Authors.id = Books.author_id WHERE Books.publish_year > 2010 GROUP BY Authors.id HAVING COUNT(Books.id) >= 5
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -247,12 +247,12 @@ SELECT Authors.name FROM Authors JOIN Books ON Authors.id = Books.author_id WHER
 === EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me all the groups that directly or indirectly influenced Queen."
+Give me all the groups that directly or indirectly influenced Queen.
 
 [GROUND TRUTH SQL]
 SELECT DISTINCT Group1.id FROM Groups Group1 JOIN Influences ON Group1.id = Influences.influencer_id WHERE Influences.influenced_id = (SELECT id FROM Groups WHERE name = 'Queen')
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   [
     {
@@ -285,12 +285,12 @@ SELECT DISTINCT Group1.id FROM Groups Group1 JOIN Influences ON Group1.id = Infl
 === EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Alfonso X."
+Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH SQL]
 SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2 ON r1.p2_id = p2.id JOIN Relatives r2 ON p2.id = r2.p1_id JOIN Person p3 ON r2.p2_id = p3.id JOIN Relatives r3 ON p3.id = r3.p1_id JOIN Person p4 ON r3.p2_id = p4.id WHERE p1.name = 'Alfonso X'
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e4"],
@@ -320,12 +320,12 @@ SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2
 === EXAMPLE 4: CORRECT MULTI-HOP (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Alfonso X."
+Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH SQL]
 SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2 ON r1.p2_id = p2.id JOIN Relatives r2 ON p2.id = r2.p1_id JOIN Person p3 ON r2.p2_id = p3.id JOIN Relatives r3 ON p3.id = r3.p1_id JOIN Person p4 ON r3.p2_id = p4.id WHERE p1.name = 'Alfonso X'
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e4"],
@@ -387,12 +387,12 @@ SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2
 === EXAMPLE 5: ATTRIBUTE IN PLACE OF A JOIN (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the employees of companies located in Madrid."
+Give me the employees of companies located in Madrid.
 
 [GROUND TRUTH SQL]
 SELECT Employees.id FROM Employees JOIN Companies ON Employees.company_id = Companies.id JOIN Cities ON Companies.city_id = Cities.id WHERE Cities.name = 'Madrid'
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e1"],
@@ -422,12 +422,12 @@ SELECT Employees.id FROM Employees JOIN Companies ON Employees.company_id = Comp
 === EXAMPLE 6: MINOR FLAW — MISSING DISTINCT (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the names of actors who have appeared in more than 10 films."
+Give me the names of actors who have appeared in more than 10 films.
 
 [GROUND TRUTH SQL]
 SELECT DISTINCT Actors.name FROM Actors JOIN Performances ON Actors.id = Performances.actor_id GROUP BY Actors.id HAVING COUNT(Performances.film_id) > 10
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -463,12 +463,12 @@ SELECT DISTINCT Actors.name FROM Actors JOIN Performances ON Actors.id = Perform
 === EXAMPLE 7: TOPOLOGY BYPASS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the movies in which actors born in Madrid have acted."
+Give me the movies in which actors born in Madrid have acted.
 
 [GROUND TRUTH SQL]
 SELECT DISTINCT Movies.id FROM Movies JOIN Casting ON Movies.id = Casting.movie_id JOIN Actors ON Casting.actor_id = Actors.id WHERE Actors.birthplace = 'Madrid'
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e1"],

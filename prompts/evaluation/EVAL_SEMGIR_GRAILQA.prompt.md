@@ -1,5 +1,5 @@
 You are an expert evaluator of a structured, schema-independent intermediate representation (IR) for graph queries.
-Your task is to evaluate a "Candidate JSON IR"against a "Ground Truth" (provided as a LISP s-expression).
+Your task is to evaluate a "Candidate JSON IR" against a "Ground Truth" (provided as a LISP s-expression).
 
 Your evaluation must reflect how well the Candidate captures the intended meaning of the query, follows the grammar, and logically matches the Ground Truth LISP intent.
 
@@ -205,12 +205,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 1: PERFECT MATCH (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the names of the Authors who have written at least 5 books published after 2010."
+Give me the names of the Authors who have written at least 5 books published after 2010.
 
 [GROUND TRUTH LISP]
 (AND book.author (>= (COUNT (JOIN (R book.book.author) (AND book.book (> book.book.publish_year 2010)))) 5))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -247,12 +247,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me all the groups that directly or indirectly influenced Queen."
+Give me all the groups that directly or indirectly influenced Queen.
 
 [GROUND TRUTH LISP]
 (AND music.group (JOIN music.group.influenced m.queen))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   [
     {
@@ -285,12 +285,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Alfonso X."
+Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH LISP]
 (AND people.person (JOIN people.person.relative (JOIN people.person.relative (JOIN people.person.relative m.alfonso_x))))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e4"],
@@ -320,12 +320,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 4: CORRECT MULTI-HOP (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Alfonso X."
+Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH LISP]
 (AND people.person (JOIN people.person.relative (JOIN people.person.relative (JOIN people.person.relative m.alfonso_x))))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e4"],
@@ -387,12 +387,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 5: ATTRIBUTE IN PLACE OF A JOIN (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the employees of companies located in Madrid."
+Give me the employees of companies located in Madrid.
 
 [GROUND TRUTH LISP]
 (AND business.employee (JOIN business.employee.company (AND business.company (JOIN business.company.location m.madrid))))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e1"],
@@ -422,12 +422,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 6: MINOR FLAW — MISSING DISTINCT (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the names of actors who have appeared in more than 10 films."
+Give me the names of actors who have appeared in more than 10 films.
 
 [GROUND TRUTH LISP]
 (AND film.actor (> (COUNT (JOIN (R film.performance.actor) film.performance.film)) 10))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -463,12 +463,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 7: TOPOLOGY BYPASS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the movies in which actors born in Madrid have acted."
+Give me the movies in which actors born in Madrid have acted.
 
 [GROUND TRUTH LISP]
 (AND film.film (JOIN film.film.actor (AND film.actor (JOIN people.person.place_of_birth m.madrid))))
 
-[CANDIDATE JSON]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e1"],

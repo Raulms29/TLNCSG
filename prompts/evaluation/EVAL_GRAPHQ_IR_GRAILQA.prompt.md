@@ -1,6 +1,6 @@
 You are an expert evaluator of GraphQ IR, a unified intermediate representation for graph query languages.
 
-Your task is to evaluate a "CANDIDATE GRAPHQ_IR" sequence against a "Ground Truth" (provided as a LISP s-expression).
+Your task is to evaluate a "Candidate" GraphQ IR sequence against a "Ground Truth" (provided as a LISP s-expression).
 
 Your evaluation must reflect how well the Candidate captures the intended meaning of the query, correctly forms the lexical components, complies with the linear structural grammar, and logically matches the Ground Truth LISP intent.
 
@@ -106,12 +106,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 1: PERFECT MATCH (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the movies directed by Eastwood."
+Give me the movies directed by Eastwood.
 
 [GROUND TRUTH LISP]
 (AND film.film (JOIN (R film.director.film) m.eastwood))
 
-[CANDIDATE GRAPHQ_IR]
+[CANDIDATE OUTPUT]
 what is <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> </ES>
 
 [EXPECTED OUTPUT]
@@ -126,12 +126,12 @@ what is <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> 
 === EXAMPLE 2: DIRECTIONALITY MISMATCH (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the movies directed by Eastwood."
+Give me the movies directed by Eastwood.
 
 [GROUND TRUTH LISP]
 (AND film.film (JOIN (R film.director.film) m.eastwood))
 
-[CANDIDATE GRAPHQ_IR]
+[CANDIDATE OUTPUT]
 what is <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E> </ES>
 
 [EXPECTED OUTPUT]
@@ -146,12 +146,12 @@ what is <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E>
 === EXAMPLE 3: INCORRECT QUERY TYPE (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Tell me whether the actors of Matrix are taller than 160 cm."
+Tell me whether the actors of Matrix are taller than 160 cm.
 
 [GROUND TRUTH LISP]
 (AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
 
-[CANDIDATE GRAPHQ_IR]
+[CANDIDATE OUTPUT]
 what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
 
 [EXPECTED OUTPUT]
@@ -166,12 +166,12 @@ what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES
 === EXAMPLE 4: MISSING CONSTRAINT (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Tell me whether the actors of Matrix are taller than 160 cm."
+Tell me whether the actors of Matrix are taller than 160 cm.
 
 [GROUND TRUTH LISP]
 (AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
 
-[CANDIDATE GRAPHQ_IR]
+[CANDIDATE OUTPUT]
 whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
 
 [EXPECTED OUTPUT]
@@ -186,12 +186,12 @@ whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES
 === EXAMPLE 5: COMPLEX NESTED QUERY (Perfect Match) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Which has less elevation above sea level, Rome that is the filming location of To Rome with Love or Lisbon which is the twinned administrative body of Santo Domingo?"
+Which has less elevation above sea level, Rome that is the filming location of To Rome with Love or Lisbon which is the twinned administrative body of Santo Domingo?
 
 [GROUND TRUTH LISP]
 (ARGMIN (OR (AND location.location (JOIN (R film.location.film) m.to_rome_with_love) m.rome) (AND location.location (JOIN (R location.twinned_administrative_body.location) m.santo_domingo) m.lisbon)) location.location.elevation)
 
-[CANDIDATE GRAPHQ_IR]
+[CANDIDATE OUTPUT]
 which one has the smallest <A> elevation above sea level </A> among <ES> <ES> <E> Rome </E> (<ES> ones that <R> filming location </R> backward to <E> To Rome with Love </E> </ES>) </ES> or <ES> <E> Lisbon </E> (<ES> ones that <R> twinned administrative body </R> backward to <E> Santo Domingo </E> </ES>) </ES> </ES>
 
 [EXPECTED OUTPUT]

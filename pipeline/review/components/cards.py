@@ -97,6 +97,7 @@ def _render_open(answer: Answer, number: int, grammar: str, is_ambrosia: bool, g
         human_correct = verdict == CORRECT
         if is_ambrosia:
             st.session_state.setdefault(f"h_{key}", int(rep.get("Hypotheses Covered") or 1))
+            st.session_state[f"h_{key}"] = min(st.session_state[f"h_{key}"], gt_num_interpretations)
             st.number_input("Hypotheses covered", min_value=0, max_value=gt_num_interpretations, key=f"h_{key}")
         if answer.judge_verdicts != {human_correct}:
             st.text_area("Why is the judge wrong? (required)", key=f"r_{key}", height=68)

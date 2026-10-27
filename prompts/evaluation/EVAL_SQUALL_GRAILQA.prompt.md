@@ -138,12 +138,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 1: PERFECT EQUIVALENCE (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"what is the name of the subatomic particle that's part of the same family of particles as the bottom quark?"
+what is the name of the subatomic particle that's part of the same family of particles as the bottom quark?
 
 [GROUND TRUTH LISP]
 (AND Subatomic particle (JOIN Family (JOIN Particles Bottom quark)))
 
-[CANDIDATE SQUALL]
+[CANDIDATE OUTPUT]
 Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
 
 [EXPECTED OUTPUT]
@@ -158,12 +158,12 @@ Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
 === EXAMPLE 2: MISSING ENTITY PREFIX (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"what is the number of video games designed by jeffrey kaplan?"
+what is the number of video games designed by jeffrey kaplan?
 
 [GROUND TRUTH LISP]
 (COUNT (AND Video game (JOIN (R Games Designed) Jeffrey Kaplan)))
 
-[CANDIDATE SQUALL]
+[CANDIDATE OUTPUT]
 How many video_game-s are the games_designed of Jeffrey_Kaplan ?
 
 [EXPECTED OUTPUT]
@@ -178,12 +178,12 @@ How many video_game-s are the games_designed of Jeffrey_Kaplan ?
 === EXAMPLE 3: INCORRECT QUERY FORM (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Is it true that every movie directed by Christopher Nolan after 2005 has an IMDB rating greater than 8.0?"
+Is it true that every movie directed by Christopher Nolan after 2005 has an IMDB rating greater than 8.0?
 
 [GROUND TRUTH LISP]
 (ASK (AND Movie (JOIN Directed By Christopher Nolan) (> Release Year 2005) (> IMDB Rating 8.0)))
 
-[CANDIDATE SQUALL]
+[CANDIDATE OUTPUT]
 Which movie that was directed by res:Christopher_Nolan and whose release_year is greater than 2005 has a IMDB_rating greater than 8.0 ?
 
 [EXPECTED OUTPUT]
@@ -198,12 +198,12 @@ Which movie that was directed by res:Christopher_Nolan and whose release_year is
 === EXAMPLE 4: SEVERE SYNTAX VIOLATION (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Tell me the nodes reachable from Node A through zero or more network links."
+Tell me the nodes reachable from Node A through zero or more network links.
 
 [GROUND TRUTH LISP]
 (AND Node (JOIN Connects* Node A))
 
-[CANDIDATE SQUALL]
+[CANDIDATE OUTPUT]
 Which node connects* res:Node_A where links >= 0 ?
 
 [EXPECTED OUTPUT]
@@ -218,12 +218,12 @@ Which node connects* res:Node_A where links >= 0 ?
 === EXAMPLE 5: MINOR SYNTACTIC FLAW (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"What is the average salary of the engineers who work in a department located in London?"
+What is the average salary of the engineers who work in a department located in London?
 
 [GROUND TRUTH LISP]
 (AVG (JOIN Salary (AND Engineer (JOIN Works In (AND Department (JOIN Location London))))))
 
-[CANDIDATE SQUALL]
+[CANDIDATE OUTPUT]
 What is the average salary of the engineer who work in a department whose location is res:London ?
 
 [EXPECTED OUTPUT]

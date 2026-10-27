@@ -8,7 +8,6 @@ import streamlit as st
 
 from pipeline.evaluation.ground_truth import GroundTruth
 from pipeline.grammars import is_semgir
-from pipeline.grouping.normalizers import last_code_block
 
 
 # ------------------------------------------------------------------
@@ -25,8 +24,7 @@ def render_query(qid: str, text: str, n_answers: int) -> None:
 # ------------------------------------------------------------------
 
 def _readable_output(output: str, grammar: str) -> str:
-    """Strip code fences and, for SemGIR, pretty-print the JSON (key order kept)."""
-    output = last_code_block(output)
+    """The answer as grouping extracted it; SemGIR JSON is pretty-printed (key order kept)."""
     if is_semgir(grammar):
         try:
             return json.dumps(json.loads(output), indent=2, ensure_ascii=False)
@@ -36,7 +34,7 @@ def _readable_output(output: str, grammar: str) -> str:
 
 
 def render_output(row: dict, grammar: str) -> None:
-    """The answer, readable: fences stripped, SemGIR JSON pretty-printed."""
+    """The answer, readable: SemGIR JSON pretty-printed."""
     output = _readable_output(str(row.get("Representative Output", "")), grammar)
     st.code(output, language="json" if is_semgir(grammar) else "text", wrap_lines=True)
 
@@ -45,18 +43,10 @@ def render_output(row: dict, grammar: str) -> None:
 # Ground truth
 # ------------------------------------------------------------------
 
-def _render_ambrosia_interpretations(gold_queries: str) -> None:
-    """Show each 'Interpretation i: / Meaning: / SQL:' block separately."""
-    blocks = [b.strip() for b in gold_queries.split("\n\n") if b.strip()]
-    for block in blocks:
-        lines = block.split("\n")
-        meaning = next((l[len("Meaning:"):].strip() for l in lines if l.startswith("Meaning:")), None)
-        sql_start = next((i for i, l in enumerate(lines) if l.startswith("SQL:")), None)
-        if meaning is None or sql_start is None:
-            st.code(block, language="sql", wrap_lines=True)
-            continue
-        sql = "\n".join([lines[sql_start][len("SQL:"):]] + lines[sql_start + 1:]).strip()
-        st.markdown(f"**{lines[0].rstrip(':')}** — {meaning}")
+def _render_ambrosia_interpretations(readings: list[tuple[str, str]]) -> None:
+    """Each reading: its meaning, then its SQL."""
+    for i, (meaning, sql) in enumerate(readings, start=1):
+        st.markdown(f"**Interpretation {i}** — {meaning}")
         st.code(sql, language="sql", wrap_lines=True)
 
 
@@ -67,7 +57,7 @@ def render_ground_truth(gt: GroundTruth | None) -> None:
         return
 
     if gt.dataset == "ambrosia":
-        _render_ambrosia_interpretations(gt.gold_queries or "")
+        _render_ambrosia_interpretations(gt.readings)
         if gt.db_dump:
             with st.expander("Database Schema", expanded=False):
                 st.code(gt.db_dump, language="sql")

@@ -9,7 +9,7 @@ from typing import Any
 
 from .config import GroupingConfig
 from .llm_grouper import LLMGrouper
-from .normalizers import normalize_output, output_key
+from .normalizers import extract_answer, normalize_output, output_key
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ class GroupingRunner:
                     # Identifies the answer across models and runs: human verdicts are stored under it
                     "Output Key": output_key(grammar, first_run.get("QID", ""), norm_out),
                     "Group Size": len(cluster),
-                    "Representative Output": first_run.get("Response", ""),
+                    "Representative Output": extract_answer(first_run.get("Response", ""), grammar),
                     "Reasoning": first_run.get("Reasoning", ""),
                     "LLM Merged": any(r.get("_llm_merged", False) for r in cluster),
                     "Runs": ", ".join(str(x) for x in run_ids),
@@ -155,11 +155,11 @@ class GroupingRunner:
         for small_norm, small_cluster in small_groups.items():
             small_run = small_cluster[0]
             query_text = small_run.get("Query", "")
-            small_out = small_run.get("Response", "")
+            small_out = extract_answer(small_run.get("Response", ""), grammar)
 
             merged = False
             for core_norm, core_cluster in core_groups.items():
-                core_out = core_cluster[0].get("Response", "")
+                core_out = extract_answer(core_cluster[0].get("Response", ""), grammar)
 
                 # Ask LLM if they are equivalent
                 if self.llm_grouper.is_equivalent(

@@ -20,6 +20,16 @@ def last_code_block(text: str, language: str = r"\w+") -> str:
     return blocks[-1] if blocks else text.strip()
 
 
+def extract_answer(raw_text: str, grammar: str) -> str:
+    """The answer in a model's response: its last code block (a ```json block for SemGIR).
+
+    Grouping identity, the judge and the review screen all use this text, so they see the same answer.
+    """
+    if not isinstance(raw_text, str):
+        return ""
+    return last_code_block(raw_text, "json" if is_semgir(grammar) else r"\w+")
+
+
 def normalize_json_output(raw_text: str) -> str:
     """Extracts JSON and normalizes it to guarantee deterministic string grouping.
 
@@ -30,8 +40,8 @@ def normalize_json_output(raw_text: str) -> str:
     if not isinstance(raw_text, str) or not raw_text.strip():
         return ""
 
-    # 1. Extract JSON (ignores surrounding conversational text). Take the LAST block.
-    extracted_text = last_code_block(raw_text, "json")
+    # 1. Extract the answer (ignores surrounding conversational text)
+    extracted_text = extract_answer(raw_text, "SemGIR")
 
     try:
         # 2. Parse to Python object
@@ -50,7 +60,7 @@ def normalize_json_output(raw_text: str) -> str:
         return re.sub(r"\s+", " ", extracted_text.strip())
 
 
-def normalize_code_output(raw_text: str, language: str) -> str:
+def normalize_code_output(raw_text: str, grammar: str) -> str:
     """Extracts code blocks and normalizes whitespace for deterministic grouping.
 
     Used for formats like SQUALL or GraphQ IR.
@@ -58,7 +68,7 @@ def normalize_code_output(raw_text: str, language: str) -> str:
     if not isinstance(raw_text, str) or not raw_text.strip():
         return ""
 
-    extracted_text = last_code_block(raw_text, language or r"\w+")
+    extracted_text = extract_answer(raw_text, grammar)
 
     # Normalize consecutive whitespace but preserve the raw semantic text
     return re.sub(r"\s+", " ", extracted_text.strip())
@@ -70,7 +80,7 @@ def normalize_output(raw_text: str, grammar: str) -> str:
         return normalize_json_output(raw_text)
     else:
         # Default for any other code-like grammar (SQUALL, GraphQ IR, etc)
-        return normalize_code_output(raw_text, "")
+        return normalize_code_output(raw_text, grammar)
 
 
 # --------------------------------------------------------------------------

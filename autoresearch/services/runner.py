@@ -8,11 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Iterable, Callable, Iterator, Optional
 from autoresearch.core.query import Query
-from autoresearch.services.services_utils import _extract_json_text
 from autoresearch.services.generator import GeneratorClient
-from autoresearch.services.evaluator import EvaluatorAgent
 from autoresearch.core.constants import AUTORESEARCH_DIR
-from pipeline.grouping.normalizers import normalize_json_output
+from pipeline.evaluation.ground_truth import GroundTruth
+from pipeline.evaluation.judge import Judge
+from pipeline.grouping.normalizers import extract_answer, normalize_json_output
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,8 @@ class ValidationRunner:
         self,
         ground_truths_path: str,
         generator: GeneratorClient,
-        evaluator: EvaluatorAgent,
+        judge: Judge,
+        judge_prompt: str,
         runs_per_query: int = 1,
         pass_threshold: float = 0.8,
         parallel_requests: int = 1,
@@ -41,7 +42,8 @@ class ValidationRunner:
     ):
         self.ground_truths_path = Path(ground_truths_path)
         self.generator = generator
-        self.evaluator = evaluator
+        self.judge = judge
+        self.judge_prompt = judge_prompt
         self.runs_per_query = max(1, runs_per_query)
         self.pass_threshold = pass_threshold
         self.parallel_requests = max(1, parallel_requests)
@@ -140,7 +142,7 @@ class ValidationRunner:
         distinct = {}
         for query in self.queries:
             for gen in generations[query.id]:
-                distinct.setdefault((query.id, normalize_json_output(gen["candidate_raw"])), (query, gen))
+                distinct.setdefault((query.id, gen["output"]), (query, gen))
         todo = {key: job for key, job in distinct.items() if key[1] not in self.verdicts.get(key[0], {})}
         logger.info(
             "  Judging %d new distinct outputs of %d runs (%d already in the verdict cache)...",
@@ -157,7 +159,7 @@ class ValidationRunner:
             while queue and pending[queue[0].id] == 0:
                 qid = queue.pop(0).id
                 runs_by_query[qid] = [
-                    {**gen, **self.verdicts[qid][normalize_json_output(gen["candidate_raw"])]} for gen in generations[qid]
+                    {**gen, **self.verdicts[qid][gen["output"]]} for gen in generations[qid]
                 ]
                 results[qid] = self._summarize(runs_by_query[qid])
                 self._log_query(len(results), total_queries, qid, runs_by_query[qid])
@@ -171,6 +173,10 @@ class ValidationRunner:
         except RuntimeError as e:
             raise ValidationAborted(str(e)) from e
         finally:
+            # A judge failure is not a verdict on the output: forget it, so the next evaluation judges it again
+            for outputs in self.verdicts.values():
+                for output in [output for output, verdict in outputs.items() if verdict.get("judge_failed")]:
+                    del outputs[output]
             self._save_verdict_cache()
 
         log_file = self._save_csv(runs_by_query, results, iteration, run_timestamp_str)
@@ -185,7 +191,7 @@ class ValidationRunner:
         """Logs a query's correct runs and one mark per distinct output with its size, e.g. "08/10 | ✓ 08  ✗ 02".
         Numbers are zero-padded to the width of their total so the columns line up."""
         width = len(str(len(runs)))
-        groups = Counter((normalize_json_output(run["candidate_raw"]), run["correct"]) for run in runs)
+        groups = Counter((run["output"], run["correct"]) for run in runs)
         marks = "  ".join(f"{'✓' if correct else '✗'} {size:0{width}d}" for (_, correct), size in groups.items())
         correct = sum(run["correct"] for run in runs)
         logger.info(
@@ -206,7 +212,7 @@ class ValidationRunner:
                 "rationale": results[query.id]["rationale"],
             }
             for query in self.queries
-            if not results[query.id]["passed"] and query.id not in excluded
+            if not results[query.id]["passed"] and not results[query.id].get("judge_failed") and query.id not in excluded
         ]
 
     def _run_parallel(self, fn: Callable, jobs: List) -> Iterator:
@@ -215,31 +221,42 @@ class ValidationRunner:
             yield from pool.map(fn, jobs)
 
     def _generate(self, system_prompt: str, query: Query) -> Dict[str, Any]:
+        """One generation. The candidate is the answer extracted as in the pipeline's grouping:
+        the judge sees it and the verdict cache is keyed by it."""
         try:
             candidate_raw = self.generator.generate_translation(system_prompt, query.text)
-            return {"candidate_raw": candidate_raw, "candidate_json": _extract_json_text(candidate_raw), "error": None}
+            candidate = extract_answer(candidate_raw, "SemGIR")
+            return {"candidate_raw": candidate_raw, "candidate": candidate, "output": normalize_json_output(candidate), "error": None}
         except Exception as e:
-            return {"candidate_raw": None, "candidate_json": None, "error": str(e)}
+            return {"candidate_raw": None, "candidate": None, "output": None, "error": str(e)}
 
     def _evaluate(self, query: Query, gen: Dict[str, Any]) -> Dict[str, Any]:
         """Judges one output and returns the verdict fields."""
         gt = query.solution
         gt_str = json.dumps(gt, indent=2) if isinstance(gt, (dict, list)) else str(gt)
-        correct, category, rationale = self.evaluator.evaluate(query.text, gt_str, gen["candidate_json"])
-        return {"correct": correct, "error_category": category, "rationale": rationale}
+        verdict = self.judge.judge(
+            self.judge_prompt, query.text, GroundTruth(dataset="semgir", semgir_json=gt_str), gen["candidate"]
+        )
+        fields = {"correct": verdict.correct, "error_category": verdict.error_category or None, "rationale": verdict.rationale}
+        if verdict.judge_failed:
+            fields["judge_failed"] = True
+        return fields
 
     def _summarize(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Aggregates the runs of one query; the reported error is the most frequent one."""
         rate = sum(run["correct"] for run in runs) / len(runs)
         wrong = [run for run in runs if not run["correct"]]
-        category = Counter(run["error_category"] for run in wrong).most_common(1)[0][0] if wrong else None
-        rationale = next((run["rationale"] for run in wrong if run["error_category"] == category), "")
+        # Runs the judge failed to read are not errors of the output
+        judged_wrong = [run for run in wrong if not run.get("judge_failed")]
+        category = Counter(run["error_category"] for run in judged_wrong).most_common(1)[0][0] if judged_wrong else None
+        rationale = next((run["rationale"] for run in judged_wrong if run["error_category"] == category), "")
         return {
             "rate": rate,
             "passed": rate >= self.pass_threshold,
             "error_category": category,
             "rationale": rationale,
-            "distinct_outputs": len({normalize_json_output(run["candidate_raw"]) for run in runs}),
+            "judge_failed": bool(wrong) and not judged_wrong,
+            "distinct_outputs": len({run["output"] for run in runs}),
         }
 
     def _save_csv(self, runs_by_query, results, iteration: int, run_timestamp_str: str) -> str:
@@ -261,7 +278,7 @@ class ValidationRunner:
                     for i, run in enumerate(runs_by_query[query.id], 1):
                         writer.writerow([
                             query.id, query.text, i, run["candidate_raw"] or "",
-                            json.dumps(run["candidate_json"]) if run["candidate_json"] is not None else "",
+                            run["candidate"] or "",
                             run["correct"], run["error_category"] or "", run["rationale"],
                             summary["rate"], summary["distinct_outputs"],
                         ])

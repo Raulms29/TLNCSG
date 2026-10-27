@@ -200,7 +200,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 1: PERFECT MATCH (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the names of the Authors who have written at least 5 books published after 2010."
+Give me the names of the Authors who have written at least 5 books published after 2010.
 
 [GROUND TRUTH JSON IR]
 [
@@ -226,7 +226,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
   }
 ]
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -263,7 +263,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 2: STRUCTURAL AND SEMANTIC VIOLATIONS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me all the groups that directly or indirectly influenced Queen."
+Give me all the groups that directly or indirectly influenced Queen.
 
 [GROUND TRUTH JSON IR]
 [
@@ -283,7 +283,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
   }
 ]
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   [
     {
@@ -316,7 +316,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 3: MISSING PATH FOR MULTI-HOP (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Alfonso X."
+Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH JSON IR]
 [
@@ -340,7 +340,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
   }
 ]
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e4"],
@@ -370,12 +370,12 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 4: CORRECT MULTI-HOP WITH A PATH (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the third-degree relatives of Alfonso X."
+Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH JSON IR]
 (Same as Example 3.)
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e2"],
@@ -413,7 +413,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 5: ATTRIBUTE IN PLACE OF AN ENTITY (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the employees of companies located in Madrid."
+Give me the employees of companies located in Madrid.
 
 [GROUND TRUTH JSON IR]
 [
@@ -434,7 +434,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
   }
 ]
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e1"],
@@ -464,7 +464,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 6: MISSING DISTINCT (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the names of actors who have appeared in more than 10 films."
+Give me the names of actors who have appeared in more than 10 films.
 
 [GROUND TRUTH JSON IR]
 [
@@ -485,7 +485,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
   }
 ]
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   {
     "target": [{ "attribute_name": "name", "of": "e1" }],
@@ -517,7 +517,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 === EXAMPLE 7: TOPOLOGY BYPASS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
-"Give me the movies in which actors born in Madrid have acted."
+Give me the movies in which actors born in Madrid have acted.
 
 [GROUND TRUTH JSON IR]
 [
@@ -537,7 +537,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
   }
 ]
 
-[CANDIDATE JSON IR]
+[CANDIDATE OUTPUT]
 [
   {
     "target": ["e1"],

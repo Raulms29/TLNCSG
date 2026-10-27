@@ -12,7 +12,9 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from project_config import get_ollama_host
 from autoresearch.core.constants import AUTORESEARCH_DIR, PROJECT_ROOT
 from autoresearch.loop import OptimizationLoop
-from autoresearch.services import EvaluatorAgent, GeneratorClient, OptimizerAgent, ValidationRunner
+from autoresearch.services import GeneratorClient, OptimizerAgent, ValidationRunner
+from pipeline.clients import OllamaClient
+from pipeline.evaluation.judge import Judge
 from autoresearch.storage import ExperimentLogger, PromptStore
 from autoresearch.storage.archive import ARCHIVE_DIR, archive_previous_run, run_timestamp
 
@@ -57,20 +59,19 @@ def build_runner(config: Dict[str, Any], ollama_url: str) -> ValidationRunner:
         num_predict=generator_cfg["num_predict"],
         thinking=generator_cfg.get("thinking", False),
     )
-    evaluator = EvaluatorAgent(
-        ollama_url=ollama_url,
-        model_name=evaluator_cfg["model"],
+    judge = Judge(
+        client=OllamaClient(ollama_url),
+        model=evaluator_cfg["model"],
+        options={"num_ctx": evaluator_cfg["num_ctx"], "num_predict": evaluator_cfg["num_predict"]},
         temperature=evaluator_cfg["temperature"],
-        num_ctx=evaluator_cfg["num_ctx"],
-        num_predict=evaluator_cfg["num_predict"],
         thinking=evaluator_cfg.get("thinking", False),
         fallback_model=evaluator_cfg.get("fallback_model"),
-        prompt_path=str(resolve(config["paths"]["evaluator_prompt"])),
     )
     return ValidationRunner(
         ground_truths_path=str(resolve(config["paths"]["ground_truths"])),
         generator=generator,
-        evaluator=evaluator,
+        judge=judge,
+        judge_prompt=resolve(config["paths"]["evaluator_prompt"]).read_text(encoding="utf-8"),
         runs_per_query=generator_cfg.get("runs_per_query", 1),
         pass_threshold=config["acceptance"]["pass_threshold"],
         parallel_requests=config["loop_settings"].get("parallel_requests", 1),

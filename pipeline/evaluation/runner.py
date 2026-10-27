@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import json
 import logging
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -12,10 +11,9 @@ from typing import Any
 
 from pipeline.clients.ollama_client import OllamaClient
 from pipeline.grammars import prompt_for_grammar
-from pipeline.grouping.normalizers import last_code_block
 from .config import EvaluationConfig
-from .error_categories import canonical_category
-from .ground_truth import GroundTruth, GroundTruthStore
+from .ground_truth import GroundTruthStore
+from .judge import Judge
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +35,11 @@ class EvaluationRunner:
         self.prompts_dir = prompts_dir
         self.grouping_dir = Path(grouping_dir)
         self._prompt_cache: dict[str, str] = {}
+        evaluator = config.evaluator_model
+        self.judge = Judge(
+            client, evaluator.name, evaluator.ollama_options, evaluator.temperature,
+            evaluator.supports_thinking, evaluator.fallback_model,
+        )
 
     def run(self) -> Path:
         """Executes the evaluation pipeline."""
@@ -210,30 +213,16 @@ class EvaluationRunner:
                 logger.error(msg)
                 raise FileNotFoundError(msg)
 
-            # Build user message
-            user_message = self._build_user_message(
-                query_text, candidate_output, gt, dataset
-            )
+            verdict = self.judge.judge(sys_prompt, query_text, gt, candidate_output)
+            if verdict.used_fallback:
+                logger.warning(
+                    "Evaluator ran out of tokens on %s, the verdict comes from %s", qid, self.config.evaluator_model.fallback_model
+                )
 
-            # Call evaluator LLM
-            evaluator = self.config.evaluator_model
-            content, meta = self._judge(evaluator.name, user_message, sys_prompt)
-            # The thinking looped until num_predict: the same model at temperature 0 usually loops again
-            if evaluator.fallback_model and meta["done_reason"] == "length" and not content.strip():
-                logger.warning("Evaluator ran out of tokens on %s, retrying with %s", qid, evaluator.fallback_model)
-                content, _ = self._judge(evaluator.fallback_model, user_message, sys_prompt)
-
-            # Parse the LLM's JSON response (take the last block)
-            result = self._parse_eval_response(content)
-
-            row["Rationale"] = result.get("rationale", "")
-            row["Hypotheses Covered"] = result.get("hypotheses_covered", 1)
-            correct = result.get("correct", False) is True
-            row["Correct"] = str(result.get("correct", False))
-            row["LLM Error Category"] = (
-                "" if result.get("unparseable")
-                else self._normalize_error_category(result.get("error_category"), correct)
-            )
+            row["Rationale"] = verdict.rationale
+            row["Hypotheses Covered"] = verdict.hypotheses_covered
+            row["Correct"] = str(verdict.correct)
+            row["LLM Error Category"] = verdict.error_category
             evaluated.append(row)
 
         return evaluated
@@ -246,80 +235,6 @@ class EvaluationRunner:
             for name, prompt in self._prompt_cache.items()
             if name.endswith(suffix)
         }
-
-    def _judge(self, model: str, user_message: str, sys_prompt: str) -> tuple[str, dict]:
-        """One evaluator call: returns the response content and the Ollama metadata."""
-        content, _, _, meta = self.client.chat_with_metadata(
-            model=model,
-            query=user_message,
-            system_prompt=sys_prompt,
-            options=self.config.evaluator_model.ollama_options,
-            temperature=self.config.evaluator_model.temperature,
-            thinking=self.config.evaluator_model.supports_thinking,
-        )
-        return content, meta
-
-    # ------------------------------------------------------------------
-    # User message construction
-    # ------------------------------------------------------------------
-
-    def _build_user_message(
-        self,
-        query: str,
-        candidate: str,
-        gt: GroundTruth,
-        dataset: str,
-    ) -> str:
-        """Build the user prompt with query, candidate, and ground truth."""
-        parts = [f'[ORIGINAL NATURAL LANGUAGE QUERY]\n"{query}"\n']
-
-        if dataset == "ambrosia":
-            parts.append(f"[DATABASE SCHEMA]\n{gt.db_dump}\n")
-            parts.append(f"[GROUND TRUTH SQL]\n{gt.gold_queries}\n")
-        else:  # grailqa
-            parts.append(f"[GROUND TRUTH LISP]\n{gt.s_expression_friendly}\n")
-
-        parts.append(f"[CANDIDATE OUTPUT]\n{candidate}\n")
-        parts.append("Assign rationale, correct and error_category in strict JSON format:")
-
-        return "\n".join(parts)
-
-    # ------------------------------------------------------------------
-    # Response parsing
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _parse_eval_response(content: str) -> dict:
-        """Extract the last JSON block from the LLM response."""
-        extracted = last_code_block(content, "json")
-
-        # Hardening: extract just the JSON object bounds if there is garbage text around it
-        if "{" in extracted and "}" in extracted:
-            start = extracted.find("{")
-            end = extracted.rfind("}") + 1
-            extracted = extracted[start:end]
-
-        try:
-            return json.loads(extracted)
-        except json.JSONDecodeError:
-            logger.warning("Evaluator returned unparseable JSON. Raw: %r", content)
-            return {
-                "rationale": f"Unparseable evaluator response: {content[:200]}",
-                "hypotheses_covered": 1,
-                "correct": False,
-                # The judge failed, not the candidate: no error category
-                "unparseable": True,
-            }
-
-    @staticmethod
-    def _normalize_error_category(value: Any, correct: bool) -> str:
-        """Map the judge's category to its canonical name ("" if correct, "Other" if unknown)."""
-        if correct:
-            return ""
-        category = canonical_category(value)
-        if category == "Other" and str(value or "").strip().lower() != "other":
-            logger.warning("Evaluator returned unknown error category %r, using 'Other'.", value)
-        return category
 
     # ------------------------------------------------------------------
     # CSV output

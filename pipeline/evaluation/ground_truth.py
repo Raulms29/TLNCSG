@@ -1,10 +1,10 @@
-"""Ground truth loading and LISP preprocessing for GrailQA."""
+"""Ground truths of the datasets, and how each kind is shown to the judge."""
 
 from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -12,15 +12,37 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class GroundTruth:
-    """Container for a single query's ground truth data."""
+    """A query's ground truth, of one kind: "grailqa", "ambrosia" or "semgir" (the ground-truth SemGIR set)."""
 
-    dataset: str  # "ambrosia" or "grailqa"
-    # GrailQA fields
+    dataset: str
+    # GrailQA: the s-expression with Freebase IDs replaced by friendly names
     s_expression_friendly: str | None = None
-    # Ambrosia fields
+    # Ambrosia: the unambiguous readings as (meaning, SQL) pairs, and the database dump (shown to the reviewer only)
+    readings: list[tuple[str, str]] = field(default_factory=list)
     db_dump: str | None = None
-    gold_queries: str | None = None
-    num_interpretations: int = 1
+    # Hand-written: the SemGIR solution as JSON text
+    semgir_json: str | None = None
+
+    @property
+    def num_interpretations(self) -> int:
+        """How many readings an answer can cover, for Ambrosia's Hypothesis Coverage; 1 for the other kinds,
+        which don't list their readings."""
+        return len(self.readings) if self.dataset == "ambrosia" else 1
+
+    def judge_sections(self) -> str:
+        """The ground-truth part of the judge's message.
+
+        Ambrosia's schema and data are left out: SemGIR is schema-independent.
+        """
+        if self.dataset == "ambrosia":
+            readings = "\n".join(
+                f"Interpretation {i}:\nMeaning: {meaning}\nSQL: {sql}\n"
+                for i, (meaning, sql) in enumerate(self.readings, start=1)
+            )
+            return f"[GROUND TRUTH SQL]\n{readings}\n"
+        if self.dataset == "semgir":
+            return f"[GROUND TRUTH JSON IR]\n{self.semgir_json}\n"
+        return f"[GROUND TRUTH LISP]\n{self.s_expression_friendly}\n"
 
 
 class GroundTruthStore:
@@ -69,21 +91,16 @@ class GroundTruthStore:
         for idx, entry in enumerate(filtered, start=1):
             qid = f"{self._ambrosia_qid_prefix}{idx:04d}"
 
-            interpretations = entry.get("interpretations", [])
-            formatted_gt = []
-
-            for i, interp in enumerate(interpretations, start=1):
-                interp_q = interp.get("question", "")
-                interp_sql = interp.get("gold_queries", "").strip()
-                formatted_gt.append(
-                    f"Interpretation {i}:\nMeaning: {interp_q}\nSQL: {interp_sql}\n"
-                )
-
+            # The readings are the unambiguous interpretations; the "ambig" one repeats the question with every SQL
+            readings = [
+                (interp.get("question", ""), interp.get("gold_queries", "").strip())
+                for interp in entry.get("interpretations", [])
+                if interp.get("question_type") == "unambig"
+            ]
             self._ambrosia[qid] = GroundTruth(
                 dataset="ambrosia",
+                readings=readings,
                 db_dump=entry.get("db_dump", ""),
-                gold_queries="\n".join(formatted_gt),
-                num_interpretations=len(interpretations),
             )
 
         logger.info("Loaded %d Ambrosia ground truth entries", len(self._ambrosia))
@@ -130,7 +147,12 @@ class GroundTruthStore:
                 id_map[raw_id] = friendly
             # Also map the class if it differs from id and this is actually a class node
             raw_class = node.get("class", "")
-            if raw_class and raw_class != raw_id and friendly and node.get("node_type") != "entity":
+            if (
+                raw_class
+                and raw_class != raw_id
+                and friendly
+                and node.get("node_type") != "entity"
+            ):
                 id_map[raw_class] = friendly
 
         for edge in graph_query.get("edges", []):
