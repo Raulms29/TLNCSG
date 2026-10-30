@@ -1,4 +1,5 @@
 """Entry point of the autoresearch loop: reads the configuration, builds the services and runs the loop."""
+
 import argparse
 import json
 import logging
@@ -16,7 +17,11 @@ from autoresearch.services import GeneratorClient, OptimizerAgent, ValidationRun
 from pipeline.clients import OllamaClient
 from pipeline.evaluation.judge import Judge
 from autoresearch.storage import ExperimentLogger, PromptStore
-from autoresearch.storage.archive import ARCHIVE_DIR, archive_previous_run, run_timestamp
+from autoresearch.storage.archive import (
+    ARCHIVE_DIR,
+    archive_previous_run,
+    run_timestamp,
+)
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s — %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -62,16 +67,23 @@ def build_runner(config: Dict[str, Any], ollama_url: str) -> ValidationRunner:
     judge = Judge(
         client=OllamaClient(ollama_url),
         model=evaluator_cfg["model"],
-        options={"num_ctx": evaluator_cfg["num_ctx"], "num_predict": evaluator_cfg["num_predict"]},
+        options={
+            "num_ctx": evaluator_cfg["num_ctx"],
+            "num_predict": evaluator_cfg["num_predict"],
+        },
         temperature=evaluator_cfg["temperature"],
         thinking=evaluator_cfg.get("thinking", False),
         fallback_model=evaluator_cfg.get("fallback_model"),
     )
+    judge_prompts = {
+        source: resolve(source_cfg["judge_prompt"]).read_text(encoding="utf-8")
+        for source, source_cfg in config["pool"]["sources"].items()
+    }
     return ValidationRunner(
-        ground_truths_path=str(resolve(config["paths"]["ground_truths"])),
+        pool_path=str(resolve(config["paths"]["pool"])),
         generator=generator,
         judge=judge,
-        judge_prompt=resolve(config["paths"]["evaluator_prompt"]).read_text(encoding="utf-8"),
+        judge_prompts=judge_prompts,
         runs_per_query=generator_cfg.get("runs_per_query", 1),
         pass_threshold=config["acceptance"]["pass_threshold"],
         parallel_requests=config["loop_settings"].get("parallel_requests", 1),
@@ -127,7 +139,9 @@ def main():
         config=config,
         runner=build_runner(config, ollama_url),
         optimizer=build_optimizer(config, ollama_url),
-        prompt_store=PromptStore(str(resolve(config["paths"]["generator_prompt"])), str(prompts_dir)),
+        prompt_store=PromptStore(
+            str(resolve(config["paths"]["generator_prompt"])), str(prompts_dir)
+        ),
         experiments=experiments,
         run_timestamp=timestamp,
     ).run()

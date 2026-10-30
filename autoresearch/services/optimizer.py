@@ -9,10 +9,6 @@ OPTIMIZE_REQUEST = (
     "Based on the failing queries, propose the smallest change to the instructions that addresses them. "
     "Removing or merging text is a valid change."
 )
-SIMPLIFY_REQUEST = (
-    "This is a simplification step. Make the instructions shorter by merging, shortening or removing rules, "
-    "without adding new rules and without changing what they ask the parser to do."
-)
 
 
 class OptimizerAgent:
@@ -36,16 +32,22 @@ class OptimizerAgent:
         self.model_name = model_name
         self.temperature = temperature
         self.options = {"num_ctx": num_ctx, "num_predict": num_predict}
-        self.memory_size= memory_size
+        self.memory_size = memory_size
         self.thinking = thinking
-        self.failure_history: List[Dict[str, Any]] = []  # sliding window of rejected attempts
+        self.failure_history: List[Dict[str, Any]] = (
+            []
+        )  # sliding window of rejected attempts
 
         # Load optimizer prompt directly from disk
         with open(prompt_path, "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
 
     def add_to_failure_history(
-        self, champion_instructions: str, rejected_instructions: str, net: int, broken: List[Dict[str, str]]
+        self,
+        champion_instructions: str,
+        rejected_instructions: str,
+        net: int,
+        broken: List[Dict[str, str]],
     ):
         """Adds a rejected change, as a diff against the champion with the queries it broke, to memory
         to prevent repeating it."""
@@ -58,7 +60,9 @@ class OptimizerAgent:
                 lineterm="",
             )
         )
-        self.failure_history.append({"net": net, "diff": diff or "(no change)", "broken": broken})
+        self.failure_history.append(
+            {"net": net, "diff": diff or "(no change)", "broken": broken}
+        )
         if len(self.failure_history) > self.memory_size:
             self.failure_history.pop(0)
 
@@ -77,10 +81,14 @@ class OptimizerAgent:
         for category, items in sorted(groups.items(), key=lambda kv: -len(kv[1])):
             lines = [f"#### {category} ({len(items)} queries)"]
             for fail in items:
+                rubric = (
+                    f" | rubric features: [{'; '.join(fail['rubric_features'])}]"
+                    if fail["rubric_features"]
+                    else ""
+                )
                 lines.append(
-                    f"- Query {fail['id']} | correct rate: {fail['rate']:.2f}"
-                    f" | features: [{', '.join(fail['features'])}]"
-                    f" | rubric features: [{'; '.join(fail['rubric_features'])}]\n"
+                    f"- Query {fail['id']} | source: {fail['source']} | correct rate: {fail['rate']:.2f}"
+                    f" | features: [{', '.join(fail['features'])}]{rubric}\n"
                     f"  Evaluator rationale: {fail['rationale']}"
                 )
             blocks.append("\n".join(lines))
@@ -91,27 +99,32 @@ class OptimizerAgent:
         text = f"Rejected change #{idx} (net queries fixed: {item['net']}):\n{item['diff']}"
         if item["broken"]:
             text += "\nQueries this change broke:\n" + "\n".join(
-                f"- Query {query['id']} | Evaluator rationale: {query['rationale']}" for query in item["broken"]
+                f"- Query {query['id']} | Evaluator rationale: {query['rationale']}"
+                for query in item["broken"]
             )
         return text
 
     def _build_user_prompt(
-        self, current_instructions: str, prompt_context: str, failures: List[Dict[str, Any]], mode: str
+        self,
+        current_instructions: str,
+        prompt_context: str,
+        failures: List[Dict[str, Any]],
     ) -> str:
-        history = "\n\n".join(
-            self._format_rejected(idx, item) for idx, item in enumerate(self.failure_history, 1)
-        ) or "None."
+        history = (
+            "\n\n".join(
+                self._format_rejected(idx, item)
+                for idx, item in enumerate(self.failure_history, 1)
+            )
+            or "None."
+        )
 
         sections = [
             f'### READ-ONLY PROMPT CONTEXT (rest of the parser prompt, not editable):\n"""\n{prompt_context}\n"""',
             f'### CURRENT ## INSTRUCTIONS SECTION:\n"""\n{current_instructions}\n"""',
             f"### RECENT REJECTED CHANGES (DO NOT REPEAT):\n{history}",
+            f"### FAILING QUERIES BY ERROR CATEGORY:\n{self._format_failures(failures)}",
+            OPTIMIZE_REQUEST,
         ]
-        if mode == "simplify":
-            sections.append(SIMPLIFY_REQUEST)
-        else:
-            sections.append(f"### FAILING QUERIES BY ERROR CATEGORY:\n{self._format_failures(failures)}")
-            sections.append(OPTIMIZE_REQUEST)
         return "\n\n".join(sections)
 
     def _clean_optimizer_output(self, raw_text: str) -> Tuple[str, str]:
@@ -148,7 +161,6 @@ class OptimizerAgent:
         current_instructions: str,
         prompt_context: str,
         failures: List[Dict[str, Any]],
-        mode: str = "optimize",
         max_retries: int = 3,
     ) -> Tuple[str, str]:
         """
@@ -156,15 +168,28 @@ class OptimizerAgent:
         Returns:
             Tuple[str, str]: (new_instructions, rationale)
         """
-        user_prompt = self._build_user_prompt(current_instructions, prompt_context, failures, mode)
+        user_prompt = self._build_user_prompt(
+            current_instructions, prompt_context, failures
+        )
 
         # Connection errors are retried by the client; a malformed answer is asked for again here
         for attempt in range(1, max_retries + 1):
             content, _, _, _ = self.client.chat_with_metadata(
-                self.model_name, user_prompt, self.system_prompt, self.options, self.temperature, self.thinking
+                self.model_name,
+                user_prompt,
+                self.system_prompt,
+                self.options,
+                self.temperature,
+                self.thinking,
             )
             try:
                 return self._clean_optimizer_output(content.strip())
             except ValueError as e:
                 if attempt == max_retries:
-                    raise RuntimeError(f"Failed to generate optimized instructions: {e}") from e
+                    raise RuntimeError(
+                        f"Failed to generate optimized instructions: {e}"
+                    ) from e
+
+        raise RuntimeError(
+            "Failed to generate optimized instructions after all retries"
+        )

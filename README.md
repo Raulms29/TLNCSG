@@ -6,8 +6,8 @@ The same questions are run through several IR grammars and models, judged by an 
 
 ## Datasets
 
-- **GrailQA**: extract `datasets/GrailQA_v1.0.zip` into `datasets/GrailQA_v1.0/`. The configs use the combined train + dev set, deduplicated by canonical qid and sampled by function, node count and edge count.
-- **Ambrosia**: *scope* and *attachment* ambiguities (*vague* questions are excluded), sampled by ambiguity type and domain. Available from the [Ambrosia benchmark](https://ambrosia-benchmark.github.io/).
+- **GrailQA**: extract `datasets/GrailQA_v1.0.zip` into `datasets/GrailQA_v1.0/`. The pipeline samples dev; autoresearch samples train, without the templates that occur in dev. Questions are deduplicated by canonical qid and sampled by function, node count and edge count.
+- **Text2Cypher**: Neo4j's [text2cypher-2025v1](https://huggingface.co/datasets/neo4j/text2cypher-2025v1), `train.parquet` and `test.parquet` in `datasets/text2cypher_2025v1/`. The pipeline samples test; autoresearch samples train, without the questions that occur in test. Write queries and a few unusable sources are excluded, questions are deduplicated, and the sample is stratified by `data_source`.
 
 ## Setup
 
@@ -52,9 +52,11 @@ Each module has a JSON config at the project root.
 
 Each iteration:
 
-1. An optimizer model rewrites the prompt's `## INSTRUCTIONS` from the failing queries.
-2. The new prompt is run over the SemGIR ground truths and an LLM judge marks each output.
-3. It replaces the current prompt only if it fixes clearly more queries than it breaks, confirmed by a second evaluation.
+1. An optimizer model rewrites the prompt's `## INSTRUCTIONS` from the failing **train** queries.
+2. The new prompt is run over every query of the pool, train and val, and an LLM judge marks each output.
+3. It replaces the current prompt only if, on the **val** queries, it fixes at least `min_net_gain` more queries than it breaks. The optimizer never sees the val queries.
+
+The pool (`ground_truths/autoresearch_pool.json`) holds the hand-written SemGIR ground truths and samples of the GrailQA and Text2Cypher training splits, each source split into train and val. Its sources and the val fraction are set in `pool` in `autoresearch_config.json`; build it with `python autoresearch/tools/build_pool.py`.
 
 - Settings: `autoresearch_config.json`
 - Results: `autoresearch/archive/run_<timestamp>/`
