@@ -90,13 +90,13 @@ RELATIONS := {
 COUNT := { count: LIST }
 // Number of elements in a list
 
-SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+SCALAR_AGGREGATE := { source: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
 // Aggregation over elements in a list
 
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
 // Supported aggregation function
 
-QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
+QUANTIFIER_PREDICATE := { source: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
 // Tests whether list elements satisfy a condition
 
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
@@ -167,6 +167,7 @@ Evaluate the Candidate holistically across these dimensions:
   - **Target Validity:** The `target` array accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.
   - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS`, `MATCHES_REGEX` or `=` on strings).
   - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`.
+  - **Lists in a constraint:** Comparing an entity with an aggregate over a list of that same entity (e.g. the entity's date equals the `MAX` date over `list_elements` of that entity) is valid: the list ranges over every element of that type that meets the rest of the query's conditions.
   - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
 
 5. **Equivalence to Ground Truth:**

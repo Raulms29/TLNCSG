@@ -93,13 +93,13 @@ RELATIONS := {
 COUNT := { count: LIST }
 // Number of elements in a list
 
-SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+SCALAR_AGGREGATE := { source: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
 // Aggregation over elements in a list
 
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
 // Supported aggregation function
 
-QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
+QUANTIFIER_PREDICATE := { source: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
 // Tests whether list elements satisfy a condition
 
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
@@ -394,7 +394,7 @@ Output:
       { "id": "r1", "role": "works_on", "from": "e2", "to": "e1" }
     ],
     "constraint": {
-      "list": {
+      "source": {
         "list": { "list_elements": "e2" }
       },
       "condition": {
@@ -519,7 +519,7 @@ Output:
   {
     "target": [
       {
-        "list": {
+        "source": {
           "list": { "rels_of": "p1", "rel_id": "r1" }
         },
         "map_expression": { "attribute_name": "distance", "of": "r1" },
@@ -558,7 +558,7 @@ Output:
   {
     "target": [
       {
-        "list": {
+        "source": {
           "list": { "list_elements": "e1" }
         },
         "map_expression": { "attribute_name": "capacity", "of": "e1" },
@@ -575,7 +575,7 @@ Output:
       { "id": "r2", "role": "has_station", "from": "e2", "to": "e3" }
     ],
     "constraint": {
-      "list": {
+      "source": {
         "list": { "list_elements": "e3" }
       },
       "condition": {
@@ -623,7 +623,7 @@ Output:
 ]
 ```
 
-Input: List the documentaries and movies released after 2020
+Input: List the longest documentaries and movies released after 2020
 Output:
 ```json
 [
@@ -631,19 +631,54 @@ Output:
     "target": [ "e1", "e2" ],
     "entities": [
       { "id": "e1", "type": "Documentary" },
-      { "id": "e2", "type": "Movie" }
+      { "id": "e2", "type": "Movie" },
+      { "id": "e3", "type": "Documentary" },
+      { "id": "e4", "type": "Movie" }
     ],
     "constraint": {
-      "left": { "attribute_name": "release_date", "of": "e2" },
-      "operator": ">",
-      "right": "2020-12-31"
+      "and_conditions": [
+        {
+          "left": { "attribute_name": "release_date", "of": "e2" },
+          "operator": ">",
+          "right": "2020-12-31"
+        },
+        {
+          "left": { "attribute_name": "duration", "of": "e1" },
+          "operator": "=",
+          "right": {
+            "source": {
+              "list": { "list_elements": "e3" }
+            },
+            "map_expression": { "attribute_name": "duration", "of": "e3" },
+            "aggregate_kind": "MAX"
+          }
+        },
+        {
+          "left": { "attribute_name": "duration", "of": "e2" },
+          "operator": "=",
+          "right": {
+            "source": {
+              "list": { "list_elements": "e4" },
+              "filter": {
+                "left": { "attribute_name": "release_date", "of": "e4" },
+                "operator": ">",
+                "right": "2020-12-31"
+              }
+            },
+            "map_expression": { "attribute_name": "duration", "of": "e4" },
+            "aggregate_kind": "MAX"
+          }
+        }
+      ]
     }
   },
   {
     "target": [ "e1", "e2" ],
     "entities": [
       { "id": "e1", "type": "Documentary" },
-      { "id": "e2", "type": "Movie" }
+      { "id": "e2", "type": "Movie" },
+      { "id": "e3", "type": "Documentary" },
+      { "id": "e4", "type": "Movie" }
     ],
     "constraint": {
       "and_conditions": [
@@ -656,6 +691,38 @@ Output:
           "left": { "attribute_name": "release_date", "of": "e2" },
           "operator": ">",
           "right": "2020-12-31"
+        },
+        {
+          "left": { "attribute_name": "duration", "of": "e1" },
+          "operator": "=",
+          "right": {
+            "source": {
+              "list": { "list_elements": "e3" },
+              "filter": {
+                "left": { "attribute_name": "release_date", "of": "e3" },
+                "operator": ">",
+                "right": "2020-12-31"
+              }
+            },
+            "map_expression": { "attribute_name": "duration", "of": "e3" },
+            "aggregate_kind": "MAX"
+          }
+        },
+        {
+          "left": { "attribute_name": "duration", "of": "e2" },
+          "operator": "=",
+          "right": {
+            "source": {
+              "list": { "list_elements": "e4" },
+              "filter": {
+                "left": { "attribute_name": "release_date", "of": "e4" },
+                "operator": ">",
+                "right": "2020-12-31"
+              }
+            },
+            "map_expression": { "attribute_name": "duration", "of": "e4" },
+            "aggregate_kind": "MAX"
+          }
         }
       ]
     }
@@ -746,7 +813,7 @@ Output:
           "right": "Iceland"
         },
         {
-          "list": {
+          "source": {
             "list": { "list_elements": "e2" }
           },
           "condition": "r1",
