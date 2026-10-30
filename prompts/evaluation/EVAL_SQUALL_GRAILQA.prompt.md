@@ -112,7 +112,7 @@ Evaluate the Candidate holistically across these dimensions:
 6. **Cross-Format Equivalence (SQUALL vs LISP):**
   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
   - You must verify if the graph topology modeled in the Candidate's SQUALL string logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-  - **Schema-independent modelling:** A resource can be linked through a property (`has genre res:Jazz`) or a verb (`perform-s res:Jazz`); both are valid.
+  - **Schema-independent modelling:** A named value can be modelled as a literal (`whose genre is equal to "Jazz"`) or as a resource (`has genre res:Jazz`); both are valid.
   - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth LISP was generated with access to the knowledge base. Therefore, if the Candidate is semantically and structurally equivalent to the Ground Truth intent, it must be marked as correct, even if it does not match the exact entity types or relationship roles in the LISP.
 
 ---
@@ -141,7 +141,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 what is the name of the subatomic particle that's part of the same family of particles as the bottom quark?
 
 [GROUND TRUTH LISP]
-(AND Subatomic particle (JOIN Family (JOIN Particles Bottom quark)))
+(AND Subatomic_particle (JOIN Family (JOIN Particles Bottom_quark)))
 
 [CANDIDATE OUTPUT]
 Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
@@ -161,7 +161,7 @@ Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
 what is the number of video games designed by jeffrey kaplan?
 
 [GROUND TRUTH LISP]
-(COUNT (AND Video game (JOIN (R Games Designed) Jeffrey Kaplan)))
+(COUNT (AND Video_game (JOIN (R Games_Designed) Jeffrey_Kaplan)))
 
 [CANDIDATE OUTPUT]
 How many video_game-s are the games_designed of Jeffrey_Kaplan ?
@@ -181,7 +181,7 @@ How many video_game-s are the games_designed of Jeffrey_Kaplan ?
 Is it true that every movie directed by Christopher Nolan after 2005 has an IMDB rating greater than 8.0?
 
 [GROUND TRUTH LISP]
-(ASK (AND Movie (JOIN Directed By Christopher Nolan) (> Release Year 2005) (> IMDB Rating 8.0)))
+(ASK (AND Movie (JOIN Directed_By Christopher_Nolan) (gt Release_Year 2005) (gt IMDB_Rating 8.0)))
 
 [CANDIDATE OUTPUT]
 Which movie that was directed by res:Christopher_Nolan and whose release_year is greater than 2005 has a IMDB_rating greater than 8.0 ?
@@ -201,7 +201,7 @@ Which movie that was directed by res:Christopher_Nolan and whose release_year is
 Tell me the nodes reachable from Node A through zero or more network links.
 
 [GROUND TRUTH LISP]
-(AND Node (JOIN Connects* Node A))
+(AND Node (JOIN Connects* Node_A))
 
 [CANDIDATE OUTPUT]
 Which node connects* res:Node_A where links >= 0 ?
@@ -221,7 +221,7 @@ Which node connects* res:Node_A where links >= 0 ?
 What is the average salary of the engineers who work in a department located in London?
 
 [GROUND TRUTH LISP]
-(AVG (JOIN Salary (AND Engineer (JOIN Works In (AND Department (JOIN Location London))))))
+(AVG (JOIN Salary (AND Engineer (JOIN Works_In (AND Department (JOIN Location London))))))
 
 [CANDIDATE OUTPUT]
 What is the average salary of the engineer who work in a department whose location is res:London ?

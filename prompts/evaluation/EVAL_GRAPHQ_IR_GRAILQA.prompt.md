@@ -109,7 +109,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 Give me the movies directed by Eastwood.
 
 [GROUND TRUTH LISP]
-(AND film.film (JOIN (R film.director.film) m.eastwood))
+(AND Film (JOIN (R Films_directed) Eastwood))
 
 [CANDIDATE OUTPUT]
 what is <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> </ES>
@@ -129,7 +129,7 @@ what is <ES> <C> movie </C> that <R> director </R> forward to <E> Eastwood </E> 
 Give me the movies directed by Eastwood.
 
 [GROUND TRUTH LISP]
-(AND film.film (JOIN (R film.director.film) m.eastwood))
+(AND Film (JOIN (R Films_directed) Eastwood))
 
 [CANDIDATE OUTPUT]
 what is <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E> </ES>
@@ -149,7 +149,7 @@ what is <ES> <C> movie </C> that <R> director </R> backward to <E> Eastwood </E>
 Tell me whether the actors of Matrix are taller than 160 cm.
 
 [GROUND TRUTH LISP]
-(AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
+(AND Film_actor (JOIN (R Actor) (JOIN Film Matrix)) (gt Height 160))
 
 [CANDIDATE OUTPUT]
 what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
@@ -169,7 +169,7 @@ what is <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES
 Tell me whether the actors of Matrix are taller than 160 cm.
 
 [GROUND TRUTH LISP]
-(AND film.actor (JOIN (R film.performance.actor) (JOIN film.performance.film m.matrix)) (> height 160))
+(AND Film_actor (JOIN (R Actor) (JOIN Film Matrix)) (gt Height 160))
 
 [CANDIDATE OUTPUT]
 whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES>
@@ -189,7 +189,7 @@ whether <ES> <C> actor </C> that <R> actor </R> backward to <E> Matrix </E> </ES
 Which has less elevation above sea level, Rome that is the filming location of To Rome with Love or Lisbon which is the twinned administrative body of Santo Domingo?
 
 [GROUND TRUTH LISP]
-(ARGMIN (OR (AND location.location (JOIN (R film.location.film) m.to_rome_with_love) m.rome) (AND location.location (JOIN (R location.twinned_administrative_body.location) m.santo_domingo) m.lisbon)) location.location.elevation)
+(ARGMIN (OR (AND Location (JOIN (R Featured_in_films) To_Rome_with_Love) Rome) (AND Location (JOIN (R Twinned_administrative_body) Santo_Domingo) Lisbon)) Elevation)
 
 [CANDIDATE OUTPUT]
 which one has the smallest <A> elevation above sea level </A> among <ES> <ES> <E> Rome </E> (<ES> ones that <R> filming location </R> backward to <E> To Rome with Love </E> </ES>) </ES> or <ES> <E> Lisbon </E> (<ES> ones that <R> twinned administrative body </R> backward to <E> Santo Domingo </E> </ES>) </ES> </ES>

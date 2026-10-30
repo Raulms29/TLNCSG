@@ -90,13 +90,13 @@ RELATIONS := {
 COUNT := { count: LIST }
 // Number of elements in a list
 
-SCALAR_AGGREGATE := { list: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
+SCALAR_AGGREGATE := { source: LIST, map_expression: EXPRESSION, aggregate_kind: AGGREGATE_KIND }
 // Aggregation over elements in a list
 
 AGGREGATE_KIND := "SUM" | "MIN" | "MAX" | "AVG"
 // Supported aggregation function
 
-QUANTIFIER_PREDICATE := { list: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
+QUANTIFIER_PREDICATE := { source: LIST, condition: CONDITION, quantifier_kind: QUANTIFIER_KIND }
 // Tests whether list elements satisfy a condition
 
 QUANTIFIER_KIND := "ALL" | "EXISTS" | "NONE"
@@ -167,6 +167,7 @@ Evaluate the Candidate holistically across these dimensions:
   - **Target Validity:** The `target` array legally accepts `ENTITY_ID`, `RELATIONSHIP_ID`, `PATH_ID`, `LIST`, `EXPRESSION` and `CONDITION`.If a Candidate uses a complex but valid target when a simpler one would suffice, this is evaluated under **Minimality**.
   - **Type Checking:** Operators must receive valid types (e.g., math operators `> , <` on numbers or dates; `CONTAINS` on strings).
   - **Filters & Maps:** Verify correct usage of `filter` within `LIST`. `SCALAR_AGGREGATE` must use a valid `map_expression` to extract values before applying `SUM`, `MIN`, `MAX`, or `AVG`. 
+  - **Lists in a constraint:** Comparing an entity with an aggregate over a list of that same entity (e.g. the entity's date equals the `MAX` date over `list_elements` of that entity) is valid: the list ranges over every element of that type that meets the rest of the query's conditions.
   - **Path Aggregations:** When calculating lengths (hops) or aggregating weights over a path, verify that intermediate elements are correctly extracted via `NODES` or `RELATIONS` and then evaluated using `COUNT` or `SCALAR_AGGREGATE`.
 
 5. **Minimality:**
@@ -208,7 +209,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 Give me the names of the Authors who have written at least 5 books published after 2010.
 
 [GROUND TRUTH LISP]
-(AND book.author (>= (COUNT (JOIN (R book.book.author) (AND book.book (> book.book.publish_year 2010)))) 5))
+(AND Author (ge (COUNT (JOIN (R Author) (AND Book (gt Publish_year 2010)))) 5))
 
 [CANDIDATE OUTPUT]
 [
@@ -250,7 +251,7 @@ Give me the names of the Authors who have written at least 5 books published aft
 Give me all the groups that directly or indirectly influenced Queen.
 
 [GROUND TRUTH LISP]
-(AND music.group (JOIN music.group.influenced m.queen))
+(AND Musical_group (JOIN Influenced Queen))
 
 [CANDIDATE OUTPUT]
 [
@@ -288,7 +289,7 @@ Give me all the groups that directly or indirectly influenced Queen.
 Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH LISP]
-(AND people.person (JOIN people.person.relative (JOIN people.person.relative (JOIN people.person.relative m.alfonso_x))))
+(AND Person (JOIN Relative (JOIN Relative (JOIN Relative Alfonso_X))))
 
 [CANDIDATE OUTPUT]
 [
@@ -323,7 +324,7 @@ Give me the third-degree relatives of Alfonso X.
 Give me the third-degree relatives of Alfonso X.
 
 [GROUND TRUTH LISP]
-(AND people.person (JOIN people.person.relative (JOIN people.person.relative (JOIN people.person.relative m.alfonso_x))))
+(AND Person (JOIN Relative (JOIN Relative (JOIN Relative Alfonso_X))))
 
 [CANDIDATE OUTPUT]
 [
@@ -390,7 +391,7 @@ Give me the third-degree relatives of Alfonso X.
 Give me the employees of companies located in Madrid.
 
 [GROUND TRUTH LISP]
-(AND business.employee (JOIN business.employee.company (AND business.company (JOIN business.company.location m.madrid))))
+(AND Employee (JOIN Company (AND Company (JOIN Location Madrid))))
 
 [CANDIDATE OUTPUT]
 [
@@ -412,7 +413,7 @@ Give me the employees of companies located in Madrid.
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate models the employee-to-company hop with the `works_at` relationship and filters the company by `location = 'Madrid'`. The Ground Truth LISP reaches Madrid through a JOIN (`JOIN business.company.location m.madrid`). Whether the city is stored as an attribute of the company or as a separate entity is a schema choice the Candidate cannot know, so both representations are equivalent.",
+  "rationale": "The Candidate models the employee-to-company hop with the `works_at` relationship and filters the company by `location = 'Madrid'`. The Ground Truth LISP reaches Madrid through a JOIN (`JOIN Location Madrid`). Whether the city is stored as an attribute of the company or as a separate entity is a schema choice the Candidate cannot know, so both representations are equivalent.",
   "hypotheses_covered": 1,
   "correct": true,
   "error_category": null
@@ -425,7 +426,7 @@ Give me the employees of companies located in Madrid.
 Give me the names of actors who have appeared in more than 10 films.
 
 [GROUND TRUTH LISP]
-(AND film.actor (> (COUNT (JOIN (R film.performance.actor) film.performance.film)) 10))
+(AND Film_actor (gt (COUNT (JOIN (R Actor) Film)) 10))
 
 [CANDIDATE OUTPUT]
 [
@@ -466,7 +467,7 @@ Give me the names of actors who have appeared in more than 10 films.
 Give me the movies in which actors born in Madrid have acted.
 
 [GROUND TRUTH LISP]
-(AND film.film (JOIN film.film.actor (AND film.actor (JOIN people.person.place_of_birth m.madrid))))
+(AND Film (JOIN Actor (AND Film_actor (JOIN Place_of_birth Madrid))))
 
 [CANDIDATE OUTPUT]
 [
