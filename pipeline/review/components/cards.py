@@ -15,9 +15,9 @@ CORRECT, INCORRECT = "✓ Correct", "✗ Incorrect"
 
 
 def _groups_label(answer: Answer) -> str:
-    """e.g. 'gemma4_26b · Std · 30 runs  |  qwen3_8b · Thinking · 2 runs'."""
+    """e.g. 'gemma4_26b · 30 runs  |  qwen3_8b · Reasoning · 2 runs'."""
     return " &nbsp;|&nbsp; ".join(
-        f"**{g['_model']}** · {'Thinking' if is_true(g.get('Thinking')) else 'Std'} · {g.get('Group Size', '?')} runs"
+        f"**{g['_model']}**{' · Reasoning' if is_true(g.get('Thinking')) else ''} · {g.get('Group Size', '?')} runs"
         for g in sorted(answer.groups, key=lambda g: int(g.get("Group Size") or 0), reverse=True)
     )
 
@@ -35,6 +35,14 @@ def _judge_category_badge(answer: Answer) -> str:
     """The judge's suggested error categories (one per distinct suggestion across runs), or ''."""
     categories = sorted({g.get("LLM Error Category") for g in answer.groups} - {None, ""})
     return f":gray-badge[{' / '.join(categories)}]" if categories else ""
+
+
+def _judge_category(answer: Answer) -> str | None:
+    """The judge's error category of the largest group that has one, to preselect; None if there is none."""
+    for g in sorted(answer.groups, key=lambda g: int(g.get("Group Size") or 0), reverse=True):
+        if g.get("LLM Error Category") in ERROR_CATEGORIES:
+            return g["LLM Error Category"]
+    return None
 
 
 def _is_open(answer: Answer, review_state: ReviewState) -> bool:
@@ -102,6 +110,7 @@ def _render_open(answer: Answer, number: int, grammar: str, is_ambrosia: bool, g
         if answer.judge_verdicts != {human_correct}:
             st.text_area("Why is the judge wrong? (required)", key=f"r_{key}", height=68)
         if not human_correct and not st.session_state.get("express_mode"):
+            st.session_state.setdefault(f"c_{key}", _judge_category(answer))
             st.pills("Error category", ERROR_CATEGORIES, key=f"c_{key}")
             st.text_input("Notes (optional)", key=f"n_{key}")
 
@@ -129,6 +138,8 @@ def _save(query: Query, open_answers: list[Answer], grammar: str, is_ambrosia: b
     for answer in open_answers:
         k = answer.key
         human_correct = st.session_state[f"v_{k}"] == CORRECT
+        # Express mode hides the category pills: the judge's category is kept
+        category = _judge_category(answer) if st.session_state.get("express_mode") else st.session_state.get(f"c_{k}")
         discrepancy = answer.judge_verdicts != {human_correct}
         review_state.mark_reviewed(
             k,
@@ -140,7 +151,7 @@ def _save(query: Query, open_answers: list[Answer], grammar: str, is_ambrosia: b
             if is_ambrosia else int(answer.rep.get("Hypotheses Covered") or 1),
             discrepancy=discrepancy,
             discrepancy_reason=st.session_state.get(f"r_{k}", "") if discrepancy else "",
-            error_category=(st.session_state.get(f"c_{k}") or "") if not human_correct else "",
+            error_category=(category or "") if not human_correct else "",
             error_notes=st.session_state.get(f"n_{k}", "") if not human_correct else "",
         )
     return []

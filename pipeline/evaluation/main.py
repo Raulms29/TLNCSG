@@ -43,7 +43,6 @@ def main(config_path: str, grouping_dir: str) -> None:
     ground_truth = GroundTruthStore(
         ambrosia_path=config.dataset_paths.ambrosia,
         grailqa_path=config.dataset_paths.grailqa,
-        ambrosia_qid_prefix=config.ambrosia_qid_prefix,
         text2cypher_path=config.dataset_paths.text2cypher,
     )
 

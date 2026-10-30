@@ -59,7 +59,7 @@ def _render_settings(
             st.session_state.pop("qid", None)
             st.rerun()
         st.checkbox(
-            "Express Mode", key="express_mode", help="Hide error categorization"
+            "Express Mode", key="express_mode", help="Hide error categorization and keep the judge's error category"
         )
         if st.button("Generate Output Files", type="primary", width="stretch"):
             generate_outputs(
@@ -135,7 +135,7 @@ def render_topbar(cfg: ReviewConfig) -> dict:
 
     with col_jump:
         labels = {
-            q.qid: f"{'✔' if is_query_done(q, review_state) else '●'}  {q.qid} — {q.text[:60]}"
+            q.qid: f"{'✔  ' if is_query_done(q, review_state) else ''}{q.qid} — {q.text[:60]}"
             for q in queries
         }
         st.session_state.jump = st.session_state.qid

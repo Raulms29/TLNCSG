@@ -18,7 +18,6 @@ class ReviewConfig:
     # One review state shared by every run, so verdicts carry over between runs
     review_state_path: str = "outputs/review/review_state.json"
     dataset_paths: DatasetPaths = field(default_factory=DatasetPaths)
-    ambrosia_qid_prefix: str = "AMB_"
 
     @classmethod
     def from_json(cls, path: str | Path) -> ReviewConfig:

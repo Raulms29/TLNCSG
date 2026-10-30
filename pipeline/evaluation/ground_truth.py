@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pipeline.datasets.ambrosia import load_ambrosia_questions
+from pipeline.datasets.ambrosia import QID_PREFIX as AMBROSIA_QID_PREFIX, load_ambrosia_questions
 from pipeline.datasets.text2cypher import QID_PREFIX as TEXT2CYPHER_QID_PREFIX, load_text2cypher_questions
 
 logger = logging.getLogger(__name__)
@@ -60,10 +60,8 @@ class GroundTruthStore:
         self,
         ambrosia_path: str | Path,
         grailqa_path: str | Path,
-        ambrosia_qid_prefix: str = "AMB_",
         text2cypher_path: str | Path | None = None,
     ):
-        self._ambrosia_qid_prefix = ambrosia_qid_prefix
         self._ground_truths: dict[str, dict[str, GroundTruth]] = {"ambrosia": {}, "grailqa": {}, "text2cypher": {}}
 
         self._load_ambrosia(Path(ambrosia_path))
@@ -77,7 +75,7 @@ class GroundTruthStore:
 
     def detect_dataset(self, qid: str) -> str:
         """Return 'ambrosia', 'text2cypher' or 'grailqa' based on QID prefix."""
-        if qid.startswith(self._ambrosia_qid_prefix):
+        if qid.startswith(AMBROSIA_QID_PREFIX):
             return "ambrosia"
         if qid.startswith(TEXT2CYPHER_QID_PREFIX):
             return "text2cypher"

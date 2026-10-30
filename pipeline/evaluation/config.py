@@ -54,8 +54,6 @@ class EvaluationConfig:
     retry_wait_seconds: int = 5
     # Grouped files evaluated at once (needs OLLAMA_NUM_PARALLEL on the server)
     parallel_requests: int = 1
-    # Configurable prefix for dataset detection
-    ambrosia_qid_prefix: str = "AMB_"
 
     @classmethod
     def from_json(cls, path: str | Path) -> EvaluationConfig:

@@ -38,7 +38,6 @@ if "gt_store" not in st.session_state:
     st.session_state.gt_store = GroundTruthStore(
         ambrosia_path=cfg.dataset_paths.ambrosia,
         grailqa_path=cfg.dataset_paths.grailqa,
-        ambrosia_qid_prefix=cfg.ambrosia_qid_prefix,
         text2cypher_path=cfg.dataset_paths.text2cypher,
     )
 
