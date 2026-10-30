@@ -18,8 +18,13 @@ class ModelConfig:
     display_name: str
     enabled: bool = True
     supports_thinking: bool = False
+    # Reasoning level ("low", "medium" or "high") for models that can't turn reasoning off, such as gpt-oss:
+    # they run in thinking mode only, at this level
+    think_level: str | None = None
     temperature: float = 0.0
     grammars: dict[str, str] = field(default_factory=dict)
+    # Overrides of the shared ollama_options for this model (e.g. a larger num_predict for reasoning)
+    ollama_options: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, name: str, data: dict) -> ModelConfig:

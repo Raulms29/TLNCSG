@@ -227,10 +227,11 @@ class ExecutionRunner:
         model_dir = grammar_dir / _safe_name(model_cfg.name)
         model_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine thinking modes
-        modes = [False]
-        if model_cfg.supports_thinking:
-            modes.append(True)
+        # Determine thinking modes; a model with a think_level can't turn reasoning off
+        if model_cfg.think_level:
+            modes = [True]
+        else:
+            modes = [False, True] if model_cfg.supports_thinking else [False]
 
         all_records: list[dict] = []
 
@@ -258,7 +259,7 @@ class ExecutionRunner:
                     self.client.warmup(
                         model=model_cfg.name,
                         system_prompt=system_prompt,
-                        options=self.config.ollama_options,
+                        options=self._options(model_cfg),
                         temperature=model_cfg.temperature,
                     )
                     self._current_warmed_up_model = model_cfg.name
@@ -305,6 +306,10 @@ class ExecutionRunner:
     # Per-query execution
     # ------------------------------------------------------------------
 
+    def _options(self, model_cfg: ModelConfig) -> dict:
+        """The shared Ollama options with the model's own overrides."""
+        return {**self.config.ollama_options, **model_cfg.ollama_options}
+
     def _run_query(
         self,
         model_cfg: ModelConfig,
@@ -339,7 +344,7 @@ class ExecutionRunner:
                 model=model_cfg.name,
                 query=query.text,
                 system_prompt=system_prompt,
-                options=self.config.ollama_options,
+                options=self._options(model_cfg),
                 temperature=model_cfg.temperature,
                 thinking=thinking,
             )
