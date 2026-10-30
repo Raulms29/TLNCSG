@@ -61,6 +61,9 @@ def render_ground_truth(gt: GroundTruth | None) -> None:
         if gt.db_dump:
             with st.expander("Database Schema", expanded=False):
                 st.code(gt.db_dump, language="sql")
+    elif gt.dataset == "text2cypher":
+        st.caption("Cypher")
+        st.code(gt.cypher or "", language="cypher", wrap_lines=True)
     else:
         st.caption("LISP s-expression (friendly names)")
         st.code(gt.s_expression_friendly or "", language="lisp", wrap_lines=True)

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from pipeline.clients import OllamaClient
-from pipeline.datasets import AmbrosiaDataset, GrailQADataset, QueryDataset
+from pipeline.datasets import AmbrosiaDataset, GrailQADataset, QueryDataset, Text2CypherDataset
 from pipeline.execution.config import ExecutionConfig
 from pipeline.execution.runner import ExecutionRunner
 
@@ -41,6 +41,7 @@ SELECTED_QUERIES_DIR = Path("datasets/selected")
 DATASET_LOADERS: dict[str, type[QueryDataset]] = {
     "grailqa": GrailQADataset,
     "ambrosia": AmbrosiaDataset,
+    "text2cypher": Text2CypherDataset,
 }
 
 
@@ -54,13 +55,15 @@ def _load_queries(config: ExecutionConfig):
             f"Supported: {', '.join(DATASET_LOADERS)}"
         )
 
-    dataset = loader_cls(config.dataset.path)
+    is_ambrosia = loader_cls is AmbrosiaDataset
+    dataset = loader_cls(config.dataset.path, config.dataset.split) if is_ambrosia else loader_cls(config.dataset.path)
     queries = dataset.sample(
         n=config.dataset.n_queries, seed=config.dataset.seed
     )
 
     # Save the selected queries (outside the git-ignored dataset folders, so they are versioned)
-    save_path = SELECTED_QUERIES_DIR / f"selected_queries_{ds_type}_n{config.dataset.n_queries}_seed{config.dataset.seed}.csv"
+    name = f"{ds_type}_{config.dataset.split}" if is_ambrosia else ds_type
+    save_path = SELECTED_QUERIES_DIR / f"selected_queries_{name}_n{config.dataset.n_queries}_seed{config.dataset.seed}.csv"
     dataset.save_selected_queries(queries, save_path)
 
     logger.info(

@@ -2,49 +2,82 @@
 
 from __future__ import annotations
 
-import json
 import logging
+from pathlib import Path
+
 import pandas as pd
 
 from .base import Query, QueryDataset, _stratified_sample
 
 logger = logging.getLogger(__name__)
 
+QID_PREFIX = "AMB_"
 
-class AmbrosiaDataset(QueryDataset):
-    """Loads the Ambrosia dataset, filters out *vague* entries, and supports
-    deterministic stratified sampling by ``(ambig_type, domain, num_interpretations)``.
+
+def load_ambrosia_questions(path: str | Path) -> list[dict]:
+    """The ambiguous, non-vague questions of ``ambrosia.csv``, each with its unambiguous readings.
+
+    The QID comes from the question's row in the CSV, so it doesn't depend on order or filtering.
+    The readings are the unambiguous rows with the same question and database, as (question, SQL) pairs.
     """
-
-    def load(self, seed: int = 42) -> list[Query]:
-        """Load all non-vague queries from Ambrosia."""
-        with open(self._path, "r", encoding="utf-8") as f:
-            raw: list[dict] = json.load(f)
-
-        # Filter out vague entries (ambiguity based on DB content, not syntax)
-        filtered = [e for e in raw if e.get("ambig_type") != "vague"]
-        logger.info(
-            "Ambrosia: %d total entries, %d after filtering out vague",
-            len(raw),
-            len(filtered),
+    df = pd.read_csv(path, index_col=0)
+    readings: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for row in df[df["question_type"] == "unambig"].itertuples():
+        key = (str(row.ambig_question), str(row.db_file))
+        readings.setdefault(key, []).append(
+            (str(row.question), str(row.gold_queries).strip())
         )
 
-        queries: list[Query] = []
-        for idx, entry in enumerate(filtered, start=1):
-            qid = f"AMB_{idx:04d}"
-            queries.append(
-                Query(
-                    id=qid,
-                    text=entry["ambig_question"],
-                    metadata={
-                        "ambig_type": entry.get("ambig_type"),
-                        "domain": entry.get("domain"),
-                        "interpretations": entry.get("interpretations", []),
-                    },
-                )
-            )
+    ambiguous = df[df["is_ambiguous"] & (df["ambig_type"] != "vague")]
+    return [
+        {
+            "qid": f"{QID_PREFIX}{idx:04d}",
+            "question": row.ambig_question,
+            "ambig_type": row.ambig_type,
+            "domain": row.domain,
+            "split": row.split,
+            "db_dump": row.db_dump,
+            "readings": readings.get(
+                (str(row.ambig_question), str(row.db_file)), []
+            ),
+        }
+        for idx, row in zip(ambiguous.index, ambiguous.itertuples())
+    ]
 
-        return queries
+
+class AmbrosiaDataset(QueryDataset):
+    """Loads the ambiguous, non-vague Ambrosia questions of one official split (``test`` or
+    ``few_shot_examples``), and supports deterministic stratified sampling by
+    ``(ambig_type, domain, num_interpretations)``.
+    """
+
+    def __init__(self, path: str | Path, split: str = "test"):
+        super().__init__(path)
+        self._split = split
+
+    def load(self, seed: int = 42) -> list[Query]:
+        """Load all non-vague queries of the split."""
+        records = [
+            r for r in load_ambrosia_questions(self._path) if r["split"] == self._split
+        ]
+        logger.info(
+            "Ambrosia: %d ambiguous non-vague questions in split '%s'",
+            len(records),
+            self._split,
+        )
+
+        return [
+            Query(
+                id=r["qid"],
+                text=r["question"],
+                metadata={
+                    "ambig_type": r["ambig_type"],
+                    "domain": r["domain"],
+                    "readings": r["readings"],
+                },
+            )
+            for r in records
+        ]
 
     def sample(self, n: int, seed: int = 42) -> list[Query]:
         """Stratified sample by ``(ambig_type, domain, num_interpretations)``
@@ -67,7 +100,7 @@ class AmbrosiaDataset(QueryDataset):
                 "ambig_type": [q.metadata["ambig_type"] for q in all_queries],
                 "domain": [q.metadata["domain"] for q in all_queries],
                 "num_interpretations": [
-                    len(q.metadata["interpretations"]) for q in all_queries
+                    len(q.metadata["readings"]) for q in all_queries
                 ],
             }
         )
@@ -83,4 +116,3 @@ class AmbrosiaDataset(QueryDataset):
             n_strata,
         )
         return selected
-

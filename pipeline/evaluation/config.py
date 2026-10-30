@@ -32,8 +32,9 @@ class EvaluatorModelConfig:
 class DatasetPaths:
     """Paths to the original dataset files for ground truth lookup."""
 
-    ambrosia: str = "datasets/ambrosia/ambiguous_questions_own.json"
+    ambrosia: str = "datasets/ambrosia/ambrosia.csv"
     grailqa: str = "datasets/GrailQA_v1.0/grailqa_v1.0_dev.json"
+    text2cypher: str = "datasets/text2cypher_2025v1/test.parquet"
 
     @classmethod
     def from_dict(cls, data: dict) -> DatasetPaths:

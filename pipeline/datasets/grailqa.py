@@ -7,6 +7,8 @@ import logging
 import random
 from collections import defaultdict
 
+from pathlib import Path
+
 import pandas as pd
 
 from .base import Query, QueryDataset, _stratified_sample
@@ -17,7 +19,14 @@ logger = logging.getLogger(__name__)
 class GrailQADataset(QueryDataset):
     """Loads GrailQA, keeps one paraphrase per canonical ``qid[:8]``, and performs
     stratified sampling by ``(function, num_node, num_edge)``.
+
+    ``exclude_templates_from`` names another GrailQA file whose templates (``qid[:8]``) are left out,
+    so a sample from train shares no logical form with dev.
     """
+
+    def __init__(self, path: str | Path, exclude_templates_from: str | Path | None = None):
+        super().__init__(path)
+        self._exclude_path = Path(exclude_templates_from) if exclude_templates_from else None
 
     def load(self, seed: int = 42) -> list[Query]:
         """Load all queries, deduplicated by canonical qid randomly with a seed."""
@@ -28,6 +37,12 @@ class GrailQADataset(QueryDataset):
             "GrailQA: %d total entries",
             len(raw),
         )
+
+        if self._exclude_path:
+            with open(self._exclude_path, "r", encoding="utf-8") as f:
+                excluded = {str(entry["qid"])[:8] for entry in json.load(f)}
+            raw = [entry for entry in raw if str(entry["qid"])[:8] not in excluded]
+            logger.info("GrailQA: %d entries after excluding the templates of %s", len(raw), self._exclude_path.name)
 
         # 2. Group by canonical qid[:8]
         canonical_groups = defaultdict(list)

@@ -30,10 +30,12 @@ class ModelConfig:
 class DatasetConfig:
     """Configuration for dataset selection and sampling."""
 
-    type: str  # "grailqa" or "ambrosia"
+    type: str  # "grailqa", "ambrosia" or "text2cypher"
     path: str
     n_queries: int = 200
     seed: int = 42
+    # Ambrosia only: the official split ("test" or "few_shot_examples")
+    split: str = "test"
 
     @classmethod
     def from_dict(cls, data: dict) -> DatasetConfig:

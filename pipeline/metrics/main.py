@@ -40,6 +40,7 @@ def main(config_path: str, run_dir_path: str) -> None:
     gt_store = GroundTruthStore(
         ambrosia_path=config.dataset_paths.ambrosia,
         grailqa_path=config.dataset_paths.grailqa,
+        text2cypher_path=config.dataset_paths.text2cypher,
     )
 
     unroller = Unroller(config, gt_store)

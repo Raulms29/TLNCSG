@@ -39,11 +39,12 @@ def main(config_path: str, grouping_dir: str) -> None:
     config = EvaluationConfig.from_json(config_path)
     logger.info("Configuration loaded from %s", config_path)
 
-    # Load ground truth from both datasets
+    # Load the ground truths of the datasets
     ground_truth = GroundTruthStore(
         ambrosia_path=config.dataset_paths.ambrosia,
         grailqa_path=config.dataset_paths.grailqa,
         ambrosia_qid_prefix=config.ambrosia_qid_prefix,
+        text2cypher_path=config.dataset_paths.text2cypher,
     )
 
     # Prepare Ollama client
