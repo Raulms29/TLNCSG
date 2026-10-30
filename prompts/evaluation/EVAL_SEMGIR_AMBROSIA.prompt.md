@@ -355,7 +355,7 @@ SELECT p4.id FROM Person p1 JOIN Relatives r1 ON p1.id = r1.p1_id JOIN Person p2
       { "id": "p1", "start": "e1", "end": "e2", "roles": ["relative_of"] }
     ],
     "constraint": {
-      "and": [
+      "and_conditions": [
         {
           "left": { "attribute_name": "name", "of": "e1" },
           "operator": "=",

@@ -355,7 +355,7 @@ Give me the third-degree relatives of Alfonso X.
       { "id": "p1", "start": "e1", "end": "e2", "roles": ["relative_of"] }
     ],
     "constraint": {
-      "and": [
+      "and_conditions": [
         {
           "left": { "attribute_name": "name", "of": "e1" },
           "operator": "=",
