@@ -192,7 +192,7 @@ Identify genuine syntactic or structural ambiguity. If present, output each inte
   * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
 * **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
   * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
-* When a query asks for a combined total of items reachable through different relationships (e.g. "directed or acted in more than 5 films"), build a single `COUNT` over one `LIST` whose `filter` is an `OR` of the relevant `RELATIONSHIP_ID`s. Do not compute separate counts and join them with a top-level `OR`.
+* When a query asks for a combined total of items reachable through different relationships (e.g. "sold or repaired more than 3 bikes"), build a single `COUNT` over one `LIST` whose `filter` is an `OR` of the relevant `RELATIONSHIP_ID`s. Do not compute separate counts and join them with a top-level `OR`.
 * Set `distinct: true` in a `LIST` when the same element can be reached through more than one relationship or path, so that `COUNT` and ranked `limit` operate on unique items.
 
 ---
