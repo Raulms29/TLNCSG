@@ -81,9 +81,12 @@ class OllamaClient:
         system_prompt: str,
         options: dict,
         temperature: float,
-        thinking: bool = False,
+        thinking: bool | str = False,
     ) -> tuple[str, str | None, float, dict]:
         """Execute a chat call and return structured results.
+
+        Args:
+            thinking: Ollama's ``think`` value: a boolean, or a level such as ``"medium"``.
 
         Returns:
             A tuple of ``(content, reasoning, inference_seconds, metadata)``.

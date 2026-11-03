@@ -346,7 +346,7 @@ class ExecutionRunner:
                 system_prompt=system_prompt,
                 options=self._options(model_cfg),
                 temperature=model_cfg.temperature,
-                thinking=thinking,
+                thinking=model_cfg.think_level or thinking,
             )
             error = None
         except Exception as e:
