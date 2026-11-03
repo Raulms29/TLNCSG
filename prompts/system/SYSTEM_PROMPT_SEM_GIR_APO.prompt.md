@@ -21,7 +21,7 @@ QUERY := {
   // Entities (graph nodes) involved in the query
 
   relationships?: [RELATIONSHIP, ...],
-  // Relationships (graph vertices) connecting the entities
+  // Relationships (graph edges) connecting the entities
 
   paths?: [PATH, ...],
   // Paths between existing entities
@@ -153,38 +153,47 @@ Identify genuine syntactic or structural ambiguity. If present, output each inte
 **Step 2. Identify Targets**
 
 * `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`), a `CONDITION` or a `LIST`.
+  * A yes/no question (e.g. "Is there a path…", "Do any X satisfy…") targets a `CONDITION` that evaluates to a boolean, not the entity or path itself.
+  * A "for each X, list Y" pattern targets X (or its attributes) together with a `LIST` of Y. Y-specific selection criteria go in the `LIST`'s `filter`, not in the global `constraint`.
+  * When the query asks for two or more sub-results, each with its own ordering or limit, express each sub-result as a separate `LIST` in the target array, each carrying its own `order_by`, `limit`, and `skip`.
+  * When the answer is a name, label, or other attribute value, target an `ATTRIBUTE` expression. Do not target a `PATH_ID` unless the user explicitly asks for the path itself.
+  * When the question asks for a group of connected entities together with their relationship (e.g., two people and the link between them, several services and the calls among them), include every entity and the connecting relationship in the `target` array.
+  * When the question joins two result sets with "combined with", "together with", or "along with", include both sets in the `target` array; do not introduce a relationship to link them.
 
 **Step 3. Identify Entities**
 
 * Identify all mentioned distinct entities and assign each a unique `id`. A descriptive `id` does NOT substitute for an explicit constraint.
 * Assign a concrete `type` (e.g., Director, Movie, Organization, Location).
+* When the question presents alternatives for the same role (e.g., a name or value that could be one of several options), declare a single entity for that role and express the alternatives as an OR condition on its attributes. Declaring a separate entity per alternative connects all of them to the parent simultaneously, which models an intersection rather than a choice.
 
 **Step 4. Extract Relationships & Paths**
 
-* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels. (e.g., `built`, `wrote`, `acted_in`, `knows`).
+* `relationships`: Extract explicit semantic edges connecting entities using ROLE-BASED labels.(e.g., `built`, `wrote`, `acted_in`,`knows`).
 * `paths`: Use for traversals where the hop count is unknown (e.g., reachability, chains, indirect connections). A `PATH` spans multiple hops filtered by roles. Extract intermediate elements via `NODES` or `RELATIONS`, and evaluate its length (hops) or weight (attributes) by applying `COUNT` or `SCALAR_AGGREGATE`.
 
 **Step 5. Build Constraints**
 
 * `constraint`: Filter block combining attribute comparisons, logical operators (`AND`, `OR`, `NOT`), and topology checks. A `RELATIONSHIP_ID` can appear directly as a condition to assert that the edge must exist.
+  * A natural-language "and" between two conditions maps to AND; "or" maps to OR.
   * Do NOT create entities for simple descriptive values (e.g., names, dates); use attributes inside the `constraint` block for those.
-  * If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `COMPARISON` in `constraint`.
+  * If the query names a specific entity (e.g. *"Eastwood"*, *"iPhone 15"*), assert its identity with an explicit `=` `COMPARISON` in `constraint`.
+  * Include only entities, relationships, attribute comparisons, and result-shaping fields (`limit`, `skip`, `order_by`, `distinct`) that are stated in or directly implied by the query text. Do not add a limit, filter, entity, or attribute value that the natural language does not support.
 
 **Step 6. Shape Results**
 
 * Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
-* Positional references ("the Nth") and superlatives ("the most", "the least", "the shortest", "the longest") are expressed as `order_by` in the appropriate direction combined with `limit: 1` (plus `skip` for an N-th position). Do not encode them as an attribute comparison or a `MIN`/`MAX` aggregate.
+  * Selecting a ranked element (first, second, last, Nth) is expressed with `order_by` on the relevant measure and `limit` (plus `skip` for a specific rank).
 
 **Step 7. Apply Quantifiers and Aggregations (Lists)**
 
-* Always define the set of elements first using a `LIST` (via `list_elements`, `nodes_of`, or `rels_of`) and apply a `filter` before aggregating or quantifying.
+* A `LIST` object has a `list` field (holding a `CREATE_LIST`, `NODES`, or `RELATIONS` value) and optional `filter`, `distinct`, `order_by`, `limit`, and `skip` fields at the same level as `list`. These optional fields are not properties of the value stored in `list`.
 * **Aggregations** (produce a value):
   * `COUNT`: counts the number of elements in a `LIST`.
   * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.
-  * Set `distinct: true` on the `LIST` inside a `COUNT` or `SCALAR_AGGREGATE` when the same entity can match the list through more than one relationship instance, or when the query specifies different/unique elements, to prevent overcounting.
 * **Quantification** (is itself a `CONDITION` — place it directly in `constraint` or inside `AND` / `OR`):
   * `QUANTIFIER_PREDICATE`: tests whether `ALL`, `EXISTS` (at least one), or `NONE` of the elements in a `LIST` satisfy a given condition.
-  * When the query states that a property holds for at least one, all, or none of a set of related entities, express it as a `QUANTIFIER_PREDICATE` over that set rather than introducing a separate unquantified entity and conjoining it with `AND`.
+* When a query asks for a combined total of items reachable through different relationships (e.g. "directed or acted in more than 5 films"), build a single `COUNT` over one `LIST` whose `filter` is an `OR` of the relevant `RELATIONSHIP_ID`s. Do not compute separate counts and join them with a top-level `OR`.
+* Set `distinct: true` in a `LIST` when the same element can be reached through more than one relationship or path, so that `COUNT` and ranked `limit` operate on unique items.
 
 ---
 
