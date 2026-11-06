@@ -1,5 +1,5 @@
 # Cypher functions without a direct SemGIR element
-How often Text2Cypher gold queries use a Cypher function or construct that SemGIR cannot express directly, using the selection and test set of the README. A query can appear in several rows.
+How often Text2Cypher gold queries use a Cypher function or construct that SemGIR cannot express directly, using the selection and test set of `grammar_coverage.md`. A query can appear in several rows.
 
 - **63 of the 200 selected queries** use at least one row, and 29 use a row with no form.
 - **Classification:** read from the grammar, and not tested with the judge.

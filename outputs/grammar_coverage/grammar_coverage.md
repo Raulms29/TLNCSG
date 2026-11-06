@@ -155,7 +155,7 @@ Every grammar element, in grammar order, including those a dataset never uses.
 |  | `BOOLEAN` value | 1 | 31 | 0.7% |
 |  | `DATE_TIME` | 6 | 143 | 3.3% |
 
-Cypher constructs without a direct element, which is not a complete list. `cypher_functions.md` has the full list of functions, and `OPTIONAL MATCH` is not counted.
+Cypher constructs without a direct element, which is not a complete list. `functions/cypher_functions.md` has the full list of functions, and `OPTIONAL MATCH` is not counted.
 
 | Construct | Selection (of 200) | All test queries (of 4,297) | Share of all |
 |---|---|---|---|
@@ -267,9 +267,10 @@ Cypher constructs without a direct element, which is not a complete list. `cyphe
 
 ## Files
 
-- `text2cypher_elements.csv`: every element for Text2Cypher, with counts and shares for the selection and all test queries.
-- `grailqa_elements.csv`: every element for GrailQA, with counts and shares for the selection and all dev templates.
-- `summary.csv`: per element, the comparison group and the counts side by side.
-- `cypher_functions.md`: the Cypher functions and constructs without a direct element, with counts, the SemGIR workaround and the selected queries using each.
-- `queries.csv`: the 200 selected Text2Cypher queries with source, question, Cypher and tagged elements.
-- `count_elements.py`: generates the CSVs and `cypher_functions.md`. Run it from the repository root.
+- `results/text2cypher_elements.csv`: every element for Text2Cypher, with counts and shares for the selection and all test queries.
+- `results/grailqa_elements.csv`: every element for GrailQA, with counts and shares for the selection and all dev templates.
+- `results/summary.csv`: per element, the comparison group and the counts side by side.
+- `results/queries.csv`: the 200 selected Text2Cypher queries with source, question, Cypher and tagged elements.
+- `functions/cypher_functions.md`: the Cypher functions and constructs without a direct element, with counts, the SemGIR workaround and the selected queries using each.
+- `functions/properties_queries.md`: the autoresearch pool queries that ask for all properties of a node, with their outputs and verdicts.
+- `count_elements.py`: generates everything in `results/` and `functions/cypher_functions.md`. Run it from the repository root.

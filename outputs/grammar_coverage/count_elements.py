@@ -1,6 +1,6 @@
 """Counts the SemGIR grammar elements in the Text2Cypher and GrailQA pipeline selections.
 
-Usage (from the repository root): python outputs/text2cypher_element_coverage/count_elements.py
+Usage (from the repository root): python outputs/grammar_coverage/count_elements.py
 """
 
 import csv
@@ -16,7 +16,8 @@ sys.path.append(str(ROOT))
 from pipeline.datasets.grailqa import GrailQADataset
 from pipeline.datasets.text2cypher import Text2CypherDataset
 
-OUTPUT_DIR = Path(__file__).resolve().parent
+RESULTS_DIR = Path(__file__).resolve().parent / "results"
+FUNCTIONS_DIR = Path(__file__).resolve().parent / "functions"
 TEXT2CYPHER_PATH = ROOT / "datasets/text2cypher_2025v1/test.parquet"
 GRAILQA_PATH = ROOT / "datasets/GrailQA_v1.0/grailqa_v1.0_dev.json"
 N_QUERIES = 200
@@ -496,7 +497,7 @@ def group_of(element: str, selection: int, grailqa: int) -> str:
 
 
 def write_csv(name: str, fieldnames: list[str], rows: list[dict]) -> None:
-    with open(OUTPUT_DIR / name, "w", newline="", encoding="utf-8") as f:
+    with open(RESULTS_DIR / name, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
@@ -551,7 +552,7 @@ def write_functions_table(population: list, selection: list) -> None:
     any_row = sum(any(uses_function(text, row[2]) for row in FUNCTIONS) for _, text in selected)
     lines = [
         "# Cypher functions without a direct SemGIR element",
-        "How often Text2Cypher gold queries use a Cypher function or construct that SemGIR cannot express directly, using the selection and test set of the README. A query can appear in several rows.",
+        "How often Text2Cypher gold queries use a Cypher function or construct that SemGIR cannot express directly, using the selection and test set of `grammar_coverage.md`. A query can appear in several rows.",
         "",
         f"- **{any_row} of the 200 selected queries** use at least one row, and {no_form} use a row with no form.",
         "- **Classification:** read from the grammar, and not tested with the judge.",
@@ -580,7 +581,7 @@ def write_functions_table(population: list, selection: list) -> None:
                 f"| {name} | {total:,} | {share(total, len(population))}% | {len(ids)} | {semgir} | {listed} |"
             )
         lines.append("")
-    (OUTPUT_DIR / "cypher_functions.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    (FUNCTIONS_DIR / "cypher_functions.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
 def main() -> None:
