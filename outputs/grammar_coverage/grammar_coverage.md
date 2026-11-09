@@ -167,6 +167,16 @@ Cypher constructs without a direct element, which is not a complete list. `funct
 
 ## Comparison
 
+### Queries that need an element GrailQA lacks
+
+A Text2Cypher query counts when at least one of its elements is never used by GrailQA. The GrailQA selection and all dev templates lack the same elements, so the counts are the same against either.
+
+| Text2Cypher queries | Selection (of 200) | All test queries (of 4,297) |
+|---|---|---|
+| Use an element GrailQA lacks | 180 (90.0%) | 3,871 (90.1%) |
+| Same, also counting the Cypher constructs without a direct element | 184 (92.0%) | 3,901 (90.8%) |
+| Same as the first row, leaving out target `ATTRIBUTE` and several targets | 119 (59.5%) | 2,359 (54.9%) |
+
 ### In Text2Cypher, missing from GrailQA
 
 | SemGIR element | Text2Cypher selection (of 200) | All test queries (of 4,297) |
@@ -255,11 +265,12 @@ Cypher constructs without a direct element, which is not a complete list. `funct
 
 ## Findings
 
+- **90% of Text2Cypher queries use an element GrailQA lacks**, in the selection (180 of 200) and across all test queries (90.1%). Most of this comes from target `ATTRIBUTE` and several targets, since GrailQA only returns entity IDs or counts. Without those two, 59.5% of the selection still contains at least one element that GrailQA queries do not use.
 - **Text2Cypher adds 28 distinct elements GrailQA lacks**, 20 of them in fewer than 10 selected queries. The table has 30 rows because `PATH` and `QUANTIFIER_PREDICATE` also appear as totals over their variants.
 - **`ALL`, explicit `NONE`, `LIST.skip` and `PATH` role lists are dataset gaps.** The whole test set has at most 6 queries of each, so another seed would not cover them.
 - **`MIN` is a sampling miss.** The test set has 37 queries with it.
 - **Only 2 selected queries contain a real regex.** The other 9 `MATCHES_REGEX` queries use `STARTS WITH`, so the model has to write the regex itself.
-- **5 of the 7 `RELATIONS` queries are bounded paths.** A model could also encode them as explicit relationships, which would leave 2.
+- **5 of the 7 `RELATIONS` queries are bounded paths.** A bounded path such as `[*2]` is a path, so it counts as `PATH` with a `COUNT` of its `RELATIONS`.
 - **`QUANTIFIER EXISTS` is optional.** Its 7 queries also fit `RELATIONSHIP_ID` as a condition (4) or a target `CONDITION` (3).
 - **`LIST.filter` and `NONE` are never required.** 23 selected queries have a condition ahead of an aggregate that could use `LIST.filter` or stay in `constraint`, and 5 negated queries could use `NONE` instead of `NOT`.
 - **Paths come from one source.** All 20 `PATH`, 5 `NODES`, 7 `RELATIONS`, 3 target `PATH_ID` and 3 target `CONDITION` queries are `neo4jLabs_functional_cypher`, as are `OR` (2) and query `skip` (1). The 20 `PATH` queries follow about 8 templates and none has a role list.
