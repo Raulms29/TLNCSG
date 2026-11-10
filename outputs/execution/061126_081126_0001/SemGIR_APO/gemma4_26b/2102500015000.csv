@@ -1,0 +1,754 @@
+Run,Model,Thinking,QID,Query,Prompt Tokens,Completion Tokens,Inference Time (s),Response,Reasoning,Timestamp,Error
+1,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,1271,3.9015,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""is_ingredient_of"", ""from"": ""e1"", ""to"": ""e3"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": {
+        ""list"": { ""list_elements"": ""e1"" }
+      },
+      ""operator"": ""="",
+      ""right"": {
+        ""source"": {
+          ""list"": { ""list_elements"": ""e1"" }
+        },
+        ""map_expression"": { ""attribute_name"": ""name"", ""of"": ""e1"" },
+        ""aggregate_kind"": ""ALL""
+      }
+    }
+  }
+]
+```
+
+Wait, looking at the grammar and the logic for ""typical ingredients"": the user is asking for a dish that contains the ingredients of a peach purée.
+
+```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""FoodItem"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""peach purée""
+        },
+        {
+          ""source"": {
+            ""list"": { ""list_elements"": ""e1"" }
+          },
+          ""condition"": {
+            ""left"": { ""attribute_name"": ""name"", ""of"": ""e1"" },
+            ""operator"": ""="",
+            ""right"": { ""attribute_name"": ""name"", ""of"": ""e1"" }
+          },
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```
+
+Actually, the most direct semantic way to represent ""ingredients of X are in Y"" is:
+1. Find ingredients of Peach Purée.
+2. Find Dish where all those ingredients are present.
+
+```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""FoodItem"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""has_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""peach purée""
+        },
+        {
+          ""source"": {
+            ""list"": { ""list_elements"": ""e1"" }
+          },
+          ""condition"": ""r2"",
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```
+
+Wait, the `QUANTIFIER_PREDICATE` in the grammar requires a `CONDITION`. A `RELATIONSHIP_ID` is a valid `CONDITION`.
+
+Final attempt at the most accurate IR:
+
+```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""FoodItem"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""has_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""and_conditions"": [
+        {
+          ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+          ""operator"": ""="",
+          ""right"": ""peach purée""
+        },
+        {
+          ""source"": {
+            ""list"": { ""list_elements"": ""e1"" }
+          },
+          ""condition"": ""r2"",
+          ""quantifier_kind"": ""ALL""
+        }
+      ]
+    }
+  }
+]
+```",,2026-11-07T01:16:31.967662,
+2,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,222,0.9628,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""is_ingredient_of"", ""from"": ""e1"", ""to"": ""e3"" },
+      { ""id"": ""r2"", ""role"": ""is_ingredient_of"", ""from"": ""e1"", ""to"": ""e2"" }
+    ],
+    ""constraint"": {
+      ""source"": {
+        ""list"": { ""list_elements"": ""e1"" }
+      },
+      ""condition"": ""r1"",
+      ""quantifier_kind"": ""EXISTS""
+    }
+  }
+]
+```",,2026-11-07T01:16:32.932761,
+3,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.839,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:33.773421,
+4,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7653,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:34.540805,
+5,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7744,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:35.320120,
+6,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.8244,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:36.152616,
+7,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7963,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:36.953190,
+8,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7866,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:37.741507,
+9,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7868,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:38.530014,
+10,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.818,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:39.349615,
+11,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7763,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:40.127560,
+12,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.768,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:40.897401,
+13,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.8104,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:41.709480,
+14,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7624,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:42.473480,
+15,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7943,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:43.269638,
+16,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.8065,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:44.081385,
+17,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.781,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:44.869131,
+18,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7748,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:45.647456,
+19,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.8264,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:46.477563,
+20,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7827,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:48.813140,
+21,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.788,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:49.603156,
+22,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7841,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:50.388745,
+23,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7823,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:51.172643,
+24,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7961,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:51.971268,
+25,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7864,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:52.764814,
+26,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7925,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:53.560779,
+27,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.8124,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:54.376289,
+28,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.8395,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:55.220517,
+29,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7664,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:55.988692,
+30,gemma4:26b,False,2102500015000,the typical ingredients of peach purée can be found in which dish?,8624,210,0.7747,"```json
+[
+  {
+    ""target"": [ ""e2"" ],
+    ""entities"": [
+      { ""id"": ""e1"", ""type"": ""Ingredient"" },
+      { ""id"": ""e2"", ""type"": ""Dish"" },
+      { ""id"": ""e3"", ""type"": ""PeachPurée"" }
+    ],
+    ""relationships"": [
+      { ""id"": ""r1"", ""role"": ""has_ingredient"", ""from"": ""e3"", ""to"": ""e1"" },
+      { ""id"": ""r2"", ""role"": ""contains_ingredient"", ""from"": ""e2"", ""to"": ""e1"" }
+    ],
+    ""constraint"": {
+      ""left"": { ""attribute_name"": ""name"", ""of"": ""e3"" },
+      ""operator"": ""="",
+      ""right"": ""peach purée""
+    }
+  }
+]
+```",,2026-11-07T01:16:56.764995,
