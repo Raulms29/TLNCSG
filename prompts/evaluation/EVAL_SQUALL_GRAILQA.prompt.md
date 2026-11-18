@@ -8,79 +8,98 @@ Your evaluation must reflect how well the Candidate captures the intended meanin
 
 ## GRAMMAR
 
-// A SQUALL output can be a question, imperative command, graph construction, description, or data update
-SQUALL_SENTENCE := QUESTION '?' | IMPERATIVE_QUERY | CONSTRUCT_LITERAL | DESCRIBE_QUERY | UPDATE
+// A SQUALL output is a question. Any phrase can be coordinated or negated with 'and' (join), 'or' (union), 'not' (negation), 'maybe' (optional part) and brackets
 
-// Supported question structures for extracting information
-QUESTION := 'Which' CLASS_PHRASE PREDICATE_PHRASE                             // e.g., Which actor directed res:Inception
-          | 'How many' CLASS_PHRASE PREDICATE_PHRASE                          // e.g., How many books have author res:Tolkien
-          | 'What' ('is' | 'are') AGGREGATION_PHRASE ('of' | 'per') (CLASS_PHRASE | RESOURCE) // e.g., What is the average salary per department
-          | 'What relates' ('+'|'*'|'?')? (RESOURCE 'to')? (CLASS_PHRASE | RESOURCE)      // Edge traversal queries
-          | 'Whether' CLASS_PHRASE PREDICATE_PHRASE                           // Boolean queries (strict Yes/No format)
-          | ('Does' | 'Is' | 'Are') (RESOURCE | CLASS_PHRASE) PREDICATE_PHRASE// Alternative Boolean queries
-          | 'Every' CLASS_NAME 'of which' CLASS_PHRASE PREDICATE_PHRASE       // Universal quantification
-          | QUESTION 'in graph' RESOURCE                                      // Targeting specific Named Graphs
-          | 'In which graph' (RESOURCE | CLASS_PHRASE) PREDICATE_PHRASE       // Querying graph provenance
+SQUALL_SENTENCE := S '?'                                   // open question when S has which/what/who/how many
+                 | 'Whether' S '?'                         // Yes/No question (ASK)
+                 | INVERTED_S '?'                          // Yes/No question (ASK)
+                 | 'To which' NG1 (S | INVERTED_S) '?'
+                 | ('For' NP ',')* QUERY_IMP NP '.'        // returns the noun phrases. After 'For … ,' QUERY_IMP is lowercase
+INVERTED_S := ('Does' | 'Do' | 'Did') NP (VP_DO | 'have' VP_HAVE)
+            | ('Is' | 'Are' | 'Was' | 'Were') (NP VP_BE | 'there' NP)
+            | ('Has' | 'Have' | 'Had') NP VP_HAVE
+QUERY_IMP := 'Give me' | 'Return' | 'List' | 'Describe'   // 'Describe' returns all the facts about the resources (DESCRIBE)
 
-// Action and command structures
-IMPERATIVE_QUERY := ('Give me' | 'Return') CLASS_PHRASE ('in graph' RESOURCE)? '.'
-                  | 'Return concat(' CONCAT_ARGS ')' ('of' | 'per') CLASS_PHRASE '.' // String concatenation results
-DESCRIBE_QUERY := 'Describe' (RESOURCE | CLASS_PHRASE) ('in graph' RESOURCE)? '.'
-CONSTRUCT_LITERAL := 'For every' CLASS_PHRASE ('and every' CLASS_PHRASE)* ','? ('if' VARIABLE 'relates' VARIABLE 'to' VARIABLE ',')? 'return that' ASSERTION
+// Statements
+S := NP VP                                       // the subject NP does VP
+   | 'for' NP ',' S                              // NP applies to the whole sentence S
+   | 'there' AUX_BE NP                           // something matching NP exists
+   | S 'where' S                                 // both hold
 
-// Asserting new facts in the knowledge base
-UPDATE := ASSERTION | ASSERTION UPDATE
-ASSERTION := (RESOURCE | VARIABLE | SUBJECT_GROUP) PREDICATE_PHRASE '.'
-SUBJECT_GROUP := RESOURCE ('and' | 'or') RESOURCE
+// Noun phrases
+NP := TERM | DET NG1 | NP2 'of' NP               // NP2 'of' NP: the value of a relation for NP
+    | 'what' | 'who' | 'whom'                    // the unknown being asked for
+    | EXPR
+    | ('more' | 'less') NG1 'than' NG1 | 'as many' NG1 'as' NG1   // compares two counts
+    | '[' LIST ']' | '_'                         // an ordered list; '_' is any one element
+NP2 := DET NG2 | ('more' | 'less') NG2 'than' (NG2 | NP) | 'as many' NG2 'as' (NG2 | NP) | EXPR
+NPQ := 'the' NG1 | 'the' NG2 'of' NP | TERM      // what an aggregation applies to
+TERM := ENTITY | LITERAL | LABEL | PATTERN | 'that' S | '[' ']'
 
-// Class definitions and refinements
-CLASS_PHRASE := QUANTIFIER? BASE_CLASS_PHRASE
-BASE_CLASS_PHRASE := CLASS_NAME VARIABLE?                                     // e.g., actor ?X
-                   | BASE_CLASS_PHRASE ('and' | 'or') ('which' | 'what')? BASE_CLASS_PHRASE // e.g., actor and director
-                   | BASE_CLASS_PHRASE ('that' | 'whose' | 'who') PREDICATE_PHRASE          // e.g., actor who directed res:Inception
-                   | BASE_CLASS_PHRASE 'of' (RESOURCE | VARIABLE | CLASS_PHRASE)            // e.g., mayor of res:Paris
+// Determiners and noun groups
+DET := 'a' | 'an' | 'some' | 'no' | 'every' | 'all' | 'the' | 'which' | 'how many'   // 'every'/'all': for all; 'no': none;
+                                                 // 'which': asked for (SELECT); 'how many': asked count (COUNT)
+     | NUMBER | ('more than' | 'less than' | 'at least' | 'at most' | 'exactly') NUMBER   // condition on the count
+     | 'between' NUMBER 'and' NUMBER
+     | 'the' ORDINAL? ('most' | 'least')         // largest or smallest count
+NG1 := ADJ_SUPER? CLASS APP? REL?                // a class with optional name and conditions
+     | 'number' APP? REL? 'of' (NG1 | NG2 'of' NPQ) DIMS?   // COUNT
+     | AGGREG APP? (NG1 | NG2 'of' NPQ) DIMS?    // SUM / AVG / MIN / MAX / SAMPLE / GROUP_CONCAT
+NG2 := ADJ_SUPER? RELATION APP?                  // a relation, read from the subject to the value
+APP := LABEL | ENTITY                            // names the noun group with a label, or fixes it to one resource
+DIMS := 'per' (NG2 | NPQ) ('and' 'per' (NG2 | NPQ))*   // one aggregated value per group (GROUP BY)
 
-// Computations and formatting
-MATH_EXPRESSION := 'the' PROPERTY ('+' | '-' | '*' | '/') 'the' PROPERTY
-CONCAT_ARGS := ('the' PROPERTY | STRING) (',' ('the' PROPERTY | STRING))*
+// Relative clauses
+REL := ('that' | 'which' | 'who') VP
+     | ('that' | 'which' | 'whom') S_GAP         // S_GAP: S without the noun phrase the pronoun stands for
+     | NP2 'of which' VP                         // condition on a relation value
+     | 'whose' NG2 VP                            // condition on a relation value
+     | COMPARATOR NP | 'between' NP 'and' NP     // comparison with a value (FILTER)
+     | ('with' | 'without') VP_HAVE              // has / has not
+     | 'such that' S                             // any extra condition
 
-// Predicates defining the relationship to other entities or literal values
-PREDICATE_PHRASE := 'maybe'? VERB ('+'|'*'|'?')? (RESOURCE | VARIABLE | CLASS_PHRASE)       // Verbal relations, with optional path closures
-                  | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? (PROPERTY | MATH_EXPRESSION) ('greater than' | 'less than' | 'equal to' | 'greater than or equal to' | 'less than or equal to') (VALUE | AGGREGATION_PHRASE) // Numeric comparisons
-                  | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? (PROPERTY | MATH_EXPRESSION) 'between' VALUE 'and' VALUE
-                  | 'maybe'? ('has' | 'have') ('not' | 'no')? QUANTIFIER? PROPERTY (RESOURCE | VARIABLE | CLASS_PHRASE | COLLECTION_PATTERN)  // Property relations
-                  | 'maybe'? ('has' | 'have') ('not' | 'no')? CLASS_PHRASE
-                  | 'maybe'? ('has' | 'have') AGGREGATION_PHRASE
-                  | (PROPERTY | MATH_EXPRESSION)? ('is' | 'are') ('not')? ('greater than' | 'less than' | 'equal to' | 'greater than or equal to' | 'less than or equal to') (VALUE | AGGREGATION_PHRASE)
-                  | (PROPERTY | MATH_EXPRESSION)? ('is' | 'are') ('not')? 'between' VALUE 'and' VALUE
-                  | PROPERTY? ('is' | 'are') ('not')? (RESOURCE | VARIABLE | CLASS_PHRASE | 'the' ORDINAL)
-                  | ('greater than' | 'less than' | 'equal to' | 'greater than or equal to' | 'less than or equal to') (VALUE | AGGREGATION_PHRASE)
-                  | 'between' VALUE 'and' VALUE
-                  | ('does not' | 'has not') VERB (RESOURCE | VARIABLE | CLASS_PHRASE)
-                  | 'starts with' STRING | 'ends with' STRING | 'contains' STRING           // String filters
-                  | PREDICATE_PHRASE ('and' | 'or') PREDICATE_PHRASE                        // Logical connectives
+// Verb phrases
+VP := VP_DO | AUX_DO NEG? VP_DO | AUX_BE NEG? VP_BE | AUX_HAVE NEG? VP_HAVE
+AUX_DO := 'does' | 'do' | 'did'
+AUX_BE := 'is' | 'are' | 'was' | 'were'
+AUX_HAVE := 'has' | 'have' | 'had'
+NEG := 'not' | "n't"                              // the fact does not hold (NOT EXISTS)
+VP_DO := RELATION NP                             // the relation from the subject to NP
+       | ('starts' | 'start' | 'ends' | 'end') 'with' NP | ('contains' | 'contain' | 'matches' | 'match') NP   // string filters
+       | ('belongs' | 'belong' | 'belonged') 'to' NP      // class membership
+       | ('relates' | 'relate' | 'related') NP 'to' NP    // the property linking two resources
+       | ('shares' | 'share' | 'shared') (DET NG2 'with' NP | 'with' NP DET NG2)   // has the same relation value as NP
+       | ('=' | '!=' | '<' | '>' | '<=' | '>=') NP      // symbolic comparison
+VP_BE := 'there' | REL | NPC                     // is equal to, is an instance of, or meets a condition
+NPC := TERM | ('a' | 'an' | 'the') NG1 | ('a' | 'an' | 'the') NG2 'of' NP | 'the' ADJ_SUPER
+VP_HAVE := RELATION NP                            // relation value
+         | NP2 REL?                               // relation value with a condition on it
+         | 'the same' RELATION 'as' NP
 
-// Aggregations mapping to SPARQL equivalents
-AGGREGATION_PHRASE := 'the' PROPERTY('-s')? ('of' CLASS_PHRASE)?
-                    | 'the total' PROPERTY ('of' CLASS_PHRASE)?                             // SUM
-                    | 'the sum of the' PROPERTY ('of' CLASS_PHRASE)?
-                    | 'the average' PROPERTY ('of' CLASS_PHRASE)?                           // AVG
-                    | ('the greatest' | 'the maximum' | 'the lowest' | 'the minimum') PROPERTY ('of' CLASS_PHRASE)? // MAX / MIN
-                    | 'the' PROPERTY 'of the' PROPERTY 'of' VARIABLE
-                    | 'the number' ('of' CLASS_PHRASE)?                                     // COUNT
-                    | 'the' (ORDINAL | NUMBER)? ('highest' | 'lowest' | 'latest') PROPERTY'-s' ('of' CLASS_PHRASE)? // ORDER BY + LIMIT
+// Comparisons and expressions
+COMPARATOR := ('greater' | 'higher' | 'later' | 'lesser' | 'lower' | 'earlier') ('than' | 'or equal to')
+            | 'equal to' | 'same as' | 'other than' | 'different from'
+EXPR := EXPR ('+' | '-' | '*' | '/') EXPR | '-' EXPR | '(' EXPR ')' | 'now' | TERM | NP | NP2 | NPC   // arithmetic on values
+      | FUNC '(' EXPR (',' EXPR)* ')'             // SPARQL function call
+LIST := LIST_ELEM (',' LIST_ELEM)* ('|' NP)?      // '|' NP: the rest of the list
+LIST_ELEM := NP | '_' | '...'                     // '...': any number of elements
+
+// Names: a label between angle brackets, as it would be said; spaces and any characters but < > { } | ^ ` are allowed
+ENTITY := '<' TEXT '>'                                  // e.g., <France>, <John Smith>
+CLASS := '<' TEXT '>' SUFFIX? | 'thing'                 // 'thing' is any resource, e.g., <person>, <author>-s, <video game>
+RELATION := '<' TEXT '>' CLOSURE? SUFFIX?               // e.g., <author>, <birth date>, <know>-s, <cite>+
+                                                  // used as a noun (has <author> X, the <author>-s of X) or as a verb (<know>-s X)
 
 // Terminal types
-RESOURCE := 'res:' STRING (e.g., res:Tesla, res:Inception)
-CLASS_NAME := STRING('-s')? (e.g., laptop, actor, actor-s, city)
-PROPERTY := STRING (e.g., height, salary, price, year, month)
-VERB := STRING('-s' | '-es')? (e.g., influence, direct, know-s, teach-es)
-VARIABLE := '?' CHAR (e.g., ?X, ?Y, ?P)
-VALUE := NUMBER | STRING | STRING'^^xsd:date'
-QUANTIFIER := 'a' | 'every' | 'no' | 'some' | 'at least' NUMBER | 'the most' | 'the'
-ORDINAL := NUMBER ('st' | 'nd' | 'rd' | 'th') (e.g., 2nd, 5th)
-COLLECTION_PATTERN := '[' COLLECTION_ELEMENT (',' COLLECTION_ELEMENT)* ']'
-COLLECTION_ELEMENT := RESOURCE | VARIABLE | 'who' | 'what' | '...' | '_'
+FUNC := 'concat' | 'substr' | 'strlen' | 'ucase' | 'year' | 'abs' | 'round'   // SPARQL functions
+SUFFIX := '-s' | '-es'                             // optional plural or 3rd-person mark
+CLOSURE := '+' | '*' | '?'                         // one or more / zero or more / zero or one step
+LABEL := CAPITAL_LETTER DIGIT* | '?' NAME               // a variable, to refer to the same resource again, e.g., X, Y2, ?foo
+PATTERN := "'" WORD+ "'"                           // the resource whose label contains these words, e.g., 'Prince Harry'
+LITERAL := NUMBER | STRING | DATE | 'true' | 'false'    // e.g., 2013, "Hello", "Hello"@en, 2010-01-01
+ADJ_SUPER := (NUMBER | ORDINAL ('to' ORDINAL)?)? ('highest' | 'greatest' | 'latest' | 'lowest' | 'least' | 'earliest')   // ordering and limit (ORDER BY + LIMIT / OFFSET), e.g., 2nd latest
+ORDINAL := NUMBER ('st' | 'nd' | 'rd' | 'th') | 'first' | 'second' | 'third'
+AGGREG := 'total' | 'average' | 'minimum' | 'maximum' | 'sample' | 'concatenated'
 
 ---
 
@@ -90,17 +109,18 @@ Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Grammar Compliance:**
   - The output must be a valid SQUALL sentence, completely compliant with controlled English syntax.
-  - **Prefixes:** Specific individuals/entities must be prefixed with `res:` (e.g., `res:Tesla`), while classes and properties must be bare words.
-  - **Plurals and Verb Conjugation:** Plural nouns MUST append the `-s` suffix explicitly (e.g., `author-s`). 3rd-person singular verbs MUST append `-s` or `-es` explicitly (e.g., `know-s`).
+  - **Names:** Every entity, class and relation is a label between angle brackets (`<Tesla>`, `<video game>`, `<publication year>`); spaces and any characters are allowed inside. A capital letter alone (`X`) or `?foo` is a variable.
+  - **Suffixes:** The `-s`/`-es` suffix on plurals and 3rd-person verbs is optional and never required.
+  - **Literals:** A literal (number, `"string"`, date) is valid wherever an entity is, e.g. `has genre "Jazz"`.
 
 2. **Semantic Faithfulness & Intent:**
   - Captures all entities, relationships, constraints, and meaning of the natural language query.
-  - **Query Forms:** Open questions for SELECT, `Whether...` or auxiliary inversion for ASK, and affirmative sentences for UPDATEs.
+  - **Query Forms:** Open questions for SELECT, and `Whether...` or auxiliary inversion for ASK.
 
 3. **Structural & Graph Quality:**
-  - **Path Closures:** Are `+`, `*`, `?` suffixes applied correctly on verbs for transitive/reflexive paths?
+  - **Path Closures:** Are `+`, `*`, `?` suffixes applied correctly on relation names for transitive/reflexive paths (`<influence>+`, `<subtopic>+`)?
   - **Coordination:** Correct logical application of `and`, `or`, and `not`.
-  - **Graph Extraction:** Subgraphs must correctly use the `For every... return { ... }` construct.
+  - **Graph Extraction:** Subgraphs must correctly use the `For every ..., return that ...` construct.
 
 4. **Aggregations & Functions:**
   - **Counting & Math:** Are grouping clauses (`per`), math expressions, and superlatives properly structured?
@@ -112,7 +132,7 @@ Evaluate the Candidate holistically across these dimensions:
 6. **Cross-Format Equivalence (SQUALL vs LISP):**
   - The Ground Truth is a LISP s-expression representing a knowledge graph traversal.
   - You must verify if the graph topology modeled in the Candidate's SQUALL string logically matches the joins (`JOIN`), aggregations (`COUNT`, `ARGMAX`), and terminal nodes expressed in the LISP string.
-  - **Schema-independent modelling:** A named value can be modelled as a literal (`whose genre is equal to "Jazz"`) or as a resource (`has genre res:Jazz`); both are valid.
+  - **Schema-independent modelling:** A named value can be modelled as a literal (`whose <genre> is "Jazz"`) or as a resource (`has <genre> <Jazz>`); both are valid.
   - **Very important:** The Candidate was formulated using only the text of the original natural language question, while the Ground Truth LISP was generated with access to the knowledge base. Therefore, if the Candidate is semantically and structurally equivalent to the Ground Truth intent, it must be marked as correct, even if it does not match the exact entity types or relationship roles in the LISP.
 
 ---
@@ -121,14 +141,14 @@ Evaluate the Candidate holistically across these dimensions:
 
 When the Candidate is incorrect, classify its **primary** error into exactly one of the following categories. If several apply, choose the one that most changes the meaning of the query.
 
-- **Semantic omission**: A constraint, entity, relation or modifier required by the question is missing (e.g., "Nolan movies released after 2005" written as `Which movie-s are directed by res:Christopher_Nolan ?` without `and have release_year greater than 2005`).
-- **Wrong relation**: A relation is present but wrong: the wrong verb or property (e.g., `produce-s` when the question asks who directed), or subject and object swapped (e.g., `Which film-s direct res:Christopher_Nolan ?`).
-- **Wrong variable binding**: The right elements are present but attached to the wrong class phrase or variable (e.g., a `whose release_year ...` clause attached to the director instead of the film, or one `?X` reused for two different nodes).
-- **Aggregation error**: Wrong or missing aggregation, superlative or ordering (e.g., `the lowest` instead of `the highest`, `the number of` where `the total` (SUM) is needed, a missing `the latest ...-s` ordering).
-- **Structural error**: The overall shape of the query is wrong: the wrong query form (e.g., an open `Which ...` question where `Whether ...` (ASK) or `How many ...` is required), or a plain verb where a path closure (`influence-s+`) is required for a multi-hop traversal.
-- **Topology bypass**: Concepts the question relates are connected through literal values instead of a relation (e.g., `Which movie-s have cast equal to the name of actor whose birthplace is "Madrid" ?` instead of a relation between the movie and the actor).
+- **Semantic omission**: A constraint, entity, relation or modifier required by the question is missing (e.g., "Nolan movies released after 2005" written as `Which <movie>-s have <director> <Christopher Nolan> ?` without `and have a <release year> greater than 2005`).
+- **Wrong relation**: A relation is present but wrong: the wrong verb or property (e.g., `<produce>-s` when the question asks who directed), or subject and object swapped (e.g., `Which <film>-s <direct> <Christopher Nolan> ?`).
+- **Wrong variable binding**: The right elements are present but attached to the wrong class phrase or variable (e.g., a `whose <release year> ...` clause attached to the director instead of the film, or one `?X` reused for two different nodes).
+- **Aggregation error**: Wrong or missing aggregation, superlative or ordering (e.g., `the lowest` instead of `the highest`, `the number of` where `the total` (SUM) is needed, a missing `the latest ...` ordering).
+- **Structural error**: The overall shape of the query is wrong: the wrong query form (e.g., an open `Which ...` question where `Whether ...` (ASK) or `How many ...` is required), or a plain verb where a path closure (`<influence>+`) is required for a multi-hop traversal.
+- **Topology bypass**: Concepts the question relates are connected through literal values instead of a relation (e.g., `Which <movie>-s have a <cast> that is the <name> of an <actor> whose <birthplace> is "Madrid" ?` instead of a relation between the movie and the actor).
 - **Hallucination**: The Candidate adds entities, relations, constraints or values that the original query does not support.
-- **Syntax/format error**: The sentence violates the SQUALL controlled-English grammar (e.g., an entity without the `res:` prefix (`Jeffrey_Kaplan`), a plural class or 3rd-person verb without its `-s` suffix, a variable glued to a class name (`company-?X`), or a non-SQUALL construct such as a SQL-like `where` clause).
+- **Syntax/format error**: The sentence violates the SQUALL controlled-English grammar (e.g., a name outside angle brackets (`video game-s`), a variable glued to a class name (`<company>-?X`), or a non-SQUALL construct such as a bare noun without a determiner (`where links >= 0`)).
 - **Other**: Any error not covered by the categories above.
 
 ---
@@ -144,18 +164,18 @@ what is the name of the subatomic particle that's part of the same family of par
 (AND Subatomic_particle (JOIN Family (JOIN Particles Bottom_quark)))
 
 [CANDIDATE OUTPUT]
-Which subatomic_particle has a family whose particle-s is res:Bottom_quark ?
+Which <subatomic particle> has a <family> whose <particle>-s is <Bottom quark> ?
 
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate correctly maps the nested relationships and captures the entity using the 'res:' prefix. The logical meaning is completely equivalent to the Ground Truth LISP graph traversal.",
+  "rationale": "The Candidate correctly maps the nested relationships and writes every name as a label in angle brackets. The logical meaning is completely equivalent to the Ground Truth LISP graph traversal.",
   "correct": true,
   "error_category": null
 }
 ```
 
-=== EXAMPLE 2: MISSING ENTITY PREFIX (Incorrect) ===
+=== EXAMPLE 2: NAME WITHOUT BRACKETS (Incorrect) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 what is the number of video games designed by jeffrey kaplan?
@@ -164,12 +184,12 @@ what is the number of video games designed by jeffrey kaplan?
 (COUNT (AND Video_game (JOIN (R Games_Designed) Jeffrey_Kaplan)))
 
 [CANDIDATE OUTPUT]
-How many video_game-s are the games_designed of Jeffrey_Kaplan ?
+How many video game-s are the <games designed> of <Jeffrey Kaplan> ?
 
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate perfectly identifies the aggregation and grammar, but fails to apply the 'res:' prefix to the specific entity 'Jeffrey_Kaplan'. SQUALL strictly requires specific entities to be prefixed.",
+  "rationale": "The Candidate identifies the aggregation and the entity, but writes the class name 'video game' without angle brackets. Names are labels in angle brackets, so it must be written '<video game>'.",
   "correct": false,
   "error_category": "Syntax/format error"
 }
@@ -184,12 +204,12 @@ Is it true that every movie directed by Christopher Nolan after 2005 has an IMDB
 (ASK (AND Movie (JOIN Directed_By Christopher_Nolan) (gt Release_Year 2005) (gt IMDB_Rating 8.0)))
 
 [CANDIDATE OUTPUT]
-Which movie that was directed by res:Christopher_Nolan and whose release_year is greater than 2005 has a IMDB_rating greater than 8.0 ?
+Which <movie> whose <director> is <Christopher Nolan> and whose <release year> is greater than 2005 has a <IMDB rating> greater than 8.0 ?
 
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate failed to identify this as a Boolean query, generating an open extraction query ('Which movie...') instead of an ASK query ('Whether...'). While entities are correctly prefixed, the fundamental intent differs from the Ground Truth.",
+  "rationale": "The Candidate failed to identify this as a Boolean query, generating an open extraction query ('Which movie...') instead of an ASK query ('Whether...'). While the names are correct, the fundamental intent differs from the Ground Truth.",
   "correct": false,
   "error_category": "Structural error"
 }
@@ -204,18 +224,18 @@ Tell me the nodes reachable from Node A through zero or more network links.
 (AND Node (JOIN Connects* Node_A))
 
 [CANDIDATE OUTPUT]
-Which node connects* res:Node_A where links >= 0 ?
+Which <network node> <connect>* <Node A> where links >= 0 ?
 
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate hallucinated a SQL-like 'where' clause instead of following SQUALL controlled English syntax for conditions.",
+  "rationale": "'where links >= 0' is not valid SQUALL: 'links' is a bare noun with no determiner, so it is not a noun phrase. The condition is also not asked for by the question.",
   "correct": false,
   "error_category": "Syntax/format error"
 }
 ```
 
-=== EXAMPLE 5: MINOR SYNTACTIC FLAW (Incorrect) ===
+=== EXAMPLE 5: OPTIONAL SUFFIX (Correct) ===
 
 [ORIGINAL NATURAL LANGUAGE QUERY]
 What is the average salary of the engineers who work in a department located in London?
@@ -224,14 +244,14 @@ What is the average salary of the engineers who work in a department located in 
 (AVG (JOIN Salary (AND Engineer (JOIN Works_In (AND Department (JOIN Location London))))))
 
 [CANDIDATE OUTPUT]
-What is the average salary of the engineer who work in a department whose location is res:London ?
+What is the average <salary> of the <engineer> who <work in> a <department> whose <location> is <London> ?
 
 [EXPECTED OUTPUT]
 ```json
 {
-  "rationale": "The Candidate accurately models the aggregation intent and prefixes the location, but forgets to append the plural '-s' suffix to the class name 'engineer', which is grammatically required in SQUALL.",
-  "correct": false,
-  "error_category": "Syntax/format error"
+  "rationale": "The Candidate models the aggregation and the location as the Ground Truth LISP does. 'engineer' without the '-s' suffix is still valid, because the suffix is optional in SQUALL.",
+  "correct": true,
+  "error_category": null
 }
 ```
 
