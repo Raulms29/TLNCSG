@@ -65,6 +65,8 @@ def _next_query() -> None:
         st.toast(f"All queries of {ctx['grammar']} are reviewed.")
     else:
         go_to_query(nxt)
+        st.session_state.scroll_to_top = st.session_state.get("scroll_nonce", 0) + 1
+        st.session_state.scroll_nonce = st.session_state.scroll_to_top
 
 
 # 2. Every distinct answer, then save
@@ -76,3 +78,38 @@ render_answers(
     gt_num_interpretations=gt.num_interpretations if gt else 10,
     on_saved=_next_query,
 )
+
+# 3. After "Save query & next", start the new query at the top of the page.
+# Streamlit keeps the scroll position across reruns, so scroll by hand. The script runs
+# as a global classic script, so it is wrapped in a function (no top-level `const` that
+# a second save would redeclare). It resets every scrollable ancestor of itself, whatever
+# Streamlit's container is called, and holds the top for a moment while the new cards
+# render, unless the reviewer scrolls first. The nonce makes each save a new element.
+if nonce := st.session_state.pop("scroll_to_top", None):
+    st.html(
+        f"""<script>
+        (function () {{
+            /* scroll-to-top {nonce} */
+            const me = document.currentScript;
+            const toTop = () => {{
+                for (let el = me && me.parentElement; el; el = el.parentElement) {{
+                    if (el.scrollTop) el.scrollTop = 0;
+                }}
+                if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+                window.scrollTo(0, 0);
+            }};
+            let active = true;
+            const stop = () => {{ active = false; }};
+            ["wheel", "touchstart", "keydown", "pointerdown"].forEach(
+                ev => window.addEventListener(ev, stop, {{ once: true, passive: true, capture: true }}));
+            const start = performance.now();
+            const tick = () => {{
+                if (!active) return;
+                toTop();
+                if (performance.now() - start < 600) requestAnimationFrame(tick);
+            }};
+            tick();
+        }})();
+        </script>""",
+        unsafe_allow_javascript=True,
+    )

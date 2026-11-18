@@ -109,9 +109,10 @@ def _render_open(answer: Answer, number: int, grammar: str, is_ambrosia: bool, g
             st.number_input("Hypotheses covered", min_value=0, max_value=gt_num_interpretations, key=f"h_{key}")
         if answer.judge_verdicts != {human_correct}:
             st.text_area("Why is the judge wrong? (required)", key=f"r_{key}", height=68)
-        if not human_correct and not st.session_state.get("express_mode"):
-            st.session_state.setdefault(f"c_{key}", _judge_category(answer))
-            st.pills("Error category", ERROR_CATEGORIES, key=f"c_{key}")
+        if not st.session_state.get("express_mode"):
+            if not human_correct:
+                st.session_state.setdefault(f"c_{key}", _judge_category(answer))
+                st.pills("Error category", ERROR_CATEGORIES, key=f"c_{key}")
             st.text_input("Notes (optional)", key=f"n_{key}")
 
 
@@ -152,7 +153,7 @@ def _save(query: Query, open_answers: list[Answer], grammar: str, is_ambrosia: b
             discrepancy=discrepancy,
             discrepancy_reason=st.session_state.get(f"r_{k}", "") if discrepancy else "",
             error_category=(category or "") if not human_correct else "",
-            error_notes=st.session_state.get(f"n_{k}", "") if not human_correct else "",
+            error_notes=st.session_state.get(f"n_{k}", ""),
         )
     return []
 
