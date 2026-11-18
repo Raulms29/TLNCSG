@@ -20,14 +20,14 @@ QualifierQuery := "what is the qualifier" Qualifier "of" EntitySet Constraint
 CountQuery := "how many" EntitySet
 VerifyQuery := "whether" EntitySet Constraint
 ValueQuery := "what is" Value
-SelectQuery := "which one has the" SOP Attribute "among" EntitySet
+SelectQuery := "which one has the" SOP Attribute "among" EntitySet   // Only for superlatives; other "which" questions use "what is"
 
 // EntitySet represents a collection of nodes in the graph
 EntitySet := "<ES>" EntitySet LOP EntitySet "</ES>"    // Logical operation between two sets
            | "<ES>" EntitySet "(" EntitySet ")" "</ES>" // Intersection between two sets using parentheses
            | "<ES>" EntitySet Constraint "</ES>"     // A set filtered by a constraint
            | "<ES>" Concept EntitySet? "</ES>"       // A set filtered by a concept (EntitySet is optional)
-           | Concept | Entity | "ones" | "entities"  // Terminal nodes (ones/entities = anonymous/blank node)
+           | Entity | "ones" | "entities"            // Terminal nodes (ones/entities = anonymous/blank node)
 
 // Constraints filter an EntitySet by its attributes or relations
 Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
@@ -45,10 +45,11 @@ Attribute := "<A>" [name] "</A>"
 Qualifier := "<Q>" [name] "</Q>"
 
 // Values can be aggregates, attributes, literals with a specific type, or logical unions
-Value := VTYPE "<V>" Literal "</V>"                  // (VTYPE can be "numeric", "string", "date", "year", "time", "month")
+Value := VTYPE "<V>" [value] "</V>"                  // A typed value
        | Value "or" Value                            // Logical union between values
        | VOP "of" Value                              // Aggregation over a value
        | Attribute "of" EntitySet                    // Extraction of an attribute from a set
+VTYPE := "number" | "string" | "date" | "year" | "time" | "month"  // Value types
 
 // Operators defining logic, aggregation, comparison, superlatives, and direction
 LOP := "and" | "or" | "not"                          // Logical operators

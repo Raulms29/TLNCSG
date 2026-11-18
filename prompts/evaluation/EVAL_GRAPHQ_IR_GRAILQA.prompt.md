@@ -19,14 +19,14 @@ QualifierQuery := "what is the qualifier" Qualifier "of" EntitySet Constraint
 CountQuery := "how many" EntitySet
 VerifyQuery := "whether" EntitySet Constraint
 ValueQuery := "what is" Value
-SelectQuery := "which one has the" SOP Attribute "among" EntitySet
+SelectQuery := "which one has the" SOP Attribute "among" EntitySet   // Only for superlatives; other "which" questions use "what is"
 
 // EntitySet represents a collection of nodes in the graph
 EntitySet := "<ES>" EntitySet LOP EntitySet "</ES>"    // Logical operation between two sets
            | "<ES>" EntitySet "(" EntitySet ")" "</ES>" // Intersection between two sets using parentheses
            | "<ES>" EntitySet Constraint "</ES>"     // A set filtered by a constraint
            | "<ES>" Concept EntitySet? "</ES>"       // A set filtered by a concept (EntitySet is optional)
-           | Concept | Entity | "ones" | "entities"  // Terminal nodes (ones/entities = anonymous/blank node)
+           | Entity | "ones" | "entities"            // Terminal nodes (ones/entities = anonymous/blank node)
 
 // Constraints filter an EntitySet by its attributes or relations
 Constraint := AttributeConstraint QualifierConstraint? | RelationConstraint QualifierConstraint?
@@ -44,10 +44,11 @@ Attribute := "<A>" [name] "</A>"
 Qualifier := "<Q>" [name] "</Q>"
 
 // Values can be aggregates, attributes, literals with a specific type, or logical unions
-Value := VTYPE "<V>" Literal "</V>"                  // (VTYPE can be "numeric", "string", "date", "year", "time", "month")
+Value := VTYPE "<V>" [value] "</V>"                  // A typed value
        | Value "or" Value                            // Logical union between values
        | VOP "of" Value                              // Aggregation over a value
        | Attribute "of" EntitySet                    // Extraction of an attribute from a set
+VTYPE := "number" | "string" | "date" | "year" | "time" | "month"  // Value types
 
 // Operators defining logic, aggregation, comparison, superlatives, and direction
 LOP := "and" | "or" | "not"                          // Logical operators
@@ -74,7 +75,7 @@ Evaluate the Candidate holistically across these dimensions:
 
 3. **Structural & Graph Quality:**
   - **Topology:** Correct nesting of `EntitySet`s inside `Constraint` blocks to reflect the traversal.
-  - **Directionality:** `forward` and `backward` directions on relations must make logical, semantic sense relative to the onnected nodes.
+  - **Directionality:** `forward` and `backward` directions on relations must make logical, semantic sense relative to the connected nodes.
   - **Operators:** Correct logical application of `AND`, `OR`, `NOT`, and comparative operators (`larger than`, `smallest`, etc.).
 
 4. **Equivalence to Ground Truth:**
@@ -89,7 +90,7 @@ Evaluate the Candidate holistically across these dimensions:
 
 When the Candidate is incorrect, classify its **primary** error into exactly one of the following categories. If several apply, choose the one that most changes the meaning of the query.
 
-- **Semantic omission**: A constraint, entity, relation or modifier required by the question is missing (e.g., "actors of Matrix taller than 160 cm" without the `whose <A> height </A> larger than numeric <V> 160 </V>` constraint).
+- **Semantic omission**: A constraint, entity, relation or modifier required by the question is missing (e.g., "actors of Matrix taller than 160 cm" without the `whose <A> height </A> larger than number <V> 160 </V>` constraint).
 - **Wrong relation**: A relation is present but wrong: the wrong `<R>` (e.g., `<R> producer </R>` when the question asks for the director), or the wrong direction (`backward` where `forward` is required).
 - **Wrong variable binding**: The right elements are present but attached to the wrong `EntitySet` (e.g., `whose <A> release year </A> ...` placed inside the director's `<ES>` instead of the movie's, or an `AttributeQuery` asking for the attribute `of` the wrong set).
 - **Aggregation error**: Wrong or missing aggregation, superlative or counting (e.g., `smallest` instead of `largest`, `maximum of` instead of `average of`, a missing `top [number]`).
