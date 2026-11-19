@@ -65,7 +65,7 @@ Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Grammar Compliance:**
   - The output must be a valid GraphQ IR linear sequence starting with a root query type.
-  - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, if it includes a `VTYPE`, it will precede the tag (e.g. `year <V> 2004 </V>`).
+  - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, its `VTYPE` precedes the tag (e.g. `year <V> 2004 </V>`).
   - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent node must be wrapped with `<ES>` and `</ES>`.
 
 2. **Semantic Faithfulness & Intent:**
