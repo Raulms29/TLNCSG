@@ -86,7 +86,7 @@ LIST_ELEM := NP | '_' | '...'                     // '...': any number of elemen
 
 // Names: a label between angle brackets, as it would be said; spaces and any characters but < > { } | ^ ` are allowed
 ENTITY := '<' TEXT '>'                                  // e.g., <France>, <John Smith>
-CLASS := '<' TEXT '>' SUFFIX? | 'thing'                 // 'thing' is any resource, e.g., <person>, <author>-s, <video game>
+CLASS := '<' TEXT '>' SUFFIX? | 'thing' | 'things'      // 'thing' is any resource, e.g., <person>, <author>-s, <video game>
 RELATION := '<' TEXT '>' CLOSURE? SUFFIX?               // e.g., <author>, <birth date>, <know>-s, <cite>+
                                                   // used as a noun (has <author> X, the <author>-s of X) or as a verb (<know>-s X)
 
