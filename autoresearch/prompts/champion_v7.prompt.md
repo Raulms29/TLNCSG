@@ -21,7 +21,7 @@ QUERY := {
   // Entities (graph nodes) involved in the query
 
   relationships?: [RELATIONSHIP, ...],
-  // Relationships (graph vertices) connecting the entities
+  // Relationships (graph edges) connecting the entities
 
   paths?: [PATH, ...],
   // Paths between existing entities
@@ -152,7 +152,7 @@ Identify genuine syntactic or structural ambiguity. If present, output each inte
 
 **Step 2. Identify Targets**
 
-* `target`: Identify the elements the user is actually asking for. This can be an `ENTITY_ID`, `RELATIONSHIP_ID`, a `PATH_ID`, an `EXPRESSION` (like an `ATTRIBUTE`), a `CONDITION` or a `LIST`.
+* `target`: Include every element the user asks for. Match the target type to what the question requests: entities the user wants to see, `ATTRIBUTE` expressions for specific properties, a `COUNT` or `SCALAR_AGGREGATE` for a numeric summary, a `CONDITION` for a yes/no answer, and a `LIST` only when the user asks for a collection of items. Use an `ENTITY_ID`, `RELATIONSHIP_ID`, or `PATH_ID` when the user asks for the item itself.
 
 **Step 3. Identify Entities**
 
@@ -172,12 +172,11 @@ Identify genuine syntactic or structural ambiguity. If present, output each inte
 
 **Step 6. Shape Results**
 
-* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking (top-N / bottom-N), pagination, or deduplication.
-  * Selecting an extreme or ranked element (shortest, fastest, longest, most, Nth) is expressed with `order_by` on the relevant measure and `limit` (plus `skip` for a specific rank). Do not express this selection as a constraint that compares the element to an aggregate computed over the full set.
+* Use `order_by`, `limit`, `skip`, and `distinct` on a `QUERY` or `LIST` when the input specifies sorting, ranking, pagination, or deduplication. Selecting a superlative or ordinal result (e.g. the best, the shortest, the Nth) is expressed by ordering the results and applying `limit` (with `skip` for a specific position), not by a constraint that compares against an aggregate value.
 
 **Step 7. Apply Quantifiers and Aggregations (Lists)**
 
-* A `LIST` object has a `list` field (holding a `CREATE_LIST`, `NODES`, or `RELATIONS` value) and optional `filter`, `distinct`, `order_by`, `limit`, and `skip` fields at the same level as `list`. These optional fields are not properties of the value stored in `list`.
+* A `LIST` object is a flat JSON object. Its required key is `list`, whose value is one of three shapes: a `CREATE_LIST` (containing only `list_elements`), a `NODES` object, or a `RELATIONS` object. The optional keys `filter`, `distinct`, `order_by`, `limit`, and `skip` are top-level keys of the `LIST` object, at the same level as `list`. They must not appear inside the `CREATE_LIST`, `NODES`, or `RELATIONS` value.
 * **Aggregations** (produce a value):
   * `COUNT`: counts the number of elements in a `LIST`.
   * `SCALAR_AGGREGATE`: computes `SUM`, `MAX`, `MIN`, or `AVG` of an attribute across list elements — use `map_expression` to specify which attribute to extract from each element.

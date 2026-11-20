@@ -21,7 +21,7 @@ QUERY := {
   // Entities (graph nodes) involved in the query
 
   relationships?: [RELATIONSHIP, ...],
-  // Relationships (graph vertices) connecting the entities
+  // Relationships (graph edges) connecting the entities
 
   paths?: [PATH, ...],
   // Paths between existing entities
