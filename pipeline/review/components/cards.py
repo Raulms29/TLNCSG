@@ -9,7 +9,7 @@ import streamlit as st
 from pipeline.review.components.data import Answer, Query, is_true
 from pipeline.review.components.views import render_output
 from pipeline.evaluation.error_categories import ERROR_CATEGORIES
-from pipeline.review.state import ReviewState
+from pipeline.review.state import ReviewState, review_origin
 
 CORRECT, INCORRECT = "✓ Correct", "✗ Incorrect"
 
@@ -60,15 +60,14 @@ def _start_edit(answer: Answer, review: dict) -> None:
     st.session_state[f"h_{answer.key}"] = int(review.get("human_hypotheses_covered", 1))
 
 
-def _render_reviewed(answer: Answer, review: dict) -> None:
+def _render_reviewed(answer: Answer, review: dict, grammar: str) -> None:
     """One line: who produced it, the stored verdict, where it was given, and Edit."""
     with st.container(border=True):
         col_text, col_edit = st.columns([12, 1], vertical_alignment="center")
         verdict = ":green-badge[✓ Correct]" if review["human_correct"] else ":red-badge[✗ Incorrect]"
-        run = review.get("run", "")
-        reused = run and run not in {g["_run"] for g in answer.groups}
+        origin = review_origin(review, grammar, {g["_run"] for g in answer.groups})
         date = datetime.fromisoformat(review["timestamp"]).strftime("%d-%m-%Y")
-        where = f"↺ reviewed in run {run}, {date}" if reused else f"reviewed {date}"
+        where = f"↺ reviewed in {origin}, {date}" if origin else f"reviewed {date}"
         col_text.markdown(f"{verdict} &nbsp; {_groups_label(answer)} &nbsp; :gray[{where}]")
         col_edit.button("Edit", key=f"edit_{answer.key}", on_click=_start_edit, args=(answer, review))
 
@@ -167,7 +166,7 @@ def render_answers(query: Query, grammar: str, review_state: ReviewState, is_amb
         if answer in open_answers:
             _render_open(answer, number, grammar, is_ambrosia, gt_num_interpretations)
         else:
-            _render_reviewed(answer, review_state.get_review(answer.key))
+            _render_reviewed(answer, review_state.get_review(answer.key), grammar)
 
     if not open_answers:
         st.success("Every answer of this query is reviewed.")

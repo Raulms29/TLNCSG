@@ -1,10 +1,10 @@
 """Persistence layer for review progress.
 
 Stores review decisions in a JSON file shared by every run, one entry per
-answer, identified by the group's ``Output Key`` (grammar + QID + normalized
-output). A verdict given in one run is therefore reused by any later run that
-produces the same answer. Saves to disk on every confirmation so progress is
-never lost.
+answer, identified by the group's ``Output Key`` (grammar family + QID +
+normalized output). A verdict given in one run or grammar variant is therefore
+reused by any other that produces the same answer. Saves to disk on every
+confirmation so progress is never lost.
 """
 
 from __future__ import annotations
@@ -16,6 +16,16 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def review_origin(review: dict[str, Any], grammar: str, runs: set[str]) -> str:
+    """Where a reused verdict was given (e.g. ``SemGIR, run <run>``), or '' if it was given in *grammar* and *runs*."""
+    origin = []
+    if review.get("grammar") and review["grammar"] != grammar:
+        origin.append(review["grammar"])
+    if review.get("run") and review["run"] not in runs:
+        origin.append(f"run {review['run']}")
+    return ", ".join(origin)
 
 
 class ReviewState:

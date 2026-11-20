@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 
-from pipeline.grammars import is_semgir
+from pipeline.grammars import grammar_family, is_semgir
 
 
 def code_blocks(text: str, language: str = r"\w+") -> list[str]:
@@ -90,9 +90,10 @@ def normalize_output(raw_text: str, grammar: str) -> str:
 
 def output_key(grammar: str, qid: str, normalized: str) -> str:
     """Stable identity of an answer: the same normalized output to the same query
-    under the same grammar always gets the same key, across models and runs.
+    under the same grammar family always gets the same key, across models, runs
+    and variants of the grammar (``SemGIR_APO`` shares the keys of ``SemGIR``).
 
     Human review verdicts are stored under this key so they can be reused.
     """
-    raw = f"{grammar}|{qid}|{normalized}".encode("utf-8")
+    raw = f"{grammar_family(grammar)}|{qid}|{normalized}".encode("utf-8")
     return hashlib.sha1(raw).hexdigest()[:16]

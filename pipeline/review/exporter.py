@@ -4,6 +4,8 @@ import csv
 from pathlib import Path
 import streamlit as st
 
+from pipeline.review.state import review_origin
+
 
 def generate_outputs(out_dir: str, reviews: dict, csv_files: list[Path]):
     """Merge review state with evaluated CSVs and generate export artifacts.
@@ -40,15 +42,15 @@ def generate_outputs(out_dir: str, reviews: dict, csv_files: list[Path]):
             if not rev:
                 continue
 
-            # The verdict may come from another run, whose evaluator could have said
-            # something else: the discrepancy is always against this run's evaluator.
+            # The verdict may come from another run or grammar variant, whose evaluator could
+            # have said something else: the discrepancy is always against this row's evaluator.
             llm_correct = str(row.get("Correct", "")).lower() == "true"
             discrepancy = rev["human_correct"] != llm_correct
-            same_run = rev.get("run", "") == run
-            if same_run:
-                discrepancy_reason = rev["discrepancy_reason"]
+            origin = review_origin(rev, grammar, {run})
+            if origin:
+                discrepancy_reason = f"(verdict reused from {origin}) {rev['discrepancy_reason']}".strip()
             else:
-                discrepancy_reason = f"(verdict reused from run {rev.get('run', '?')}) {rev['discrepancy_reason']}".strip()
+                discrepancy_reason = rev["discrepancy_reason"]
                 
             row.update({
                 "Human Correct": rev["human_correct"],
