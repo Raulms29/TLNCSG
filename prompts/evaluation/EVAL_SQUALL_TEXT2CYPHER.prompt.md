@@ -34,7 +34,7 @@ NP := TERM | DET NG1 | NP2 'of' NP               // NP2 'of' NP: the value of a 
     | '[' LIST ']' | '_'                         // an ordered list; '_' is any one element
 NP2 := DET NG2 | ('more' | 'less') NG2 'than' (NG2 | NP) | 'as many' NG2 'as' (NG2 | NP) | EXPR
 NPQ := 'the' NG1 | 'the' NG2 'of' NP | TERM      // what an aggregation applies to
-TERM := ENTITY | LITERAL | LABEL | PATTERN | 'that' S | '[' ']'
+TERM := ENTITY | LITERAL | LABEL | 'that' S | '[' ']'
 
 // Determiners and noun groups
 DET := 'a' | 'an' | 'some' | 'no' | 'every' | 'all' | 'the' | 'which' | 'how many'   // 'every'/'all': for all; 'no': none;
@@ -45,6 +45,7 @@ DET := 'a' | 'an' | 'some' | 'no' | 'every' | 'all' | 'the' | 'which' | 'how man
 NG1 := ADJ_SUPER? CLASS APP? REL?                // a class with optional name and conditions
      | 'number' APP? REL? 'of' (NG1 | NG2 'of' NPQ) DIMS?   // COUNT
      | AGGREG APP? (NG1 | NG2 'of' NPQ) DIMS?    // SUM / AVG / MIN / MAX / SAMPLE / GROUP_CONCAT
+     | NOUN_AGGREG APP? 'of' NPQ DIMS?           // the same aggregations, applied to the values of NPQ
 NG2 := ADJ_SUPER? RELATION APP?                  // a relation, read from the subject to the value
 APP := LABEL | ENTITY                            // names the noun group with a label, or fixes it to one resource
 DIMS := 'per' (NG2 | NPQ) ('and' 'per' (NG2 | NPQ))*   // one aggregated value per group (GROUP BY)
@@ -95,11 +96,11 @@ FUNC := 'concat' | 'substr' | 'strlen' | 'ucase' | 'year' | 'abs' | 'round'   //
 SUFFIX := '-s' | '-es'                             // optional plural or 3rd-person mark
 CLOSURE := '+' | '*' | '?'                         // one or more / zero or more / zero or one step
 LABEL := CAPITAL_LETTER DIGIT* | '?' NAME               // a variable, to refer to the same resource again, e.g., X, Y2, ?foo
-PATTERN := "'" WORD+ "'"                           // the resource whose label contains these words, e.g., 'Prince Harry'
 LITERAL := NUMBER | STRING | DATE | 'true' | 'false'    // e.g., 2013, "Hello", "Hello"@en, 2010-01-01
-ADJ_SUPER := (NUMBER | ORDINAL ('to' ORDINAL)?)? ('highest' | 'greatest' | 'latest' | 'lowest' | 'least' | 'earliest')   // ordering and limit (ORDER BY + LIMIT / OFFSET), e.g., 2nd latest
+ADJ_SUPER := (NUMBER | ORDINAL ('to' ORDINAL)?)? ('highest' | 'greatest' | 'latest' | 'lowest' | 'earliest')   // ordering and limit (ORDER BY + LIMIT / OFFSET), e.g., 2nd latest
 ORDINAL := NUMBER ('st' | 'nd' | 'rd' | 'th') | 'first' | 'second' | 'third'
 AGGREG := 'total' | 'average' | 'minimum' | 'maximum' | 'sample' | 'concatenated'
+NOUN_AGGREG := 'count' | 'sum' | 'average' | 'minimum' | 'maximum' | 'sample' | 'concatenation'
 
 ---
 
@@ -111,7 +112,7 @@ Evaluate the Candidate holistically across these dimensions:
   - The output must be a valid SQUALL sentence, completely compliant with controlled English syntax.
   - **Names:** Every entity, class and relation is a label between angle brackets (`<Tesla>`, `<video game>`, `<publication year>`); spaces and any characters are allowed inside. A capital letter alone (`X`) or `?foo` is a variable.
   - **Suffixes:** The `-s`/`-es` suffix on plurals and 3rd-person verbs is optional and never required.
-  - **Literals:** A literal (number, `"string"`, date) is valid wherever an entity is, e.g. `has genre "Jazz"`.
+  - **Literals:** A literal (number, `"string"`, date) can be the value of a relation (`has <genre> "Jazz"`, `whose <genre> is "Jazz"`), but not the name after `the`/`a <relation>` (`has the <genre> "Jazz"` is not valid).
 
 2. **Semantic Faithfulness & Intent:**
   - Captures all entities, relationships, constraints, and meaning of the natural language query.
