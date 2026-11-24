@@ -45,7 +45,7 @@ Attribute := "<A>" [name] "</A>"
 Qualifier := "<Q>" [name] "</Q>"
 
 // Values can be aggregates, attributes, literals with a specific type, or logical unions
-Value := VTYPE "<V>" [value] "</V>"                  // A typed value
+Value := VTYPE? "<V>" [value] "</V>"                 // A value, optionally typed
        | Value "or" Value                            // Logical union between values
        | VOP "of" Value                              // Aggregation over a value
        | Attribute "of" EntitySet                    // Extraction of an attribute from a set

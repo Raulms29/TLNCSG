@@ -44,7 +44,7 @@ Attribute := "<A>" [name] "</A>"
 Qualifier := "<Q>" [name] "</Q>"
 
 // Values can be aggregates, attributes, literals with a specific type, or logical unions
-Value := VTYPE "<V>" [value] "</V>"                  // A typed value
+Value := VTYPE? "<V>" [value] "</V>"                 // A value, optionally typed
        | Value "or" Value                            // Logical union between values
        | VOP "of" Value                              // Aggregation over a value
        | Attribute "of" EntitySet                    // Extraction of an attribute from a set
@@ -65,7 +65,7 @@ Evaluate the Candidate holistically across these dimensions:
 
 1. **Well-formedness & Grammar Compliance:**
   - The output must be a valid GraphQ IR linear sequence starting with a root query type.
-  - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, its `VTYPE` precedes the tag (e.g. `year <V> 2004 </V>`).
+  - **Terminal Node Tags:** Terminal nodes (`Concept`, `Entity`, `Relation`, `Attribute`, `Qualifier`) MUST be wrapped in their respective XML tags (e.g. `<C> movie </C>`). For `Value`, an optional `VTYPE` precedes the tag (e.g. `year <V> 2004 </V>`).
   - **Constrained EntitySets:** When an `EntitySet` has a `Constraint`, the parent node must be wrapped with `<ES>` and `</ES>`.
 
 2. **Semantic Faithfulness & Intent:**
@@ -97,7 +97,7 @@ When the Candidate is incorrect, classify its **primary** error into exactly one
 - **Structural error**: The overall shape of the query is wrong: the wrong root query type (e.g., `what is` (EntityQuery) where `whether` (VerifyQuery) or `how many` (CountQuery) is required), or a single `RelationConstraint` where the question needs a chain of nested `<ES>` hops.
 - **Topology bypass**: Concepts the question relates are connected through attribute values instead of a relation (e.g., `<ES> <C> movie </C> whose <A> cast </A> is <A> name </A> of <ES> <C> actor </C> whose <A> birthplace </A> is string <V> Madrid </V> </ES> </ES>` instead of a relation between the movie and the actor).
 - **Hallucination**: The Candidate adds entities, relations, constraints or values that the original query does not support.
-- **Syntax/format error**: The sequence violates the GraphQ IR grammar (e.g., a terminal without its tag (`movie` instead of `<C> movie </C>`), a constrained set not wrapped in `<ES> ... </ES>`, a `<V>` without its VTYPE, `<Q>` used where an `<A>` is required, or a construct not defined in the grammar).
+- **Syntax/format error**: The sequence violates the GraphQ IR grammar (e.g., a terminal without its tag (`movie` instead of `<C> movie </C>`), a constrained set not wrapped in `<ES> ... </ES>`, `<Q>` used where an `<A>` is required, or a construct not defined in the grammar).
 - **Other**: Any error not covered by the categories above.
 
 ---
