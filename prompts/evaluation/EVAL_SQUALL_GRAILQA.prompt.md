@@ -245,7 +245,7 @@ What is the average salary of the engineers who work in a department located in 
 (AVG (JOIN Salary (AND Engineer (JOIN Works_In (AND Department (JOIN Location London))))))
 
 [CANDIDATE OUTPUT]
-What is the average <salary> of the <engineer> who <work in> a <department> whose <location> is <London> ?
+What is the average of the <salary>-s of the <engineer> who <work in> a <department> whose <location> is <London> ?
 
 [EXPECTED OUTPUT]
 ```json

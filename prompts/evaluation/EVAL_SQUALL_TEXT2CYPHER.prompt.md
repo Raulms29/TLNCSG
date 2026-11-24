@@ -251,7 +251,7 @@ MATCH (e:Engineer)-[:WORKS_IN]->(:Department)-[:LOCATED_IN]->(:City {name: 'Lond
 RETURN avg(e.salary)
 
 [CANDIDATE OUTPUT]
-What is the average <salary> of the <engineer> who <work in> a <department> whose <location> is <London> ?
+What is the average of the <salary>-s of the <engineer> who <work in> a <department> whose <location> is <London> ?
 
 [EXPECTED OUTPUT]
 ```json
